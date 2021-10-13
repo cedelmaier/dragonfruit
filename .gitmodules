@@ -1,0 +1,3 @@
+[submodule "old_chi_pet"]
+	path = old_chi_pet
+	url = https://github.com/lamsoa729/old_chi_pet.git
