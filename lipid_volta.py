@@ -8,56 +8,19 @@ import datetime
 import itertools
 import os
 import sys
+import yaml
 
 import numpy as np
+
+from Configurator import Configurator
 
 # Create a rudimentary parser to get the number of steps, the write frequency,
 # and the box length
 def parse_args():
-    parser = argparse.ArgumentParser(prog='lipid_volta_v1.py')
+    parser = argparse.ArgumentParser(prog='lipid_volta.py')
 
-    # Nsteps
-    parser.add_argument('--nsteps', type=int, default=1e6,
-            help='Number of steps')
-    # Nwrite
-    parser.add_argument('--nwrite', type=int, default=1000,
-            help='Number of steps between output')
-
-    # Various simulation quantities
-    parser.add_argument('--lbox', type=float, default=100.0,
-            help='Box extent (sigma, sim units)')
-    parser.add_argument('--ngrid', type=int, default=100,
-            help='Box grid points')
-
-    # Lipid parameters
-    parser.add_argument('--mdopc', type=float, default=734.039,
-            help='Lipid mass (m, sim units)')
-    parser.add_argument('--lgamma', type=float, default=0.872,
-            help='Lipid drag coefficient (m/tau, sim units)')
-    parser.add_argument('--lA', type=float, default=187.5,
-            help='Lipid repulsion coeff. A (kT/sigma, sim units)')
-    parser.add_argument('--lB', type=float, default=7.0/3.0,
-            help='Lipid attraction coeff. B (kT/sigma, sim units)')
-    parser.add_argument('--lkbond', type=float, default=2812.5,
-            help='Lipid bond k (kT/sigma^2, sim units)')
-    parser.add_argument('--lkbend', type=float, default=2.0,
-            help='Lipid bend k (kT/rad^2, sim units)')
-
-    # Add in the Ah parameters
-    parser.add_argument('--nah', type=int, default=0,
-            help='Number of AH domains')
-    parser.add_argument('--mah', type=float, default=2535.3864,
-            help='AH mass (m, sim units)')
-    parser.add_argument('--ahgamma', type=float, default=0.872,
-            help='Lipid drag coefficient (m/tau, sim units)')
-    parser.add_argument('--ahA', type=float, default=187.5,
-            help='AH domain repulsion coeff. A (kT/sigma, sim units)')
-    parser.add_argument('--ahB', type=float, default=7.0/3.0,
-            help='AH domain attraction coeff. B (kT/sigma, sim units)')
-    parser.add_argument('--ahkbond', type=float, default=2812.5,
-            help='AH bond k (kT/sigma^2, sim units)')
-    parser.add_argument('--ahkbend', type=float, default=2.0,
-            help='AH bend k (kT/rad^2, sim units)')
+    parser.add_argument('--default_file', type=str, default='lipid.default.yaml',
+            help='Default configuration file')
 
     opts = parser.parse_args()
 
@@ -87,31 +50,38 @@ if __name__ == "__main__":
     # Parse those args
     opts = parse_args()
 
+    configurator = Configurator(opts)
+
     # Simulation parameters
-    kT = 1.0
-    bead_size = 1.0
-    deltatau = 0.05
-    nsteps = np.int32(opts.nsteps)
-    nwrite = np.int32(opts.nwrite)
-    ngrid = np.int32(opts.ngrid)
-    lbox = np.float32(opts.lbox)
+    kT = np.float32(configurator.default_yaml['simulation']['kT'])
+    bead_size = np.float32(configurator.default_yaml['simulation']['bead_size'])
+    deltatau = np.float32(configurator.default_yaml['simulation']['deltatau'])
+    nsteps = np.int32(np.float32(configurator.default_yaml['simulation']['nsteps']))
+    nwrite = np.int32(np.float32(configurator.default_yaml['simulation']['nwrite']))
+    ngrid = np.int32(np.float32(configurator.default_yaml['simulation']['ngrid']))
+    lbox = np.float32(configurator.default_yaml['simulation']['lbox'])
 
     # Lipid parameters
-    nbeads = 4
-    mdopc = np.float32(opts.mdopc)
-    lgamma = np.float32(opts.lgamma)
-    lA = np.float32(opts.lA)
-    lB = np.float32(opts.lB)
-    lkbond = np.float32(opts.lkbond)
-    lkbend = np.float32(opts.lkbend)
+    nbeads = np.int32(np.float32(configurator.default_yaml['membrane']['nbeads']))
+    mdopc = np.float32(configurator.default_yaml['membrane']['mass'])
+    lgamma = np.float32(configurator.default_yaml['membrane']['gamma'])
+    lA = np.float32(configurator.default_yaml['membrane']['A'])
+    lB = np.float32(configurator.default_yaml['membrane']['B'])
+    lkbond = np.float32(configurator.default_yaml['membrane']['kbond'])
+    lkbend = np.float32(configurator.default_yaml['membrane']['kbend'])
 
     # AH-domain parameters
-    ahgamma = np.float32(opts.lgamma)
-    ahmass = np.float32(opts.mah)
-    ahA = np.float32(opts.ahA)
-    ahB = np.float32(opts.ahB)
-    ahkbond = np.float32(opts.ahkbond)
-    ahkbend = np.float32(opts.ahkbend)
+    polymer_type = configurator.default_yaml['ah_domain']['polymer_type']
+    ahgamma = np.float32(configurator.default_yaml['ah_domain']['gamma'])
+    ahnbeads = np.int32(np.float32(configurator.default_yaml['ah_domain']['nbeads']))
+    ahnrepeat = np.int32(np.float32(configurator.default_yaml['ah_domain']['nrepeat']))
+    ahmass = np.float32(configurator.default_yaml['ah_domain']['mass'])
+    ahA = np.float32(configurator.default_yaml['ah_domain']['A'])
+    ahBsurface = np.float32(configurator.default_yaml['ah_domain']['B_surface'])
+    ahBintermediate = np.float32(configurator.default_yaml['ah_domain']['B_intermediate'])
+    ahBdeep = np.float32(configurator.default_yaml['ah_domain']['B_deep'])
+    ahBself = np.float32(configurator.default_yaml['ah_domain']['B_self'])
+    ahkbond = np.float32(configurator.default_yaml['ah_domain']['kbond'])
 
     # Create the hoomd context on the GPU
     gpu = hoomd.device.GPU(notice_level = 2)
@@ -124,7 +94,7 @@ if __name__ == "__main__":
     print(f"kBT                     = {kT}")
     
     ###############################################################################
-    # Setup the system
+    # Set up the system
     ###############################################################################
     # Head beads are slightly smaller than the normal beads
     lr0 = bead_size
@@ -158,29 +128,31 @@ if __name__ == "__main__":
     print(f"Bend k (kBT/rad^2)      = {lkbend}")
     
     # Create the ah single dimer itself (for now)
-    ah_nwidth = 2 # 2 beads thick
-    ah_nlength = 5 # 10 beads long
-    ah_diameter = 20./7.5 # Diameter of ah in sigma
-    ah_bead_size = ah_diameter/ah_nwidth
-    ahmass_per_bead = ahmass / (ah_nwidth * ah_nlength)
+    ah_nlength = 24 # 24 beads long
+    ah_diameter = 0.75 # 5.625 angstroms diameter for each bead
+    ah_bead_size = ah_diameter
+    ahmass_per_bead = ahmass / (ah_nlength)
     ahr0 = ah_bead_size
     ahrc = 2.0*ah_bead_size
     ahrbond = ahr0
 
     # Print out AH information
     print(f"\n--------")
-    print(f"AH information")
+    print(f"AH information (copolymer model)")
     print(f"AH bead size (sigma, sim units)     = {ah_bead_size}")
     print(f"AH mass (amu)                       = {ahmass}")
     print(f"  AH mass per bead                  = {ahmass_per_bead}")
     print(f"Gamma (m/tau)                       = {ahgamma}")
     print(f"AH A (kBT / sigma)                  = {ahA}")
-    print(f"AH B (kBT / sigma)                  = {ahB}")
+    print(f"AH B terms (kBT / sigma)")
+    print(f"  B surface                         = {ahBsurface}")
+    print(f"  B intermediate                    = {ahBintermediate}")
+    print(f"  B deep                            = {ahBdeep}")
+    print(f"  B self                            = {ahBself}")
     print(f"AH R (sigma)                        = {ahr0}")
     print(f"AH RC (sigma)                       = {ahrc}")
     print(f"AH r (sigma)                        = {ahrbond}")
     print(f"AH k (kBT/sigma^2)                  = {ahkbond}")
-    print(f"AH k (kBT/rad^2)                    = {ahkbend}")
 
     ###############################################################################
     # Creation of the system
@@ -199,14 +171,14 @@ if __name__ == "__main__":
     
     # Create the number of bead types we need (including AH domains)
     snap.particles.N = 2*nbeads
-    snap.particles.types = ['H', 'I', 'T', 'AHH', 'AHT']
+    snap.particles.types = ['H', 'I', 'T', 'AH1', 'AH2']
     
     # The number of bonds we have is determined by nbeads, as is the number of angle potentials
     snap.bonds.N = 2*(nbeads - 1)
     snap.angles.N = 2*(nbeads - 2)
     snap.bonds.types = ['lipidbond', 'ahbond']
     snap.bonds.typeid[:] = 0
-    snap.angles.types = ['lipidbend', 'ahbend', 'ahbend90']
+    snap.angles.types = ['lipidbend']
     snap.angles.typeid[:] = 0
     
     # We have two leaflets, assign each with a zleaf loop
@@ -246,90 +218,42 @@ if __name__ == "__main__":
     snap.configuration.box = [box_extent, box_extent, box_extent, 0, 0, 0]
     
     # Create the ah filaments themselves after a box update
+    # This is for the copolymer model, some linear number of bonds
     ah_start_nx = snap.particles.N
-    snap.particles.N = snap.particles.N + (ah_nlength * ah_nwidth)
-    # Assign the location of the AH filaments
-    # First row of filaments
+    snap.particles.N = snap.particles.N + ah_nlength
+    # Assign the locatin of the AH filament
     ah_start_x = np.array([0.0, 0.0, box_extent/4.0])
-    for idx in range(ah_start_nx, snap.particles.N - ah_nlength):
-        snap.particles.position[idx] = ah_start_x + np.array([0, (ah_bead_size/2.0)*(idx - ah_start_nx), 0])
-        snap.particles.typeid[idx] = 3 # AHH
-        snap.particles.mass[idx] = ahmass_per_bead
-    # Second row of filaments
-    for idx in range(ah_start_nx + ah_nlength, snap.particles.N):
-        snap.particles.position[idx] = ah_start_x + np.array([0, (ah_bead_size/2.0)*(idx - ah_start_nx - ah_nlength), -(ah_bead_size/2.0)])
-        snap.particles.typeid[idx] = 4 # AHT
-        snap.particles.mass[idx] = ahmass_per_bead
-    
-    # Print the information
+    ndx = 0
+    ah_code = False
     for idx in range(ah_start_nx, snap.particles.N):
-        print("Particle ID {}".format(idx))
-        print("  position: {}".format(snap.particles.position[idx]))
-    
+        if ndx % 3 == 0:
+            ah_code = not ah_code
+        snap.particles.position[idx] = ah_start_x + np.array([0, (ah_bead_size/2.0)*(idx - ah_start_nx), 0])
+        if ah_code:
+            snap.particles.typeid[idx] = 3 # AH1
+        else:
+            snap.particles.typeid[idx] = 4 # AH2
+        snap.particles.mass[idx] = ahmass_per_bead
+
+        ndx += 1
+
+    for idx in range(ah_start_nx, snap.particles.N):
+        print("ID: {}".format(idx))
+        print("  typeid: {}, position: {}".format(snap.particles.typeid[idx], snap.particles.position[idx]))
+
     # Now set up the bond information
-    n_newbonds = 1 + 3*(ah_nlength-1)
+    n_newbonds = ah_nlength - 1
     ah_start_bdx = snap.bonds.N
     bdx = ah_start_bdx
     snap.bonds.N = snap.bonds.N + n_newbonds
-    for idx in range(ah_start_nx, snap.particles.N - ah_nlength - 1):
+    for idx in range(ah_start_nx, snap.particles.N - 1):
         snap.bonds.typeid[bdx] = 1
         snap.bonds.group[bdx] = [idx, idx+1]
-        bdx += 1
-    for idx in range(ah_start_nx, snap.particles.N - ah_nlength):
-        snap.bonds.typeid[bdx] = 1
-        snap.bonds.group[bdx] = [idx, idx+ah_nlength]
-        bdx += 1
-    for idx in range(ah_start_nx, snap.particles.N - ah_nlength - 1):
-        snap.bonds.typeid[bdx] = 1
-        snap.bonds.group[bdx] = [idx+ah_nlength, idx+ah_nlength+1]
         bdx += 1
     
     for bdx in range(ah_start_bdx, snap.bonds.N):
         print("Bond ID: {}".format(bdx))
         print("  group: {}".format(snap.bonds.group[bdx]))
-    
-    # Set up the angle information
-    n_newangles = 2*(ah_nlength - 2)
-    ah_start_adx = snap.angles.N
-    adx = ah_start_adx
-    snap.angles.N = snap.angles.N + n_newangles
-    for idx in range(ah_start_nx + 1, ah_start_nx + 4):
-        print("Angle: {}".format(adx))
-        snap.angles.typeid[adx] = 1
-        print("  type: {}".format(snap.angles.typeid[adx]))
-        snap.angles.group[adx] = [idx-1,idx,idx+1]
-        print("  group1: {}".format(snap.angles.group[adx]))
-        adx += 1
-        snap.angles.group[adx]= [idx-1+ah_nlength,idx+ah_nlength,idx+1+ah_nlength]
-        print("  group2: {}".format(snap.angles.group[adx]))
-        adx += 1
-    
-    # Add another new angle for every group of 4 that we have
-    n_newangles = 4 * (ah_nlength - 1)
-    ah_start_adx = snap.angles.N
-    adx = ah_start_adx
-    snap.angles.N = snap.angles.N + n_newangles
-    for idx in range(ah_start_nx, ah_start_nx + ah_nlength-1):
-        snap.angles.typeid[adx+0] = 2
-        snap.angles.typeid[adx+1] = 2
-        snap.angles.typeid[adx+2] = 2
-        snap.angles.typeid[adx+3] = 2
-    
-        # 0 1 6
-        # 1 6 5
-        # 6 5 0
-        # 5 0 1
-        snap.angles.group[adx+0] = [idx, idx+1, idx+1+ah_nlength]
-        snap.angles.group[adx+1] = [idx+1, idx+1+ah_nlength, idx+ah_nlength]
-        snap.angles.group[adx+2] = [idx+1+ah_nlength, idx+ah_nlength, idx]
-        snap.angles.group[adx+3] = [idx+ah_nlength, idx, idx+1]
-    
-        for i in range(0,4):
-            print("Angle: {}".format(adx+i))
-            print("  type: {}".format(snap.angles.typeid[adx+i]))
-            print("  group: {}".format(snap.angles.group[adx+i]))
-    
-        adx = adx + 4
     
     ###############################################################################
     # Create the system
@@ -342,14 +266,14 @@ if __name__ == "__main__":
     # Setting the particles is interesting. First off, assign zero to every combination
     # in the system
     lipid_types = ['H', 'I', 'T']
-    ah_types = ['AHH', 'AHT']
+    ah_types = ['AH1', 'AH2']
     
     ###############################
     # Membrane-membrane interactions
     ###############################
     # Assign all of the coefficients between particles
     #Head to other interactions
-    glf.params[('H', 'H')] = {'A': lAhh, 'B': 0.0, 'r0': lrhh, 'rc': lrhh} # Head-Head
+    glf.params[('H', 'H')] = {'A': lAhh, 'B': 0.0, 'r0': lrhh, 'rc': 2.0*lrhh} # Head-Head
     glf.params[('H', 'I')] = {'A': lA, 'B': 0.0, 'r0': lr0, 'rc': lrc} # Head-Interface
     glf.params[('H', 'T')] = {'A': lA, 'B': 0.0, 'r0': lr0, 'rc': lrc} # Head-Tail
     
@@ -361,7 +285,6 @@ if __name__ == "__main__":
     glf.params[('T', 'T')] = {'A': lA, 'B': lB, 'r0': lr0, 'rc': lrc} # Tail to tail is sticky
     
     # Set the cutoff distance accordingly
-    # FIXME: Check this, as now we can have different exclusions
     glf.r_cut[('H', 'H')] = lrhh
     glf.r_cut[('H', 'I')] = lr0
     glf.r_cut[('H', 'T')] = lr0
@@ -373,30 +296,32 @@ if __name__ == "__main__":
     # AH-AH interactions
     ###############################
     # We also have to assign interactions between the ah pieces and every other body in the
-    # system.  Self interactions for the ahs is zero, this should be taken care of in the
-    # bond and bend potentials
-    glf.params[('AHH', 'AHH')] = {'A': ahA, 'B': 0.0, 'r0': ahr0, 'rc': ahrc}
-    glf.params[('AHH', 'AHT')] = {'A': ahA, 'B': 0.0, 'r0': ahr0, 'rc': ahrc}
-    glf.params[('AHT', 'AHT')] = {'A': ahA, 'B': 0.0, 'r0': ahr0, 'rc': ahrc}
-    glf.r_cut[('AHH', 'AHH')] = ahr0
-    glf.r_cut[('AHH', 'AHT')] = ahr0
-    glf.r_cut[('AHT', 'AHT')] = ahr0
+    # system.  Self interactions for the ahs is not always zero!
+    glf.params[('AH1', 'AH1')] = {'A': ahA, 'B': ahBself, 'r0': ahr0, 'rc': ahrc}
+    glf.params[('AH1', 'AH2')] = {'A': ahA, 'B': 0.0, 'r0': ahr0, 'rc': ahrc}
+    glf.params[('AH2', 'AH2')] = {'A': ahA, 'B': ahBself, 'r0': ahr0, 'rc': ahrc}
+    glf.r_cut[('AH1', 'AH1')] = ahrc
+    glf.r_cut[('AH1', 'AH2')] = ahr0
+    glf.r_cut[('AH2', 'AH2')] = ahrc
     
     ###############################
     # Membrane-AH interactions
     ###############################
-    # Set all the potentials to be purely repulsive between AH and the membrane
-    # beads
+    # Initialize interactions to be purely repulsive to start with, use the average distance
+    # as we have particles of different size interacting
     for x in itertools.product(lipid_types, ah_types):
-        glf.params[x] = {'A': ahA, 'B': 0.0, 'r0': 0.5*(ahr0+lr0), 'rc': ahrc}
+        glf.params[x] = {'A': ahA, 'B': 0.0, 'r0': 0.5*(ahr0+lr0), 'rc': 1.0*(ahr0+lr0)}
         glf.r_cut[x] = 0.5*(ahr0+lr0)
     
     # Set membrane-head ah-head interaction
-    glf.params[('H', 'AHH')] = {'A': ahA, 'B': ahB, 'r0': 0.5*(ahr0+lr0), 'rc': 1.0*(ahr0+lr0)}
-    glf.r_cut[('H', 'AHH')] = 1.0*(ahr0+lr0)
+    glf.params[('H', 'AH1')] = {'A': ahA, 'B': ahBsurface, 'r0': 0.5*(ahr0+lr0), 'rc': 1.0*(ahr0+lr0)}
+    glf.r_cut[('H', 'AH1')] = 1.0*(ahr0+lr0)
+    # Set the intermediate range interaction for AH-second
+    glf.params[('I', 'AH2')] = {'A': ahA, 'B': ahBintermediate, 'r0': 0.5*(ahr0+lr0), 'rc': 1.0*(ahr0+lr0)}
+    glf.r_cut[('I', 'AH2')] = 1.0*(ahr0+lr0)
     # Now set only the tail-tail interactions for ahs and the membrane
-    glf.params[('T', 'AHT')] = {'A': ahA, 'B': ahB, 'r0': 0.5*(ahr0+lr0), 'rc': 1.0*(ahr0+lr0)}
-    glf.r_cut[('T', 'AHT')] = 1.0*(ahr0+lr0)
+    glf.params[('T', 'AH2')] = {'A': ahA, 'B': ahBdeep, 'r0': 0.5*(ahr0+lr0), 'rc': 1.0*(ahr0+lr0)}
+    glf.r_cut[('T', 'AH2')] = 1.0*(ahr0+lr0)
     
     ###############################
     # Bonded and angle interactions
@@ -409,21 +334,20 @@ if __name__ == "__main__":
     # Assign angle interaction strengths
     angleharmonic = md.angle.Harmonic()
     angleharmonic.params['lipidbend'] = dict(k = lkbend, t0 = np.pi)
-    angleharmonic.params['ahbend'] = dict(k = ahkbend, t0 = np.pi)
-    angleharmonic.params['ahbend90'] = dict(k = ahkbend, t0 = np.pi/2.0)
     
     # Set up the integrator for the system
     #nph = hoomd.md.methods.NPH(filter = hoomd.filter.All(),
-    #                           tauS = pdamp_per_tau,
+    #                           tauS = pdamp,
     #                           S = 0.0,
     #                           box_dof = [True, True, False, False, False, False],
     #                           couple = "xy")
-    langevin = hoomd.md.methods.Langevin(hoomd.filter.All(), kT = kT)
+    langevin = hoomd.md.methods.Langevin(hoomd.filter.All(),
+                                         kT = kT)
     langevin.gamma['H'] = lgamma
     langevin.gamma['I'] = lgamma
     langevin.gamma['T'] = lgamma
-    langevin.gamma['AHH'] = ahgamma
-    langevin.gamma['AHT'] = ahgamma
+    langevin.gamma['AH1'] = ahgamma
+    langevin.gamma['AH2'] = ahgamma
     
     integrator = md.Integrator(dt = deltatau)
     #integrator.methods.append(nph)
@@ -439,6 +363,7 @@ if __name__ == "__main__":
     # Run a simulation to get variables to work out, also thermalize the momenta
     sim.run(0)
     sim.state.thermalize_particle_momenta(hoomd.filter.All(), kT)
+    #nph.thermalize_barostat_dof()
     
     ###############################################################################
     # Write out any interesting information
@@ -478,7 +403,7 @@ if __name__ == "__main__":
     sim.operations.writers.append(table)
     
     # Set up writing out to a GSD file for trajectories
-    fname_gsd = 'traj_volta_v1_lbox{:4.2f}_ngrid{:d}_lA{:4.2f}_lB{:4.2f}_ahA{:4.2f}_ahB{:4.2f}.gsd'.format(lbox, ngrid, lA, lB, ahA, ahB)
+    fname_gsd = opts.outfile
     gsd_writer = hoomd.write.GSD(filename = fname_gsd,
                                  trigger = hoomd.trigger.Periodic(nwrite),
                                  mode = 'wb',
