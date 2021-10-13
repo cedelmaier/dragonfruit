@@ -74,6 +74,7 @@ if __name__ == "__main__":
     lkbend = np.float32(configurator.default_yaml['membrane']['kbend'])
 
     # AH-domain parameters
+    n_ah = np.int32(np.float32(configurator.default_yaml['ah_domain']['n_ah']))
     polymer_type = configurator.default_yaml['ah_domain']['polymer_type']
     ahgamma = np.float32(configurator.default_yaml['ah_domain']['gamma'])
     ahnbeads = np.int32(np.float32(configurator.default_yaml['ah_domain']['nbeads']))
@@ -95,11 +96,12 @@ if __name__ == "__main__":
         sim = hoomd.Simulation(gpu, seed = nseed)
 
     # Print the system information
-    print(f"\n--------")
+    print(f"--------")
     print(f"System information")
     print(f"Simulation time (tau)   = {deltatau*nsteps}")
     print(f"kBT                     = {kT}")
     print(f"seed                    = {nseed}")
+    print(f"box size:               = {lbox}")
     
     ###############################################################################
     # Set up the system
@@ -120,7 +122,7 @@ if __name__ == "__main__":
     lipidmass_per_bead = lipidmass / nbeads
     
     # Print out the relevant information about the lipids
-    print(f"\n--------")
+    print(f"--------")
     print(f"Lipid information")
     print(f"Lipid mass (amu)        = {lipidmass}")
     print(f"  Lipid mass per bead   = {lipidmass_per_bead}")
@@ -145,9 +147,10 @@ if __name__ == "__main__":
     ahrbond = ahr0
 
     # Print out AH information
-    print(f"\n--------")
+    print(f"--------")
     print(f"AH information (copolymer model)")
-    print(f"AH bead size (sigma, sim units)     = {ah_bead_size}")
+    print(f"AH number                           = {n_ah}")
+    print(f"AH bead size (sigma)                = {ah_bead_size}")
     print(f"AH mass (amu)                       = {ahmass}")
     print(f"  AH mass per bead                  = {ahmass_per_bead}")
     print(f"Gamma (m/tau)                       = {ahgamma}")
@@ -161,6 +164,17 @@ if __name__ == "__main__":
     print(f"AH RC (sigma)                       = {ahrc}")
     print(f"AH r (sigma)                        = {ahrbond}")
     print(f"AH k (kBT/sigma^2)                  = {ahkbond}")
+
+    # Write out any interesting derived information
+    nlipids = ngrid * ngrid * 2
+    nlipids_per_leafleat = nlipids / 2
+    area_per_lipid = (lbox * lbox) / (nlipids_per_leafleat)
+    print(f"--------")
+    print(f"Derived information")
+    print(f"  Number of lipid patches:              {nlipids}")
+    print(f"  Number of lipid patches per leafleat: {nlipids_per_leafleat}")
+    print(f"  Area per lipid:                       {area_per_lipid}")
+    
 
     ###############################################################################
     # Creation of the system
@@ -228,44 +242,46 @@ if __name__ == "__main__":
     
     # Create the box size of the system to be something reasonable
     snap.configuration.box = [box_extent, box_extent, box_extent, 0, 0, 0]
-    
-    # Create the ah filaments themselves after a box update
-    # This is for the copolymer model, some linear number of bonds
-    ah_start_nx = snap.particles.N
-    snap.particles.N = snap.particles.N + ah_nlength
-    # Assign the locatin of the AH filament
-    ah_start_x = np.array([0.0, 0.0, box_extent/4.0])
-    ndx = 0
-    ah_code = False
-    for idx in range(ah_start_nx, snap.particles.N):
-        if ndx % 3 == 0:
-            ah_code = not ah_code
-        snap.particles.position[idx] = ah_start_x + np.array([0, (ah_bead_size/2.0)*(idx - ah_start_nx), 0])
-        if ah_code:
-            snap.particles.typeid[idx] = 3 # AH1
-        else:
-            snap.particles.typeid[idx] = 4 # AH2
-        snap.particles.mass[idx] = ahmass_per_bead
 
-        ndx += 1
+    # XXX: Move the configuration into a separate script
+    if n_ah != 0:
+        # Create the ah filaments themselves after a box update
+        # This is for the copolymer model, some linear number of bonds
+        ah_start_nx = snap.particles.N
+        snap.particles.N = snap.particles.N + ah_nlength
+        # Assign the locatin of the AH filament
+        ah_start_x = np.array([0.0, 0.0, box_extent/4.0])
+        ndx = 0
+        ah_code = False
+        for idx in range(ah_start_nx, snap.particles.N):
+            if ndx % 3 == 0:
+                ah_code = not ah_code
+            snap.particles.position[idx] = ah_start_x + np.array([0, (ah_bead_size/2.0)*(idx - ah_start_nx), 0])
+            if ah_code:
+                snap.particles.typeid[idx] = 3 # AH1
+            else:
+                snap.particles.typeid[idx] = 4 # AH2
+            snap.particles.mass[idx] = ahmass_per_bead
 
-    for idx in range(ah_start_nx, snap.particles.N):
-        print("ID: {}".format(idx))
-        print("  typeid: {}, position: {}".format(snap.particles.typeid[idx], snap.particles.position[idx]))
+            ndx += 1
 
-    # Now set up the bond information
-    n_newbonds = ah_nlength - 1
-    ah_start_bdx = snap.bonds.N
-    bdx = ah_start_bdx
-    snap.bonds.N = snap.bonds.N + n_newbonds
-    for idx in range(ah_start_nx, snap.particles.N - 1):
-        snap.bonds.typeid[bdx] = 1
-        snap.bonds.group[bdx] = [idx, idx+1]
-        bdx += 1
-    
-    for bdx in range(ah_start_bdx, snap.bonds.N):
-        print("Bond ID: {}".format(bdx))
-        print("  group: {}".format(snap.bonds.group[bdx]))
+        #for idx in range(ah_start_nx, snap.particles.N):
+        #    print("ID: {}".format(idx))
+        #    print("  typeid: {}, position: {}".format(snap.particles.typeid[idx], snap.particles.position[idx]))
+
+        # Now set up the bond information
+        n_newbonds = ah_nlength - 1
+        ah_start_bdx = snap.bonds.N
+        bdx = ah_start_bdx
+        snap.bonds.N = snap.bonds.N + n_newbonds
+        for idx in range(ah_start_nx, snap.particles.N - 1):
+            snap.bonds.typeid[bdx] = 1
+            snap.bonds.group[bdx] = [idx, idx+1]
+            bdx += 1
+        
+        #for bdx in range(ah_start_bdx, snap.bonds.N):
+        #    print("Bond ID: {}".format(bdx))
+        #    print("  group: {}".format(snap.bonds.group[bdx]))
     
     ###############################################################################
     # Create the system
@@ -378,19 +394,6 @@ if __name__ == "__main__":
     #nph.thermalize_barostat_dof()
     
     ###############################################################################
-    # Write out any interesting information
-    ###############################################################################
-    nlipids = ngrid * ngrid * 2
-    nlipids_per_leafleat = nlipids / 2
-    area_per_lipid = (sim.state.box.Lx * sim.state.box.Ly) / (nlipids_per_leafleat)
-    print(f"System paramters:")
-    print(f"  Number of particles:                  {sim.state.N_particles}")
-    print(f"  Number of lipid patches:              {nlipids}")
-    print(f"  Number of lipid patches per leafleat: {nlipids_per_leafleat}")
-    print(f"  Area per lipid:                       {area_per_lipid}")
-    print(f"  Box size:                             {sim.state.box}")
-    
-    ###############################################################################
     # Print information for the main program
     ###############################################################################
     # Keep track of the thermodynamic information
@@ -422,5 +425,7 @@ if __name__ == "__main__":
                                  log = logger)
     sim.operations.writers.append(gsd_writer)
     
+    print(f"--------")
+    print(f"Running...")
     sim.run(nsteps)
     
