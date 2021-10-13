@@ -192,7 +192,8 @@ if __name__ == "__main__":
         snap = hoomd.Snapshot(gpu.communicator)
 
     snap.configuration.box = [linear_extent, linear_extent, 2.0*((bead_size/2.0) + (nbeads-1)*bead_size)+fudge_size, 0, 0, 0]
-    
+   
+    # XXX: FIXME: Change how we configure the system to be modular
     # Change how we configure the system. Numbers run from 0 to nbeads, then reverse the z-direction and do the mirror image
     # plane. This should be more robust than previous versions to handle variable number of beads
     
