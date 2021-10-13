@@ -98,6 +98,7 @@ if __name__ == "__main__":
     # Print the system information
     print(f"--------")
     print(f"System information")
+    print(f"Compute mode            = {compute_mode}")
     print(f"Simulation time (tau)   = {deltatau*nsteps}")
     print(f"kBT                     = {kT}")
     print(f"seed                    = {nseed}")
