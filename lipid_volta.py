@@ -60,6 +60,9 @@ if __name__ == "__main__":
     nwrite = np.int32(np.float32(configurator.default_yaml['simulation']['nwrite']))
     ngrid = np.int32(np.float32(configurator.default_yaml['simulation']['ngrid']))
     lbox = np.float32(configurator.default_yaml['simulation']['lbox'])
+    nseed = np.int32(np.float32(configurator.default_yaml['simulation']['seed']))
+    compute_mode = configurator.default_yaml['simulation']['mode']
+    trajectory_file = configurator.default_yaml['simulation']['trajectory_file']
 
     # Lipid parameters
     nbeads = np.int32(np.float32(configurator.default_yaml['membrane']['nbeads']))
@@ -84,14 +87,19 @@ if __name__ == "__main__":
     ahkbond = np.float32(configurator.default_yaml['ah_domain']['kbond'])
 
     # Create the hoomd context on the GPU
-    gpu = hoomd.device.GPU(notice_level = 2)
-    sim = hoomd.Simulation(gpu, seed=1)
+    if compute_mode == 'cpu':
+        cpu = hoomd.device.CPU(notice_level = 2)
+        sim = hoomd.Simulation(cpu, seed = nseed)
+    elif compute_mode == 'gpu':
+        gpu = hoomd.device.GPU(notice_level = 2)
+        sim = hoomd.Simulation(gpu, seed = nseed)
 
     # Print the system information
     print(f"\n--------")
     print(f"System information")
     print(f"Simulation time (tau)   = {deltatau*nsteps}")
     print(f"kBT                     = {kT}")
+    print(f"seed                    = {nseed}")
     
     ###############################################################################
     # Set up the system
@@ -163,7 +171,11 @@ if __name__ == "__main__":
     fudge_size = 0.2 # Prevent particles on the boundaries because reasons
     
     # Create the 2 bilayers, so double the size of everything
-    snap = hoomd.Snapshot(gpu.communicator)
+    if compute_mode == 'cpu':
+        snap = hoomd.Snapshot(cpu.communicator)
+    elif compute_mode == 'gpu':
+        snap = hoomd.Snapshot(gpu.communicator)
+
     snap.configuration.box = [linear_extent, linear_extent, 2.0*((bead_size/2.0) + (nbeads-1)*bead_size)+fudge_size, 0, 0, 0]
     
     # Change how we configure the system. Numbers run from 0 to nbeads, then reverse the z-direction and do the mirror image
@@ -403,8 +415,7 @@ if __name__ == "__main__":
     sim.operations.writers.append(table)
     
     # Set up writing out to a GSD file for trajectories
-    fname_gsd = opts.outfile
-    gsd_writer = hoomd.write.GSD(filename = fname_gsd,
+    gsd_writer = hoomd.write.GSD(filename = trajectory_file,
                                  trigger = hoomd.trigger.Periodic(nwrite),
                                  mode = 'wb',
                                  filter = hoomd.filter.All(),

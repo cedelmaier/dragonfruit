@@ -4,10 +4,12 @@ simulation:
   bead_size: 1.0 # Characteristic size of system
   deltatau: 0.05 # Timestep in tau
   nsteps: 1e7 # Total number of steps
-  nwrite: 1e4 # Number between writing output trajectories
+  nwrite: 1e3 # Number between writing output trajectories
   lbox: 100.0 # Size of final box, simulation units (sigma)
   ngrid: 100 # Number of repeats to place in final box
-  seed: 78129
+  seed: 1
+  mode: cpu
+  trajectory_file: traj_volta.gsd
 membrane:
   nbeads: 4 # Number of beads to use for membrane
   mass: 734.309 # Total mass of DOPCs (m)
