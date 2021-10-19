@@ -42,7 +42,7 @@ class Membrane(object):
         self.lipidmass_per_bead = self.lipidmass / self.nbeads
 
     # Create the membrane for our system
-    def CreateMembrane(self, snap, ngrid, lbox, is_init):
+    def CreateMembrane(self, snap, ngrid, lbox):
         # What is the number of replications we need in the box?
         box_extent = lbox
         linear_extent = box_extent/ngrid
@@ -171,9 +171,6 @@ class AHBlockCopolymer(object):
         # This is for the copolymer model, some linear number of bonds
         ah_start_nx = snap.particles.N
         snap.particles.N = snap.particles.N + self.nbeads
-        print(snap.particles.N)
-        print(snap.particles.position.shape)
-        print(snap)
         # Assign the locatin of the AH filament
         ah_start_x = np.array([0.0, 0.0, snap.configuration.box[0]/4.0])
         ndx = 0

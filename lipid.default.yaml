@@ -9,7 +9,10 @@ simulation:
   ngrid: 100 # Number of repeats to place in final box
   seed: 2
   mode: gpu
-  trajectory_file: traj_volta_quick.gsd
+  trajectory_file: traj_volta.gsd
+  init_type: all
+  is_membrane_init: False
+  is_ahdomain_init: False
 membrane:
   nbeads: 4 # Number of beads to use for membrane
   mass: 734.309 # Total mass of DOPCs (m)

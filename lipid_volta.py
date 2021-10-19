@@ -68,15 +68,23 @@ if __name__ == "__main__":
     # Check how we are reading in information
     if configurator.init_type == 'read_gsd':
         ftraj = gsd.hoomd.open(configurator.init_filename, 'rb')
-        snap = ftraj[-1]
+        gsd_snap = ftraj[-1]
         ftraj.close()
-    else:
+        # Convert to a hoomd snapshot
+        if configurator.compute_mode == 'cpu':
+            snap = snap.from_gsd_snapshot(gsd_snap, cpu.communicator)
+        elif configurator.compute_mode == 'gpu':
+            snap = snap.from_gsd_snapshot(gsd_snap, gpu.communicator)
+    elif configurator.init_type == 'all':
         box_extent = configurator.lbox
         linear_extent = box_extent/configurator.ngrid
         fudge_size = 0.2 # Prevent particles on the boundaries because reasons
         
         # Create the snapshot external to the configurator
         snap.configuration.box = [linear_extent, linear_extent, 2.0*((configurator.bead_size/2.0) + (configurator.lipids.nbeads-1)*configurator.bead_size)+fudge_size, 0, 0, 0]
+    else:
+        print(f"Configurator init {configurator.init_type} not yet available, exiting!")
+        sys.exit(1)
 
 
     # Configure the membrane part of the system
