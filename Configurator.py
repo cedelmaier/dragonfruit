@@ -26,8 +26,6 @@ class Membrane(object):
         self.kbend     = np.float32(yaml_file['membrane']['kbend'])
         self.bead_size = bead_size
 
-    # Create the membrane for our system
-    def CreateMembrane(self, snap, ngrid, lbox):
         # Head beads are slightly smaller than the normal beads
         self.r0 = self.bead_size
         self.rc = 2.0 * self.r0
@@ -43,6 +41,8 @@ class Membrane(object):
         self.lipidmass = self.mdopc
         self.lipidmass_per_bead = self.lipidmass / self.nbeads
 
+    # Create the membrane for our system
+    def CreateMembrane(self, snap, ngrid, lbox, is_init):
         # What is the number of replications we need in the box?
         box_extent = lbox
         linear_extent = box_extent/ngrid
@@ -96,7 +96,10 @@ class Membrane(object):
         
         # Create the box size of the system to be something reasonable
         snap.configuration.box = [box_extent, box_extent, box_extent, 0, 0, 0]
-        
+
+        return True
+       
+    def PrintInformation(self, snap):
         # Print out the relevant information about the lipids
         print(f"--------")
         print(f"Lipid information")
@@ -114,8 +117,12 @@ class Membrane(object):
         print(f"Bend k (kBT/rad^2)      = {self.kbend}")
 
         # Write out any interesting derived information
-        self.nlipids = ngrid * ngrid * 2
+        self.nlipids = 0
+        for idx in range(snap.particles.N):
+            if snap.particles.typeid[idx] == 0:
+                self.nlipids += 1
         self.nlipids_per_leafleat = self.nlipids / 2
+        lbox = snap.configuration.box[0]
         self.area_per_lipid = (lbox * lbox) / (self.nlipids_per_leafleat)
         print(f"--------")
         print(f"Derived membrane values")
@@ -164,6 +171,9 @@ class AHBlockCopolymer(object):
         # This is for the copolymer model, some linear number of bonds
         ah_start_nx = snap.particles.N
         snap.particles.N = snap.particles.N + self.nbeads
+        print(snap.particles.N)
+        print(snap.particles.position.shape)
+        print(snap)
         # Assign the locatin of the AH filament
         ah_start_x = np.array([0.0, 0.0, snap.configuration.box[0]/4.0])
         ndx = 0
@@ -189,7 +199,8 @@ class AHBlockCopolymer(object):
             snap.bonds.typeid[bdx] = self.getTypeByName['ahbond']
             snap.bonds.group[bdx] = [idx, idx+1]
             bdx += 1
-        
+       
+    def PrintInformation(self, snap):
         # Print out AH information
         print(f"--------")
         print(f"AH information (copolymer model)")
@@ -229,25 +240,22 @@ class Configurator(object):
         self.nseed          = np.int32(np.float32(self.default_yaml['simulation']['seed']))
         self.compute_mode   = self.default_yaml['simulation']['mode']
         self.trajectory_file = self.default_yaml['simulation']['trajectory_file']
+        self.init_type      = self.default_yaml['simulation']['init_type']
+        self.is_membrane_init  = self.default_yaml['simulation']['is_membrane_init']
+        self.is_ahdomain_init  = self.default_yaml['simulation']['is_ahdomain_init']
 
         # Unfortunately, now have some gymnastics for checking if something exists and setting
-        if self.default_yaml['simulation']['pdamp']:
+        if 'pdamp' in self.default_yaml['simulation']:
             self.pdamp = np.float32(self.default_yaml['simulation']['pdamp'])
-
-        # Print the system information
-        print(f"--------")
-        print(f"System information")
-        print(f"Compute mode            = {self.compute_mode}")
-        print(f"Simulation time (tau)   = {self.deltatau*self.nsteps}")
-        print(f"kBT                     = {self.kT}")
-        print(f"seed                    = {self.nseed}")
-        print(f"box size:               = {self.lbox}")
+        if self.init_type == 'read_gsd':
+            self.init_filename = self.default_yaml['simulation']['init_filename']
 
         # Lipid parameters
-        self.lipids = Membrane(self.bead_size, self.default_yaml)
+        if 'membrane' in self.default_yaml:
+            self.lipids = Membrane(self.bead_size, self.default_yaml)
 
         # AH parameters
-        if self.default_yaml['ah_domain']:
+        if 'ah_domain' in self.default_yaml:
             if self.default_yaml['ah_domain']['polymer_type'] == 'block_copolymer':
                 self.ahdomain = AHBlockCopolymer(self.bead_size, self.default_yaml)
             else:
@@ -257,12 +265,27 @@ class Configurator(object):
             print("No AH domain included, exiting!")
             sys.exit(1)
 
+    # Print information
+    def PrintInformation(self, snap):
+        print(f"--------")
+        print(f"System information")
+        print(f"Compute mode            = {self.compute_mode}")
+        print(f"Delta tau               = {self.deltatau}")
+        print(f"Simulation time (tau)   = {self.deltatau*self.nsteps}")
+        print(f"kBT                     = {self.kT}")
+        print(f"seed                    = {self.nseed}")
+        print(f"box                     = ({snap.configuration.box[0]}, {snap.configuration.box[1]}, {snap.configuration.box[2]})")
+
+        self.lipids.PrintInformation(snap)
+        self.ahdomain.PrintInformation(snap)
 
     # Passthrough for creation options
     def CreateMembrane(self, snap):
-        self.lipids.CreateMembrane(snap, self.ngrid, self.lbox)
+        if not self.is_membrane_init:
+            self.is_membrane_init = self.lipids.CreateMembrane(snap, self.ngrid, self.lbox)
     def CreateAH(self, snap):
-        self.ahdomain.CreateAH(snap)
+        if not self.is_ahdomain_init:
+            self.is_ahdomain_init = self.ahdomain.CreateAH(snap)
 
     # Get a YAML dictionary for the file
     def GetYamlDict(self, filename):

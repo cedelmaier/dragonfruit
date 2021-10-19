@@ -65,21 +65,33 @@ if __name__ == "__main__":
         sim = hoomd.Simulation(gpu, seed = configurator.nseed)
         snap = hoomd.Snapshot(gpu.communicator)
 
-    box_extent = configurator.lbox
-    linear_extent = box_extent/configurator.ngrid
-    fudge_size = 0.2 # Prevent particles on the boundaries because reasons
-    
-    # Create the snapshot external to the configurator
-    snap.configuration.box = [linear_extent, linear_extent, 2.0*((configurator.bead_size/2.0) + (configurator.lipids.nbeads-1)*configurator.bead_size)+fudge_size, 0, 0, 0]
-  
+    # Check how we are reading in information
+    if configurator.init_type == 'read_gsd':
+        ftraj = gsd.hoomd.open(configurator.init_filename, 'rb')
+        snap = ftraj[-1]
+        ftraj.close()
+    else:
+        box_extent = configurator.lbox
+        linear_extent = box_extent/configurator.ngrid
+        fudge_size = 0.2 # Prevent particles on the boundaries because reasons
+        
+        # Create the snapshot external to the configurator
+        snap.configuration.box = [linear_extent, linear_extent, 2.0*((configurator.bead_size/2.0) + (configurator.lipids.nbeads-1)*configurator.bead_size)+fudge_size, 0, 0, 0]
+
+
     # Configure the membrane part of the system
     configurator.CreateMembrane(snap)
     configurator.CreateAH(snap)
+
+    # Print information
+    configurator.PrintInformation(snap)
 
     ###############################################################################
     # Create the system
     ###############################################################################
     sim.create_state_from_snapshot(snap)
+
+    sys.exit(1)
     
     # Create the pair potential
     glf = md.pair.GrimeLipid(nlist=md.nlist.Cell())
