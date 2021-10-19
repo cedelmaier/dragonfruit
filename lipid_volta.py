@@ -201,6 +201,9 @@ if __name__ == "__main__":
     sim.run(0)
     if configurator.init_type == 'all':
         sim.state.thermalize_particle_momenta(hoomd.filter.All(), configurator.kT)
+    elif configurator.init_type == 'read_gsd':
+        ahfilter = hoomd.filter.Type(['AH1', 'AH2'])
+        sim.state.thermalize_particle_momenta(ahfilter, configurator.kT)
     
     ###############################################################################
     # Print information for the main program
@@ -225,7 +228,7 @@ if __name__ == "__main__":
     table = hoomd.write.Table(trigger=hoomd.trigger.Periodic(period=configurator.nwrite),
                               logger=output_logger)
     sim.operations.writers.append(table)
-    
+
     # Set up writing out to a GSD file for trajectories
     gsd_writer = hoomd.write.GSD(filename = configurator.trajectory_file,
                                  trigger = hoomd.trigger.Periodic(configurator.nwrite),
