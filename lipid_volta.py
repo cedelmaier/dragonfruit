@@ -99,8 +99,6 @@ if __name__ == "__main__":
     ###############################################################################
     sim.create_state_from_snapshot(snap)
 
-    sys.exit(1)
-    
     # Create the pair potential
     glf = md.pair.GrimeLipid(nlist=md.nlist.Cell())
     
@@ -180,11 +178,6 @@ if __name__ == "__main__":
     angleharmonic.params['lipidbend'] = dict(k = configurator.lipids.kbend, t0 = np.pi)
     
     # Set up the integrator for the system
-    #nph = hoomd.md.methods.NPH(filter = hoomd.filter.All(),
-    #                           tauS = pdamp,
-    #                           S = 0.0,
-    #                           box_dof = [True, True, False, False, False, False],
-    #                           couple = "xy")
     langevin = hoomd.md.methods.Langevin(hoomd.filter.All(),
                                          kT = configurator.kT)
     langevin.gamma['H'] = configurator.lipids.gamma
@@ -195,7 +188,6 @@ if __name__ == "__main__":
         langevin.gamma['AH2'] = configurator.ahdomain.gamma
     
     integrator = md.Integrator(dt = configurator.deltatau)
-    #integrator.methods.append(nph)
     integrator.methods.append(langevin)
     
     integrator.forces.append(glf)
@@ -207,8 +199,8 @@ if __name__ == "__main__":
     
     # Run a simulation to get variables to work out, also thermalize the momenta
     sim.run(0)
-    sim.state.thermalize_particle_momenta(hoomd.filter.All(), configurator.kT)
-    #nph.thermalize_barostat_dof()
+    if configurator.init_type == 'all':
+        sim.state.thermalize_particle_momenta(hoomd.filter.All(), configurator.kT)
     
     ###############################################################################
     # Print information for the main program
