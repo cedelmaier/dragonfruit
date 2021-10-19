@@ -17,7 +17,7 @@ from Configurator import Configurator
 # Create a rudimentary parser to get the number of steps, the write frequency,
 # and the box length
 def parse_args():
-    parser = argparse.ArgumentParser(prog='lipid_volta.py')
+    parser = argparse.ArgumentParser(prog='equilibrate_lipid_volta.py')
 
     parser.add_argument('--default_file', type=str, default='lipid.default.yaml',
             help='Default configuration file')
@@ -160,23 +160,13 @@ if __name__ == "__main__":
     angleharmonic.params['lipidbend'] = dict(k = configurator.lipids.kbend, t0 = np.pi)
     
     # Set up the integrator for the system
-    #nph = hoomd.md.methods.NPH(filter = hoomd.filter.All(),
-    #                           tauS = pdamp,
-    #                           S = 0.0,
-    #                           box_dof = [True, True, False, False, False, False],
-    #                           couple = "xy")
-    langevin = hoomd.md.methods.Langevin(hoomd.filter.All(),
-                                         kT = configurator.kT)
-    langevin.gamma['H'] = configurator.lipids.gamma
-    langevin.gamma['I'] = configurator.lipids.gamma
-    langevin.gamma['T'] = configurator.lipids.gamma
-    if configurator.ahdomain.nah > 0:
-        langevin.gamma['AH1'] = configurator.ahdomain.gamma
-        langevin.gamma['AH2'] = configurator.ahdomain.gamma
-    
+    nph = hoomd.md.methods.NPH(filter = hoomd.filter.All(),
+                               tauS = configurator.pdamp,
+                               S = 0.0,
+                               box_dof = [True, True, False, False, False, False],
+                               couple = "xy")
     integrator = md.Integrator(dt = configurator.deltatau)
-    #integrator.methods.append(nph)
-    integrator.methods.append(langevin)
+    integrator.methods.append(nph)
     
     integrator.forces.append(glf)
     integrator.forces.append(harmonic)
@@ -188,7 +178,6 @@ if __name__ == "__main__":
     # Run a simulation to get variables to work out, also thermalize the momenta
     sim.run(0)
     sim.state.thermalize_particle_momenta(hoomd.filter.All(), configurator.kT)
-    #nph.thermalize_barostat_dof()
     
     ###############################################################################
     # Print information for the main program
@@ -225,4 +214,9 @@ if __name__ == "__main__":
     print(f"--------")
     print(f"Running...")
     sim.run(configurator.nsteps)
+
+    # Write a final configuration of the system
+    hoomd.write.GSD.write(state = sim.state,
+                          mode = 'xb',
+                          filename = 'equilibrated.gsd')
     
