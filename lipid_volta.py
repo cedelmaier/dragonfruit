@@ -180,17 +180,29 @@ if __name__ == "__main__":
         angleharmonic.params['ahbend'] = dict(k = configurator.ahdomain.kbend, t0 = np.pi)
     
     # Set up the integrator for the system
-    langevin = hoomd.md.methods.Langevin(hoomd.filter.All(),
-                                         kT = configurator.kT)
-    langevin.gamma['H'] = configurator.lipids.gamma
-    langevin.gamma['I'] = configurator.lipids.gamma
-    langevin.gamma['T'] = configurator.lipids.gamma
-    if configurator.ahdomain.nah > 0:
-        langevin.gamma['AH1'] = configurator.ahdomain.gamma
-        langevin.gamma['AH2'] = configurator.ahdomain.gamma
-    
     integrator = md.Integrator(dt = configurator.deltatau)
-    integrator.methods.append(langevin)
+    if configurator.integrator == 'langevin':
+        langevin = hoomd.md.methods.Langevin(hoomd.filter.All(),
+                                             kT = configurator.kT)
+        langevin.gamma['H'] = configurator.lipids.gamma
+        langevin.gamma['I'] = configurator.lipids.gamma
+        langevin.gamma['T'] = configurator.lipids.gamma
+        if configurator.ahdomain.nah > 0:
+            langevin.gamma['AH1'] = configurator.ahdomain.gamma
+            langevin.gamma['AH2'] = configurator.ahdomain.gamma
+
+        integrator.methods.append(langevin)
+    elif configurator.integrator == 'NPT':
+        npt = hoomd.md.methods.NPT(hoomd.filter.All(),
+                                   kT = configurator.kT,
+                                   tau = configurator.tau,
+                                   S = 0.0,
+                                   tauS = configurator.tauS,
+                                   couple = "xy",
+                                   box_dof = [True, True, False, False, False, False])
+
+        integrator.methods.append(npt)
+    
     
     integrator.forces.append(glf)
     integrator.forces.append(harmonic)
@@ -202,7 +214,11 @@ if __name__ == "__main__":
     # Run a simulation to get variables to work out, also thermalize the momenta
     sim.run(0)
     if configurator.init_type == 'all':
-        sim.state.thermalize_particle_momenta(hoomd.filter.All(), configurator.kT)
+        if configurator.integrator == 'langevin':
+            sim.state.thermalize_particle_momenta(hoomd.filter.All(), configurator.kT)
+        elif configurator.integrator == 'NPT':
+            sim.state.thermalize_particle_momenta(hoomd.filter.All(), configurator.kT)
+            #npt.thermalize_thermostat_and_barostat_dof()
     elif configurator.init_type == 'read_gsd':
         ahfilter = hoomd.filter.Type(['AH1', 'AH2'])
         sim.state.thermalize_particle_momenta(ahfilter, configurator.kT)

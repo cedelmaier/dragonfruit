@@ -229,23 +229,42 @@ class Configurator(object):
 
     def SetDefaults(self):
         # Simulation parameters
-        self.kT             = np.float32(self.default_yaml['simulation']['kT'])
-        self.bead_size      = np.float32(self.default_yaml['simulation']['bead_size'])
-        self.deltatau       = np.float32(self.default_yaml['simulation']['deltatau'])
-        self.nsteps         = np.int32(np.float32(self.default_yaml['simulation']['nsteps']))
-        self.nwrite         = np.int32(np.float32(self.default_yaml['simulation']['nwrite']))
-        self.ngrid          = np.int32(np.float32(self.default_yaml['simulation']['ngrid']))
-        self.lbox           = np.float32(self.default_yaml['simulation']['lbox'])
-        self.nseed          = np.int32(np.float32(self.default_yaml['simulation']['seed']))
-        self.compute_mode   = self.default_yaml['simulation']['mode']
-        self.trajectory_file = self.default_yaml['simulation']['trajectory_file']
-        self.init_type      = self.default_yaml['simulation']['init_type']
-        self.is_membrane_init  = self.default_yaml['simulation']['is_membrane_init']
-        self.is_ahdomain_init  = self.default_yaml['simulation']['is_ahdomain_init']
+        self.kT                 = np.float32(self.default_yaml['simulation']['kT'])
+        self.bead_size          = np.float32(self.default_yaml['simulation']['bead_size'])
+        self.deltatau           = np.float32(self.default_yaml['simulation']['deltatau'])
+        self.nsteps             = np.int32(np.float32(self.default_yaml['simulation']['nsteps']))
+        self.nwrite             = np.int32(np.float32(self.default_yaml['simulation']['nwrite']))
+        self.ngrid              = np.int32(np.float32(self.default_yaml['simulation']['ngrid']))
+        self.lbox               = np.float32(self.default_yaml['simulation']['lbox'])
+        self.nseed              = np.int32(np.float32(self.default_yaml['simulation']['seed']))
+        self.compute_mode       = self.default_yaml['simulation']['mode']
+        self.trajectory_file    = self.default_yaml['simulation']['trajectory_file']
+        self.init_type          = self.default_yaml['simulation']['init_type']
+        self.is_membrane_init   = self.default_yaml['simulation']['is_membrane_init']
+        self.is_ahdomain_init   = self.default_yaml['simulation']['is_ahdomain_init']
+        self.integrator         = self.default_yaml['simulation']['integrator']
+
+        # Check integrator settings to make sure it's okay!
+        if (self.integrator != 'langevin' and self.integrator != 'NPT' and self.integrator != 'NPH'):
+            print(f"Integrator {self.integrator} not used for this system, exiting!")
+            sys.exit(1)
 
         # Unfortunately, now have some gymnastics for checking if something exists and setting
         if 'pdamp' in self.default_yaml['simulation']:
             self.pdamp = np.float32(self.default_yaml['simulation']['pdamp'])
+        else:
+            self.pdamp = None
+
+        if 'tau' in self.default_yaml['simulation']:
+            self.tau = np.float32(self.default_yaml['simulation']['tau'])
+        else:
+            self.tau = None
+
+        if 'tauS' in self.default_yaml['simulation']:
+            self.tauS = np.float32(self.default_yaml['simulation']['tauS'])
+        else:
+            self.tauS = None
+
         if self.init_type == 'read_gsd':
             self.init_filename = self.default_yaml['simulation']['init_filename']
 
@@ -269,11 +288,16 @@ class Configurator(object):
         print(f"--------")
         print(f"System information")
         print(f"Compute mode            = {self.compute_mode}")
+        print(f"Integrator              = {self.integrator}")
         print(f"Delta tau               = {self.deltatau}")
         print(f"Simulation time (tau)   = {self.deltatau*self.nsteps}")
         print(f"kBT                     = {self.kT}")
         print(f"seed                    = {self.nseed}")
         print(f"box                     = ({snap.configuration.box[0]}, {snap.configuration.box[1]}, {snap.configuration.box[2]})")
+        # Configurable parameters
+        if self.tau: print(f"tau                     = {self.tau}")
+        if self.pdamp: print(f"pdamp                   = {self.pdamp}")
+        if self.tauS: print(f"tauS                    = {self.tauS}")
 
         self.lipids.PrintInformation(snap)
         self.ahdomain.PrintInformation(snap)

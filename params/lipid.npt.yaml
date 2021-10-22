@@ -3,17 +3,20 @@ simulation:
   kT: 1.0 # Energy units
   bead_size: 1.0 # Characteristic size of system
   deltatau: 0.05 # Timestep in tau
-  nsteps: 5e6 # Total number of steps
+  nsteps: 1e6 # Total number of steps
   nwrite: 1e4 # Number between writing output trajectories
-  lbox: 100.0 # Size of final box, simulation units (sigma)
+  lbox: 103.0 # Size of final box, simulation units (sigma)
   ngrid: 100 # Number of repeats to place in final box
   seed: 2
   mode: gpu
-  trajectory_file: traj_volta.gsd
+  trajectory_file: traj_npt.gsd
   init_type: all
   is_membrane_init: False
   is_ahdomain_init: False
-  integrator: langevin
+  integrator: NPT
+  #tau: 42.1052631579 # Temperature coupling tau (20 ps)
+  tau: 210.5263157895
+  tauS: 421.0526315789 # Pressure coupling tauS (200 ps)
 membrane:
   nbeads: 4 # Number of beads to use for membrane
   mass: 734.309 # Total mass of DOPCs (m)
