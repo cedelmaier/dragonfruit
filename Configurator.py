@@ -146,6 +146,7 @@ class AHBlockCopolymer(object):
         self.Bdeep            = np.float32(yaml_file['ah_domain']['B_deep'])
         self.Bself            = np.float32(yaml_file['ah_domain']['B_self'])
         self.kbond            = np.float32(yaml_file['ah_domain']['kbond'])
+        self.kbend            = np.float32(yaml_file['ah_domain']['kbend'])
 
         # Set constants we will need
         self.bead_size = 0.75*bead_size
@@ -215,7 +216,8 @@ class AHBlockCopolymer(object):
         print(f"AH R (sigma)                        = {self.r0}")
         print(f"AH RC (sigma)                       = {self.rc}")
         print(f"AH r (sigma)                        = {self.rbond}")
-        print(f"AH k (kBT/sigma^2)                  = {self.kbond}")
+        print(f"AH kbond (kBT/sigma^2)              = {self.kbond}")
+        print(f"AH kbend (kBT/rad^2)                = {self.kbend}")
     
 
 # Class definition

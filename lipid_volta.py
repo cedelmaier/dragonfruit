@@ -176,6 +176,8 @@ if __name__ == "__main__":
     # Assign angle interaction strengths
     angleharmonic = md.angle.Harmonic()
     angleharmonic.params['lipidbend'] = dict(k = configurator.lipids.kbend, t0 = np.pi)
+    if configurator.ahdomain.nah > 0:
+        angleharmonic.params['ahbend'] = dict(k = configurator.ahdomain.kbend, t0 = np.pi)
     
     # Set up the integrator for the system
     langevin = hoomd.md.methods.Langevin(hoomd.filter.All(),
