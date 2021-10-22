@@ -4,7 +4,7 @@ simulation:
   bead_size: 1.0 # Characteristic size of system
   deltatau: 0.05 # Timestep in tau
   nsteps: 5e6 # Total number of steps
-  nwrite: 1e3 # Number between writing output trajectories
+  nwrite: 1e4 # Number between writing output trajectories
   lbox: 100.0 # Size of final box, simulation units (sigma)
   ngrid: 100 # Number of repeats to place in final box
   seed: 2
@@ -23,7 +23,7 @@ membrane:
   kbend: 2.0 # Angular strength for membranes (kT/rad^2)
 ah_domain:
   polymer_type: block_copolymer
-  n_ah: 1 # Number of AH domains to include
+  n_ah: 0 # Number of AH domains to include
   nbeads: 27 # Number of beads per AH domain
   nrepeat: 3 # Repeat size for block copolyer
   mass: 2535.3864 # Mass of AH domain
@@ -34,6 +34,7 @@ ah_domain:
   B_intermediate: 1.16666 # Attractive component of potential AH2-I
   B_deep: 2.33333 # Attractive component of potential AH2-T
   kbond: 2812.5 # Bond strength for AH domains (kT/sigma^2)
+  kbend: 2.0
 
 
 
