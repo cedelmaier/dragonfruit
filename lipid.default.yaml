@@ -21,7 +21,7 @@ membrane:
 ah_domain:
   polymer_type: block_copolymer
   n_ah: 1 # Number of AH domains to include
-  nbeads: 28 # Number of beads per AH domain
+  nbeads: 27 # Number of beads per AH domain
   nrepeat: 3 # Repeat size for block copolyer
   mass: 2535.3864 # Mass of AH domain
   gamma: 0.872 # Drag coefficient (m/tau)
