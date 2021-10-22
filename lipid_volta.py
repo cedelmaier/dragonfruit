@@ -65,22 +65,40 @@ if __name__ == "__main__":
         sim = hoomd.Simulation(gpu, seed = configurator.nseed)
         snap = hoomd.Snapshot(gpu.communicator)
 
-    box_extent = configurator.lbox
-    linear_extent = box_extent/configurator.ngrid
-    fudge_size = 0.2 # Prevent particles on the boundaries because reasons
-    
-    # Create the snapshot external to the configurator
-    snap.configuration.box = [linear_extent, linear_extent, 2.0*((configurator.bead_size/2.0) + (configurator.lipids.nbeads-1)*configurator.bead_size)+fudge_size, 0, 0, 0]
-  
+    # Check how we are reading in information
+    if configurator.init_type == 'read_gsd':
+        ftraj = gsd.hoomd.open(configurator.init_filename, 'rb')
+        gsd_snap = ftraj[-1]
+        ftraj.close()
+        # Convert to a hoomd snapshot
+        if configurator.compute_mode == 'cpu':
+            snap = snap.from_gsd_snapshot(gsd_snap, cpu.communicator)
+        elif configurator.compute_mode == 'gpu':
+            snap = snap.from_gsd_snapshot(gsd_snap, gpu.communicator)
+    elif configurator.init_type == 'all':
+        box_extent = configurator.lbox
+        linear_extent = box_extent/configurator.ngrid
+        fudge_size = 0.2 # Prevent particles on the boundaries because reasons
+        
+        # Create the snapshot external to the configurator
+        snap.configuration.box = [linear_extent, linear_extent, 2.0*((configurator.bead_size/2.0) + (configurator.lipids.nbeads-1)*configurator.bead_size)+fudge_size, 0, 0, 0]
+    else:
+        print(f"Configurator init {configurator.init_type} not yet available, exiting!")
+        sys.exit(1)
+
+
     # Configure the membrane part of the system
     configurator.CreateMembrane(snap)
     configurator.CreateAH(snap)
+
+    # Print information
+    configurator.PrintInformation(snap)
 
     ###############################################################################
     # Create the system
     ###############################################################################
     sim.create_state_from_snapshot(snap)
-    
+
     # Create the pair potential
     glf = md.pair.GrimeLipid(nlist=md.nlist.Cell())
     
@@ -160,11 +178,6 @@ if __name__ == "__main__":
     angleharmonic.params['lipidbend'] = dict(k = configurator.lipids.kbend, t0 = np.pi)
     
     # Set up the integrator for the system
-    #nph = hoomd.md.methods.NPH(filter = hoomd.filter.All(),
-    #                           tauS = pdamp,
-    #                           S = 0.0,
-    #                           box_dof = [True, True, False, False, False, False],
-    #                           couple = "xy")
     langevin = hoomd.md.methods.Langevin(hoomd.filter.All(),
                                          kT = configurator.kT)
     langevin.gamma['H'] = configurator.lipids.gamma
@@ -175,7 +188,6 @@ if __name__ == "__main__":
         langevin.gamma['AH2'] = configurator.ahdomain.gamma
     
     integrator = md.Integrator(dt = configurator.deltatau)
-    #integrator.methods.append(nph)
     integrator.methods.append(langevin)
     
     integrator.forces.append(glf)
@@ -187,8 +199,11 @@ if __name__ == "__main__":
     
     # Run a simulation to get variables to work out, also thermalize the momenta
     sim.run(0)
-    sim.state.thermalize_particle_momenta(hoomd.filter.All(), configurator.kT)
-    #nph.thermalize_barostat_dof()
+    if configurator.init_type == 'all':
+        sim.state.thermalize_particle_momenta(hoomd.filter.All(), configurator.kT)
+    elif configurator.init_type == 'read_gsd':
+        ahfilter = hoomd.filter.Type(['AH1', 'AH2'])
+        sim.state.thermalize_particle_momenta(ahfilter, configurator.kT)
     
     ###############################################################################
     # Print information for the main program
@@ -213,7 +228,7 @@ if __name__ == "__main__":
     table = hoomd.write.Table(trigger=hoomd.trigger.Periodic(period=configurator.nwrite),
                               logger=output_logger)
     sim.operations.writers.append(table)
-    
+
     # Set up writing out to a GSD file for trajectories
     gsd_writer = hoomd.write.GSD(filename = configurator.trajectory_file,
                                  trigger = hoomd.trigger.Periodic(configurator.nwrite),
