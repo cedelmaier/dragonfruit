@@ -11,6 +11,24 @@ import yaml
 
 import numpy as np
 
+# Generate a random unit vector
+def generate_random_unit_vector(ndim):
+    w = np.float64(1.0)
+    v = np.zeros(3, dtype = np.float64)
+    if ndim == 3:
+        z = np.float64(2.0 * random.random() - 1.0)
+        w = np.sqrt(1.0 - z*z)
+        v[2] = z
+    t = 2.0*np.pi*random.random()
+    v[0] = w*np.cos(t)
+    v[1] = w*np.sin(t)
+    return v
+
+# Check for an sphere overlap
+def sphere_overlap(sphere_diameter, r1, r2):
+    distmag = np.linalg.norm(r1 - r2)
+    return distmag < sphere_diameter
+
 # The configurator really exists as simulation to convert between HOOMD
 # and our other simulatino variables
 
@@ -18,13 +36,13 @@ import numpy as np
 class Membrane(object):
     def __init__(self, bead_size, yaml_file):
         # Lipid parameters
-        self.nbeads    = np.int32(np.float32(yaml_file['membrane']['nbeads']))
-        self.mdopc     = np.float32(yaml_file['membrane']['mass'])
-        self.gamma     = np.float32(yaml_file['membrane']['gamma'])
-        self.A         = np.float32(yaml_file['membrane']['A'])
-        self.B         = np.float32(yaml_file['membrane']['B'])
-        self.kbond     = np.float32(yaml_file['membrane']['kbond'])
-        self.kbend     = np.float32(yaml_file['membrane']['kbend'])
+        self.nbeads    = np.int32(np.float64(yaml_file['membrane']['nbeads']))
+        self.mdopc     = np.float64(yaml_file['membrane']['mass'])
+        self.gamma     = np.float64(yaml_file['membrane']['gamma'])
+        self.A         = np.float64(yaml_file['membrane']['A'])
+        self.B         = np.float64(yaml_file['membrane']['B'])
+        self.kbond     = np.float64(yaml_file['membrane']['kbond'])
+        self.kbend     = np.float64(yaml_file['membrane']['kbend'])
         self.bead_size = bead_size
 
         # Head beads are slightly smaller than the normal beads
@@ -135,19 +153,19 @@ class Membrane(object):
 class AHBlockCopolymer(object):
     def __init__(self, bead_size, yaml_file):
         # AH-domain parameters
-        self.nah              = np.int32(np.float32(yaml_file['ah_domain']['n_ah']))
+        self.nah              = np.int32(np.float64(yaml_file['ah_domain']['n_ah']))
         self.polymer_type     = yaml_file['ah_domain']['polymer_type']
-        self.gamma            = np.float32(yaml_file['ah_domain']['gamma'])
-        self.nbeads           = np.int32(np.float32(yaml_file['ah_domain']['nbeads']))
-        self.nrepeat          = np.int32(np.float32(yaml_file['ah_domain']['nrepeat']))
-        self.mass             = np.float32(yaml_file['ah_domain']['mass'])
-        self.A                = np.float32(yaml_file['ah_domain']['A'])
-        self.Bsurface         = np.float32(yaml_file['ah_domain']['B_surface'])
-        self.Bintermediate    = np.float32(yaml_file['ah_domain']['B_intermediate'])
-        self.Bdeep            = np.float32(yaml_file['ah_domain']['B_deep'])
-        self.Bself            = np.float32(yaml_file['ah_domain']['B_self'])
-        self.kbond            = np.float32(yaml_file['ah_domain']['kbond'])
-        self.kbend            = np.float32(yaml_file['ah_domain']['kbend'])
+        self.gamma            = np.float64(yaml_file['ah_domain']['gamma'])
+        self.nbeads           = np.int32(np.float64(yaml_file['ah_domain']['nbeads']))
+        self.nrepeat          = np.int32(np.float64(yaml_file['ah_domain']['nrepeat']))
+        self.mass             = np.float64(yaml_file['ah_domain']['mass'])
+        self.A                = np.float64(yaml_file['ah_domain']['A'])
+        self.Bsurface         = np.float64(yaml_file['ah_domain']['B_surface'])
+        self.Bintermediate    = np.float64(yaml_file['ah_domain']['B_intermediate'])
+        self.Bdeep            = np.float64(yaml_file['ah_domain']['B_deep'])
+        self.Bself            = np.float64(yaml_file['ah_domain']['B_self'])
+        self.kbond            = np.float64(yaml_file['ah_domain']['kbond'])
+        self.kbend            = np.float64(yaml_file['ah_domain']['kbend'])
 
         # Set constants we will need
         self.bead_size = 0.75*bead_size
@@ -155,9 +173,6 @@ class AHBlockCopolymer(object):
         self.r0 = self.bead_size
         self.rc = 2.0*self.r0
         self.rbond = self.r0
-
-        # Set up the RNG
-        random.seed(10)
 
     # Create some number of block copolyerms in the simulation
     def CreateAH(self, snap):
@@ -179,49 +194,73 @@ class AHBlockCopolymer(object):
         # This is for the copolymer model, some linear number of bonds
         ah_start_nx = snap.particles.N
         snap.particles.N = snap.particles.N + (self.nbeads * self.nah)
+        # Make sure we avoid problems with the box overlap and the domains
+        rboxxy = snap.configuration.box[0]/2.0 - self.bead_size*self.nbeads
+        rboxz = snap.configuration.box[2]/2.0 - self.bead_size*self.nbeads
         # Loop over number of AH domains
         for ahdx in range(self.nah):
-            # Assign the location of the AH filament
-            xrand = random.uniform(-1.0*snap.configuration.box[0]/2, 1.0*snap.configuration.box[0]/2)
-            yrand = random.uniform(-1.0*snap.configuration.box[1]/2, 1.0*snap.configuration.box[1]/2)
+            # Put in some overlap logic
+            while True:
+                overlap = 0
+                # Assign the location of the AH filament
+                xrand = random.uniform(-1.0*rboxxy, rboxxy)
+                yrand = random.uniform(-1.0*rboxxy, rboxxy)
+                zrand = random.uniform(0.0, rboxz)
+                # Assign a random unit vector
+                v = generate_random_unit_vector(3)
 
-            print(f"Inserting AH-domain start at ({xrand, yrand})")
+                ah_start_x = np.array([xrand, yrand, zrand])
+                ndx = 0
+                ah_code = False
+                for idx in range(ah_start_nx + self.nbeads*ahdx, ah_start_nx + self.nbeads*(ahdx+1)):
+                    if ndx % self.nrepeat == 0:
+                        ah_code = not ah_code
 
-            ah_start_x = np.array([xrand, yrand, snap.configuration.box[0]/4.0])
-            ndx = 0
-            ah_code = False
-            for idx in range(ah_start_nx + self.nbeads*ahdx, ah_start_nx + self.nbeads*(ahdx+1)):
-                if ndx % self.nrepeat == 0:
-                    ah_code = not ah_code
-                snap.particles.position[idx] = ah_start_x + np.array([0, (self.bead_size/2.0)*(idx - ah_start_nx), 0])
-                if ah_code:
-                    snap.particles.typeid[idx] = self.getTypeByName['AH1']
-                else:
-                    snap.particles.typeid[idx] = self.getTypeByName['AH2']
-                snap.particles.mass[idx] = self.mass_per_bead
+                    # Calculate the position
+                    pos = ah_start_x + v*self.bead_size*ndx
 
-                ndx += 1
+                    # Check for overlap with other AH domains
+                    for jdx in range(ah_start_nx, ah_start_nx + self.nbeads*ahdx):
+                        r1 = snap.particles.position[jdx]
+                        overlap += np.int32(sphere_overlap(self.bead_size, pos, r1))
+                        if overlap != 0:
+                            break
 
-            # Now set up the bond information
-            n_newbonds = self.nbeads - 1
-            ah_start_bdx = snap.bonds.N
-            bdx = ah_start_bdx
-            snap.bonds.N = snap.bonds.N + n_newbonds
-            for idx in range(ah_start_nx + self.nbeads*ahdx, ah_start_nx + self.nbeads*ahdx + self.nbeads-1):
-                snap.bonds.typeid[bdx] = self.getTypeByName['ahbond']
-                snap.bonds.group[bdx] = [idx, idx+1]
-                bdx += 1
+                    if overlap != 0:
+                        break
 
-            # Now set up the angle information
-            n_newangles = self.nbeads - 2
-            ah_start_adx = snap.angles.N
-            adx = ah_start_adx
-            snap.angles.N = snap.angles.N + n_newangles
-            for idx in range(ah_start_nx + self.nbeads*ahdx, ah_start_nx + self.nbeads*ahdx + self.nbeads - 2):
-                snap.angles.typeid[adx] = self.getTypeByName['ahbend']
-                snap.angles.group[adx] = [idx, idx+1, idx+2]
-                adx += 1
+                    snap.particles.position[idx] = pos
+                    if ah_code:
+                        snap.particles.typeid[idx] = self.getTypeByName['AH1']
+                    else:
+                        snap.particles.typeid[idx] = self.getTypeByName['AH2']
+                    snap.particles.mass[idx] = self.mass_per_bead
 
+                    ndx += 1
+
+                # Now set up the bond information
+                n_newbonds = self.nbeads - 1
+                ah_start_bdx = snap.bonds.N
+                bdx = ah_start_bdx
+                snap.bonds.N = snap.bonds.N + n_newbonds
+                for idx in range(ah_start_nx + self.nbeads*ahdx, ah_start_nx + self.nbeads*ahdx + self.nbeads-1):
+                    snap.bonds.typeid[bdx] = self.getTypeByName['ahbond']
+                    snap.bonds.group[bdx] = [idx, idx+1]
+                    bdx += 1
+
+                # Now set up the angle information
+                n_newangles = self.nbeads - 2
+                ah_start_adx = snap.angles.N
+                adx = ah_start_adx
+                snap.angles.N = snap.angles.N + n_newangles
+                for idx in range(ah_start_nx + self.nbeads*ahdx, ah_start_nx + self.nbeads*ahdx + self.nbeads - 2):
+                    snap.angles.typeid[adx] = self.getTypeByName['ahbend']
+                    snap.angles.group[adx] = [idx, idx+1, idx+2]
+                    adx += 1
+
+                # Bail for the while loop
+                if overlap == 0:
+                    break
        
     def PrintInformation(self, snap):
         # Print out AH information
@@ -254,20 +293,23 @@ class Configurator(object):
 
     def SetDefaults(self):
         # Simulation parameters
-        self.kT                 = np.float32(self.default_yaml['simulation']['kT'])
-        self.bead_size          = np.float32(self.default_yaml['simulation']['bead_size'])
-        self.deltatau           = np.float32(self.default_yaml['simulation']['deltatau'])
-        self.nsteps             = np.int32(np.float32(self.default_yaml['simulation']['nsteps']))
-        self.nwrite             = np.int32(np.float32(self.default_yaml['simulation']['nwrite']))
-        self.ngrid              = np.int32(np.float32(self.default_yaml['simulation']['ngrid']))
-        self.lbox               = np.float32(self.default_yaml['simulation']['lbox'])
-        self.nseed              = np.int32(np.float32(self.default_yaml['simulation']['seed']))
+        self.kT                 = np.float64(self.default_yaml['simulation']['kT'])
+        self.bead_size          = np.float64(self.default_yaml['simulation']['bead_size'])
+        self.deltatau           = np.float64(self.default_yaml['simulation']['deltatau'])
+        self.nsteps             = np.int32(np.float64(self.default_yaml['simulation']['nsteps']))
+        self.nwrite             = np.int32(np.float64(self.default_yaml['simulation']['nwrite']))
+        self.ngrid              = np.int32(np.float64(self.default_yaml['simulation']['ngrid']))
+        self.lbox               = np.float64(self.default_yaml['simulation']['lbox'])
+        self.nseed              = np.int32(np.float64(self.default_yaml['simulation']['seed']))
         self.compute_mode       = self.default_yaml['simulation']['mode']
         self.trajectory_file    = self.default_yaml['simulation']['trajectory_file']
         self.init_type          = self.default_yaml['simulation']['init_type']
         self.is_membrane_init   = self.default_yaml['simulation']['is_membrane_init']
         self.is_ahdomain_init   = self.default_yaml['simulation']['is_ahdomain_init']
         self.integrator         = self.default_yaml['simulation']['integrator']
+
+        # Set the random seed
+        random.seed(self.nseed)
 
         # Check integrator settings to make sure it's okay!
         if (self.integrator != 'langevin' and self.integrator != 'NPT' and self.integrator != 'NPH'):
@@ -276,17 +318,17 @@ class Configurator(object):
 
         # Unfortunately, now have some gymnastics for checking if something exists and setting
         if 'pdamp' in self.default_yaml['simulation']:
-            self.pdamp = np.float32(self.default_yaml['simulation']['pdamp'])
+            self.pdamp = np.float64(self.default_yaml['simulation']['pdamp'])
         else:
             self.pdamp = None
 
         if 'tau' in self.default_yaml['simulation']:
-            self.tau = np.float32(self.default_yaml['simulation']['tau'])
+            self.tau = np.float64(self.default_yaml['simulation']['tau'])
         else:
             self.tau = None
 
         if 'tauS' in self.default_yaml['simulation']:
-            self.tauS = np.float32(self.default_yaml['simulation']['tauS'])
+            self.tauS = np.float64(self.default_yaml['simulation']['tauS'])
         else:
             self.tauS = None
 
