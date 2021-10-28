@@ -220,8 +220,9 @@ if __name__ == "__main__":
             sim.state.thermalize_particle_momenta(hoomd.filter.All(), configurator.kT)
             #npt.thermalize_thermostat_and_barostat_dof()
     elif configurator.init_type == 'read_gsd':
-        ahfilter = hoomd.filter.Type(['AH1', 'AH2'])
-        sim.state.thermalize_particle_momenta(ahfilter, configurator.kT)
+        if configurator.ahdomain.nah > 0:
+            ahfilter = hoomd.filter.Type(['AH1', 'AH2'])
+            sim.state.thermalize_particle_momenta(ahfilter, configurator.kT)
     
     ###############################################################################
     # Print information for the main program

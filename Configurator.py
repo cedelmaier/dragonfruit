@@ -205,7 +205,7 @@ class AHBlockCopolymer(object):
                 # Assign the location of the AH filament
                 xrand = random.uniform(-1.0*rboxxy, rboxxy)
                 yrand = random.uniform(-1.0*rboxxy, rboxxy)
-                zrand = random.uniform(0.0, rboxz)
+                zrand = random.uniform(self.bead_size*self.nbeads, rboxz)
                 # Assign a random unit vector
                 v = generate_random_unit_vector(3)
 
