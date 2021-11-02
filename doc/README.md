@@ -38,19 +38,26 @@ I put these into my .bashrc so that I could use them, but you can just run the c
     rsync -avh -e ssh /source/path/ host:/destination/path
 
 ### Installing HOOMD-blue on longleaf cluster (UNC)
-This is the first set of information for getting HOOMD and switching to the most recent (v2.9.6) tag. This will
-also load the correct modules on longleaf.
+This is the first set of information for getting HOOMD and switching to the most recent (v3.0.0-beta.10) tag. This will
+also load the correct modules on longleaf. Warning, this is not complete. You should also be following the
+instructions for hoomd installation online.
 
+    https://github.com/glotzerlab/hoomd-blue
+ 
     git clone --recursive https://github.com/glotzerlab/hoomd-blue
     cd hoomd-blue
     git fetch --all --tags
-    git checkout tags/v2.9.6 -b v2.9.6-cje
+    git checkout tags/v3.0.0-beta.10 -b v3.0.0-mahsa
     
     module load git
     module load cmake
     module load python/3.8.8
     module load cuda/11.2
     module load gcc/9.1.0
+
+You also need the custom code that CJE has for the soft sine-based lipid potential.
+
+    https://github.com/cedelmaier/dragonfruit/
 
 Create a python virtual environment and source it.
 
@@ -61,7 +68,7 @@ Create a python virtual environment and source it.
 Compile with a virtual envinronment python, as well as CUDA. Note: this will take quite a while, and I did it on the
 native GPU node. Be careful with GNinja, as it can cause memory errors.
 
-    CC=gcc CXX=g++ cmake -B build/hoomd hoomd-blue -GNinja
+    CC=gcc CXX=g++ cmake -B build/hoomd hoomd-blue
     ccmake .
     cmake --build ./
     cmake --install ./
