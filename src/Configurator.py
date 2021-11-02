@@ -282,6 +282,16 @@ class AHBlockCopolymer(object):
         print(f"AH r (sigma)                        = {self.rbond}")
         print(f"AH kbond (kBT/sigma^2)              = {self.kbond}")
         print(f"AH kbend (kBT/rad^2)                = {self.kbend}")
+
+
+# Dimer copolymer model inherits from the copolymer version with extra fluff
+class DimerCopolymer(AHBlockCopolymer):
+    def __init__(self, bead_size, yaml_file):
+        super().__init__(bead_size, yaml_file)
+
+        # Additional parameters we will need
+        self.nmer           = np.int32(np.float64(yaml_file['ah_domain']['nmer']))
+        self.dimer_length   = np.float64(yaml_file['ah_domain']['dimer_length'])
     
 
 # Class definition
@@ -343,8 +353,10 @@ class Configurator(object):
         if 'ah_domain' in self.default_yaml:
             if self.default_yaml['ah_domain']['polymer_type'] == 'block_copolymer':
                 self.ahdomain = AHBlockCopolymer(self.bead_size, self.default_yaml)
+            elif self.default_yaml['ah_domain']['polymer_type'] == 'dimer_copolymer':
+                self.ahdomain = DimerCopolymer(self.bead_size, self.default_yaml)
             else:
-                print("Only block copolymer available for now, exiting!")
+                print(f"Requested AH-domain type not implemented, exiting!")
                 sys.exit(1)
         else:
             print("No AH domain included, exiting!")
