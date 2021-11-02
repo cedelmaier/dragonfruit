@@ -60,6 +60,15 @@ class Membrane(object):
         self.lipidmass = self.mdopc
         self.lipidmass_per_bead = self.lipidmass / self.nbeads
 
+    # Init any information that required a snapshot
+    def InitMembrane(self, snap, is_membrane_init):
+        if is_membrane_init:
+            self.getTypeByName = {}
+            for itype,ntype in enumerate(snap.particles.types):
+                self.getTypeByName[ntype] = itype
+        else:
+            self.getTypeByName = {'H': 0, 'I': 1, 'T': 2}
+
     # Create the membrane for our system
     def CreateMembrane(self, snap, ngrid, lbox):
         # What is the number of replications we need in the box?
@@ -70,7 +79,6 @@ class Membrane(object):
         # Create the number of bead types we need for just membranes
         snap.particles.N = 2*self.nbeads
         snap.particles.types = ['H', 'I', 'T']
-        self.getTypeByName = {'H': 0, 'I': 1, 'T': 2}
 
         # The number of bonds we have is determined by nbeads, as is the number of angle potentials
         snap.bonds.N = 2*(self.nbeads - 1)
@@ -166,6 +174,10 @@ class AHBlockCopolymer(object):
         self.Bself            = np.float64(yaml_file['ah_domain']['B_self'])
         self.kbond            = np.float64(yaml_file['ah_domain']['kbond'])
         self.kbend            = np.float64(yaml_file['ah_domain']['kbend'])
+
+        # Additional information that depends on the type of polymer inserting
+        if self.polymer_type == "dimer_copolymer":
+            print(f"Creating a dimerized block copolymer") 
 
         # Set constants we will need
         self.bead_size = 0.75*bead_size
@@ -290,8 +302,21 @@ class DimerCopolymer(AHBlockCopolymer):
         super().__init__(bead_size, yaml_file)
 
         # Additional parameters we will need
-        self.nmer           = np.int32(np.float64(yaml_file['ah_domain']['nmer']))
+        self.n_dimers       = np.int32(np.float64(yaml_file['ah_domain']['n_dimers']))
         self.dimer_length   = np.float64(yaml_file['ah_domain']['dimer_length'])
+
+    # Create some number of dimer block copolymers in the simulation
+    def CreateAH(self, snap):
+        super().CreateAH(snap)
+
+    def PrintInformation(self, snap):
+        super().PrintInformation(snap)
+        print(f"--------")
+        print(f"Dimer copolymer information")
+        print(f"N-dimers                            = {self.n_dimers}")
+        print(f"Dimer length                        = {self.dimer_length}")
+
+        sys.exit(1)
     
 
 # Class definition
@@ -342,6 +367,7 @@ class Configurator(object):
         else:
             self.tauS = None
 
+        # Are we reading in previous information?
         if self.init_type == 'read_gsd':
             self.init_filename = self.default_yaml['simulation']['init_filename']
 
@@ -380,6 +406,10 @@ class Configurator(object):
 
         self.lipids.PrintInformation(snap)
         self.ahdomain.PrintInformation(snap)
+
+    # Initialize information from a snapshot
+    def InitMembrane(self, snap):
+        self.lipids.InitMembrane(snap, self.is_membrane_init)
 
     # Passthrough for creation options
     def CreateMembrane(self, snap):

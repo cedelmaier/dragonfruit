@@ -87,6 +87,9 @@ if __name__ == "__main__":
         sys.exit(1)
 
 
+    # Initialize the membrane and AH domains with information from the snapshot (if available)
+    configurator.InitMembrane(snap)
+
     # Configure the membrane part of the system
     configurator.CreateMembrane(snap)
     configurator.CreateAH(snap)
