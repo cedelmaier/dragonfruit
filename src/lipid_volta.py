@@ -12,7 +12,7 @@ import yaml
 
 import numpy as np
 
-from Configurator import Configurator
+from configurator import Configurator
 
 # Create a rudimentary parser to get the number of steps, the write frequency,
 # and the box length
@@ -76,20 +76,17 @@ if __name__ == "__main__":
         elif configurator.compute_mode == 'gpu':
             snap = snap.from_gsd_snapshot(gsd_snap, gpu.communicator)
     elif configurator.init_type == 'all':
-        box_extent = configurator.lbox
-        linear_extent = box_extent/configurator.ngrid
         fudge_size = 0.2 # Prevent particles on the boundaries because reasons
-        
-        # Create the snapshot external to the configurator
-        snap.configuration.box = [linear_extent, linear_extent, 2.0*((configurator.bead_size/2.0) + (configurator.lipids.nbeads-1)*configurator.bead_size)+fudge_size, 0, 0, 0]
     else:
         print(f"Configurator init {configurator.init_type} not yet available, exiting!")
         sys.exit(1)
 
+    # Initialize the membrane and AH domains with information from the snapshot (if available)
+    configurator.Init(snap)
 
-    # Configure the membrane part of the system
-    configurator.CreateMembrane(snap)
-    configurator.CreateAH(snap)
+    ## Configure the membrane part of the system
+    #configurator.CreateMembrane(snap)
+    #configurator.CreateAH(snap)
 
     # Print information
     configurator.PrintInformation(snap)
@@ -132,7 +129,7 @@ if __name__ == "__main__":
     glf.r_cut[('T', 'T')] = configurator.lipids.rc
   
     # Only create AH domains if necessary
-    if configurator.ahdomain.nah > 0:
+    if configurator.ahdomain:
         ###############################
         # AH-AH interactions
         ###############################
@@ -170,13 +167,13 @@ if __name__ == "__main__":
     # Assign bonded interaction strengths
     harmonic = md.bond.Harmonic()
     harmonic.params['lipidbond'] = dict(k = configurator.lipids.kbond, r0 = configurator.lipids.rbond)
-    if configurator.ahdomain.nah > 0:
+    if configurator.ahdomain:
         harmonic.params['ahbond'] = dict(k = configurator.ahdomain.kbond, r0 = configurator.ahdomain.rbond)
     
     # Assign angle interaction strengths
     angleharmonic = md.angle.Harmonic()
     angleharmonic.params['lipidbend'] = dict(k = configurator.lipids.kbend, t0 = np.pi)
-    if configurator.ahdomain.nah > 0:
+    if configurator.ahdomain:
         angleharmonic.params['ahbend'] = dict(k = configurator.ahdomain.kbend, t0 = np.pi)
     
     # Set up the integrator for the system
@@ -187,7 +184,7 @@ if __name__ == "__main__":
         langevin.gamma['H'] = configurator.lipids.gamma
         langevin.gamma['I'] = configurator.lipids.gamma
         langevin.gamma['T'] = configurator.lipids.gamma
-        if configurator.ahdomain.nah > 0:
+        if configurator.ahdomain:
             langevin.gamma['AH1'] = configurator.ahdomain.gamma
             langevin.gamma['AH2'] = configurator.ahdomain.gamma
 
@@ -220,7 +217,7 @@ if __name__ == "__main__":
             sim.state.thermalize_particle_momenta(hoomd.filter.All(), configurator.kT)
             #npt.thermalize_thermostat_and_barostat_dof()
     elif configurator.init_type == 'read_gsd':
-        if configurator.ahdomain.nah > 0:
+        if configurator.ahdomain:
             ahfilter = hoomd.filter.Type(['AH1', 'AH2'])
             sim.state.thermalize_particle_momenta(ahfilter, configurator.kT)
     
