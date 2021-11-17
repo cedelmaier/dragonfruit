@@ -71,9 +71,13 @@ traj_all = gsd.hoomd.open('../data/20211102/strength_scan/traj_npt_membrane.gsd'
 #traj_all = gsd.hoomd.open('../data/20211102/strength_scan/simulations/Bself1.166666_Bsurface2.33333_Bintermediate1.166666_Bdeep4.66666/s3/traj_langevin.gsd')
 print(f"nframes: {len(traj_all)}")
 
+# Constants of conversion in our system
+kB = 1.987204259e-3 # kcal/(mol * K)
+kTroom = 0.5961 # 1 kT = 0.5961 kcal/mol
+
 # Set up some parameters for analysis
 min_frame = 300
-max_frame = 400
+max_frame = 500
 nmeasure = 10
 xsize = 100.0
 ysize = 100.0
@@ -81,7 +85,7 @@ Nx = 100
 Ny = 100
 Nxgrid = 100j
 Nygrid = 100j
-Ndirect = 20
+Ndirect = 10
 deltaq = 0.0375
 nlipids_per_layer = 10000
 
@@ -251,7 +255,7 @@ plt.close(fig)
 
 # Try to fit the data
 # Fit the data using a lambda function
-npoints_fit = 2
+npoints_fit = 5
 from scipy.optimize import curve_fit
 #popt_fft, pcov_fft = curve_fit(lambda q, kc, gamma: suq_curve(q, nlipids_per_layer, area_mean, kc, gamma), x_fft[0:npoints_fit], su_fft[0:npoints_fit])
 #print(f"Simulation fit values:")
@@ -260,11 +264,23 @@ from scipy.optimize import curve_fit
 #popt_direct, pcov_direct = curve_fit(lambda q, kc, gamma: suq_curve(q, nlipids_per_layer, area_mean, kc, gamma), x_direct[0:npoints_fit], su_direct[0:npoints_fit])
 #print(popt_direct)
 #print(pcov_direct)
-popt_fft, pcov_fft = curve_fit(lambda q, kc: suq_curve(q, nlipids_per_layer, area_mean, kc, 0.0), x_fft[0:npoints_fit], su_fft[0:npoints_fit])
+
+# Generate a guess based on the first 2 points
+kc_guess1 = nlipids_per_layer / area_mean / su_fft[1] / (x_fft[1]**4)
+kc_guess2 = nlipids_per_layer / area_mean / su_fft[2] / (x_fft[2]**4)
+print(f"x1: {x_fft[1]}, {su_fft[1]} -> kc: {kc_guess1}")
+print(f"x2: {x_fft[2]}, {su_fft[2]} -> kc: {kc_guess2}")
+
+#from scipy.optimize import fsolve
+#kc_guess = fsolve(lambda kc: suq_curve(x_fft[0], nlipids_per_layer, area_mean, kc, 0.0) - su_fft[0], 0.01)
+#print(f"kc guess: {kc_guess}")
+
+
+popt_fft, pcov_fft = curve_fit(lambda q, kc: suq_curve(q, nlipids_per_layer, area_mean, kc, 0.0), x_fft[1:npoints_fit], su_fft[1:npoints_fit], kc_guess1)
 print(f"Simulation fit values:")
 print(popt_fft)
 print(pcov_fft)
-popt_direct, pcov_direct = curve_fit(lambda q, kc: suq_curve(q, nlipids_per_layer, area_mean, kc, 0.0), x_direct[0:npoints_fit], su_direct[0:npoints_fit])
+popt_direct, pcov_direct = curve_fit(lambda q, kc: suq_curve(q, nlipids_per_layer, area_mean, kc, 0.0), x_direct[1:npoints_fit], su_direct[1:npoints_fit], kc_guess2)
 print(popt_direct)
 print(pcov_direct)
 
@@ -273,7 +289,7 @@ fig, ax = plt.subplots(1, 1)
 #ax.plot(x_fft, suq_curve(x_fft, N = nlipids_per_layer, A = area_mean, kc= popt_fft[0], gamma = popt_fft[1]), 'k--')
 #ax.plot(x_direct, suq_curve(x_direct, N = nlipids_per_layer, A = area_mean, kc = popt_direct[0], gamma = popt_direct[1]), 'k..')
 ax.plot(x_fft, suq_curve(x_fft, N = nlipids_per_layer, A = area_mean, kc= popt_fft[0], gamma = 0.0), 'k--')
-ax.plot(x_direct, suq_curve(x_direct, N = nlipids_per_layer, A = area_mean, kc = popt_direct[0], gamma = 0.0), 'k..')
+ax.plot(x_direct, suq_curve(x_direct, N = nlipids_per_layer, A = area_mean, kc = popt_direct[0], gamma = 0.0), 'k:')
 ax.scatter(x_fft, su_fft, color='r', marker='+', linewidth=1)
 ax.scatter(x_direct, su_direct, color='b', marker='o', s=80, facecolors='none')
 ax.set_yscale('log')
