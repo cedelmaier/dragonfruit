@@ -14,6 +14,7 @@ import pandas as pd
 
 # Magic to get the library directory properly
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'Lib'))
+from block_copolymer import BlockCopolymer
 from seed_base import SeedBase
 from seed_graph_funcs import *
 
@@ -28,18 +29,28 @@ class SeptinSeed(SeedBase):
         self.nbeads_membrane = np.float64(self.default_yaml['membrane']['nbeads'])
         self.nlipids_per_layer = np.square(np.int64(self.default_yaml['membrane']['ngrid']))
         self.nlipids = 2*self.nlipids_per_layer
+        self.nmembrane = self.nlipids * self.nbeads_membrane
+
+        # Get AH information if it exists
+        if 'ah_domain' in self.default_yaml:
+            self.nahdomains = np.int64(self.default_yaml['ah_domain']['n_ah'])
+            self.ah_start_nx = np.int64(self.nmembrane)
+            self.ahdomain = BlockCopolymer(self.default_yaml, self.ah_start_nx)
+
 
         self.hd5_name = "SeptinSeed.h5"
+
+        print(f"  Membrane beads: {self.nmembrane}")
+        print(f"  AH starting index: {self.ah_start_nx}")
 
     def GetHeadIndices(self, traj):
         r"""Get the head indices for the lipids, both upper
         and lower leaflets
         """
-        nmembrane = self.nlipids * self.nbeads
-        head_idx = np.arange(0, nmembrane, self.nbeads)
+        head_idx = np.arange(0, self.nmembrane, self.nbeads)
         idx_skip = self.nbeads*2
-        leaf1_idx = np.arange(0, nmembrane, idx_skip)
-        lead2_idx = np.arange(self.nbeads, nmembrane, idx_skip)
+        leaf1_idx = np.arange(0, self.nmembrane, idx_skip)
+        lead2_idx = np.arange(self.nbeads, self.nmembrane, idx_skip)
 
         return [head_idx, leaf1_idx, leaf2_idx]
 
@@ -71,7 +82,6 @@ class SeptinSeed(SeedBase):
     def Analyze(self, force_analyze = False):
         r"""Analysis of septin/membrane simulation seed
         """
-        print(f"seed opts: {self.opts}")
         # Check the options for if we are forcing analysis
         if self.opts.force:
             force_analyze = True
@@ -93,8 +103,8 @@ class SeptinSeed(SeedBase):
         # XXX: These are hardcoded for now, change later for the analysis for what frames, etc
         # we want to do the analysis on
         self.nmeasure = 10
-        self.min_frame = 300
-        self.max_frame = 500
+        self.min_frame = 000
+        self.max_frame = 200
 
         # Set up the storage arrays for variables
         self.timedata = {}
@@ -186,6 +196,6 @@ class SeptinSeed(SeedBase):
         """
         graph_scatter(self.label, self.df["timestep"], self.df["T"], axarr[0], mtitle = "Temperature", xtitle = "Timestep", ytitle = "Temperature (kT)")
         graph_scatter(self.label, self.df["timestep"], self.df["P"], axarr[1], mtitle = "Pressure", xtitle = "Timestep", ytitle = "Presure (kT/$\sigma^{3}$)")
-        graph_scatter(self.label, self.df["timestep"], self.df["membrane_area"], axarr[2], mtitle = "Membrane Area", xtitle = "Timestep", ytitle = "Membrane area ($sigma^{2}$)")
+        graph_scatter(self.label, self.df["timestep"], self.df["membrane_area"], axarr[2], mtitle = "Membrane Area", xtitle = "Timestep", ytitle = "Membrane area ($\sigma^{2}$)")
 
 

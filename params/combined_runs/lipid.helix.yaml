@@ -1,0 +1,52 @@
+# All units should be in simulation units, unless otherwise explicitly stated!!!!!!!!
+simulation:
+  kT: 1.0 # Energy units
+  bead_size: 1.0 # Characteristic size of system
+  deltatau: 0.05 # Timestep in tau
+  nsteps: 2e6 # Total number of steps
+  nwrite: 1e4 # Number between writing output trajectories
+  lbox: 103.0 # Size of final box, simulation units (sigma)
+  seed: 72
+  mode: cpu
+  trajectory_file: traj_langevin_helix.gsd
+    #init_filename: /pine/scr/e/d/edelmaie/supra_cg/dragonfruit/data/20211102/strength_scan/traj_npt_membrane.gsd
+  init_filename: traj_npt_membrane.gsd
+  init_type: read_gsd
+  integrator: langevin
+  #tau: 42.1052631579 # Temperature coupling tau (20 ps)
+  #tauS: 421.0526315789 # Pressure coupling tauS (200 ps)
+membrane:
+  is_init: True
+  nbeads: 4 # Number of beads to use for membrane
+  ngrid: 100 # Number of repeats to place in final box
+  mass: 734.309 # Total mass of DOPCs (m)
+  gamma: 4.36 # Drag coefficient (m/tau)
+  A: 187.5 # Repulsive component of potential (kT/sigma)
+  B: 2.33333 # Attractive component of potential (kT/sigma)
+  kbond: 2812.5 # Bond strength for membranes (kT/sigma^2)
+  kbend: 2.0 # Angular strength for membranes (kT/rad^2)
+ah_domain:
+  is_init: False
+  polymer_type: helix_block_copolymer
+  initial_arrangement: linear
+  sequence: LNGDLEEIQGKVKKLEEQVKSLQVKKSHK
+  n_ah: 1 # Number of AH domains to include
+  radius: 0.3066666667 # Radius of helix (sigma)
+  pitch: 0.72 # Pitch of helix (sigma)
+  translation_per_residue: 0.2 # Translation per residue (sigma)
+  naa: 18
+  bead_size: 0.1333333333
+    #nbeads: 24 # Number of beads per AH domain
+    #nrepeat: 3 # Repeat size for block copolyer
+  mass: 2535.3864 # Mass of AH domain
+  gamma: 4.36 # Drag coefficient (m/tau)
+  A: 187.5 # Repulsive component of potential (kT/sigma)
+  B_self: 1.16666
+  B_surface: 2.33333
+  B_intermediate: 1.16666
+  B_deep: 4.66666
+  kbond: 2812.5 # Bond strength for AH domains (kT/sigma^2)
+  kbend: 2.0 # Ben strength for AH domain
+
+
+

@@ -174,7 +174,7 @@ if __name__ == "__main__":
     angleharmonic = md.angle.Harmonic()
     angleharmonic.params['lipidbend'] = dict(k = configurator.lipids.kbend, t0 = np.pi)
     if configurator.ahdomain:
-        angleharmonic.params['ahbend'] = dict(k = configurator.ahdomain.kbend, t0 = np.pi)
+        angleharmonic.params['ahbend'] = dict(k = configurator.ahdomain.kbend, t0 = configurator.ahdomain.thetabend)
     
     # Set up the integrator for the system
     integrator = md.Integrator(dt = configurator.deltatau)

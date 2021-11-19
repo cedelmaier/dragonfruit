@@ -12,7 +12,9 @@ import yaml
 import numpy as np
 
 from common import *
-from ahdomain import ahdomain
+#from ahdomain import ahdomain
+from block_ahdomain import block_ahdomain
+from helix_ahdomain import helix_ahdomain
 from membrane import membrane
 
 # Configurator class definition
@@ -79,7 +81,14 @@ class Configurator(object):
 
         # AH parameters
         if 'ah_domain' in self.default_yaml:
-            self.ahdomain = ahdomain(self.bead_size, self.default_yaml)
+            self.ahtype = self.default_yaml['ah_domain']['polymer_type']
+            if self.ahtype == 'block_copolymer':
+                self.ahdomain = block_ahdomain(self.bead_size, self.default_yaml)
+            elif self.ahtype == 'helix_block_copolymer':
+                self.ahdomain = helix_ahdomain(self.bead_size, self.default_yaml)
+            else:
+                print(f"AH domain type {self.ahtype} not implemented, exiting!")
+                sys.exit(1)
 
     # Print information
     def PrintInformation(self, snap):

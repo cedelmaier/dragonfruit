@@ -50,7 +50,6 @@ class SeptinAnalysis(object):
     """
     def __init__(self, opts):
         self.opts = opts
-        print(f"{self.opts}")
         self.cwd = os.getcwd()
 
         self.ReadOpts()
