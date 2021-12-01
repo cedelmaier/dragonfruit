@@ -113,6 +113,9 @@ class Configurator(object):
 
     # Initialize information
     def Init(self, snap):
+        # Create a default configuration box size if we don't have a membrane
+        snap.configuration.box = [self.lbox, self.lbox, self.lbox, 0, 0, 0]
+
         if self.lipids:
             self.lipids.InitMembrane(snap)
         if self.ahdomain:

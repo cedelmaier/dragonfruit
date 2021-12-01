@@ -103,30 +103,31 @@ if __name__ == "__main__":
     # in the system
     lipid_types = ['H', 'I', 'T']
     ah_types = ['AH1', 'AH2']
-    
-    ###############################
-    # Membrane-membrane interactions
-    ###############################
-    # Assign all of the coefficients between particles
-    #Head to other interactions
-    glf.params[('H', 'H')] = {'A': configurator.lipids.Ahh, 'B': 0.0, 'r0': configurator.lipids.rhh, 'rc': 2.0*configurator.lipids.rhh} # Head-Head
-    glf.params[('H', 'I')] = {'A': configurator.lipids.A, 'B': 0.0, 'r0': configurator.lipids.r0, 'rc': configurator.lipids.rc} # Head-Interface
-    glf.params[('H', 'T')] = {'A': configurator.lipids.A, 'B': 0.0, 'r0': configurator.lipids.r0, 'rc': configurator.lipids.rc} # Head-Tail
-    
-    #Interface to others interactions
-    glf.params[('I', 'I')] = {'A': configurator.lipids.A, 'B': configurator.lipids.B, 'r0': configurator.lipids.r0, 'rc': configurator.lipids.rc} # Interface to interface is sticky
-    glf.params[('I', 'T')] = {'A': configurator.lipids.A, 'B': 0.0, 'r0': configurator.lipids.r0, 'rc': configurator.lipids.rc} # Interface to tail is not sticky
-    
-    #Tail to other interactions
-    glf.params[('T', 'T')] = {'A': configurator.lipids.A, 'B': configurator.lipids.B, 'r0': configurator.lipids.r0, 'rc': configurator.lipids.rc} # Tail to tail is sticky
-    
-    # Set the cutoff distance accordingly
-    glf.r_cut[('H', 'H')] = configurator.lipids.rhh
-    glf.r_cut[('H', 'I')] = configurator.lipids.r0
-    glf.r_cut[('H', 'T')] = configurator.lipids.r0
-    glf.r_cut[('I', 'I')] = configurator.lipids.rc
-    glf.r_cut[('I', 'T')] = configurator.lipids.r0
-    glf.r_cut[('T', 'T')] = configurator.lipids.rc
+   
+    if configurator.lipids:
+        ###############################
+        # Membrane-membrane interactions
+        ###############################
+        # Assign all of the coefficients between particles
+        #Head to other interactions
+        glf.params[('H', 'H')] = {'A': configurator.lipids.Ahh, 'B': 0.0, 'r0': configurator.lipids.rhh, 'rc': 2.0*configurator.lipids.rhh} # Head-Head
+        glf.params[('H', 'I')] = {'A': configurator.lipids.A, 'B': 0.0, 'r0': configurator.lipids.r0, 'rc': configurator.lipids.rc} # Head-Interface
+        glf.params[('H', 'T')] = {'A': configurator.lipids.A, 'B': 0.0, 'r0': configurator.lipids.r0, 'rc': configurator.lipids.rc} # Head-Tail
+        
+        #Interface to others interactions
+        glf.params[('I', 'I')] = {'A': configurator.lipids.A, 'B': configurator.lipids.B, 'r0': configurator.lipids.r0, 'rc': configurator.lipids.rc} # Interface to interface is sticky
+        glf.params[('I', 'T')] = {'A': configurator.lipids.A, 'B': 0.0, 'r0': configurator.lipids.r0, 'rc': configurator.lipids.rc} # Interface to tail is not sticky
+        
+        #Tail to other interactions
+        glf.params[('T', 'T')] = {'A': configurator.lipids.A, 'B': configurator.lipids.B, 'r0': configurator.lipids.r0, 'rc': configurator.lipids.rc} # Tail to tail is sticky
+        
+        # Set the cutoff distance accordingly
+        glf.r_cut[('H', 'H')] = configurator.lipids.rhh
+        glf.r_cut[('H', 'I')] = configurator.lipids.r0
+        glf.r_cut[('H', 'T')] = configurator.lipids.r0
+        glf.r_cut[('I', 'I')] = configurator.lipids.rc
+        glf.r_cut[('I', 'T')] = configurator.lipids.r0
+        glf.r_cut[('T', 'T')] = configurator.lipids.rc
   
     # Only create AH domains if necessary
     if configurator.ahdomain:
@@ -135,13 +136,14 @@ if __name__ == "__main__":
         ###############################
         # We also have to assign interactions between the ah pieces and every other body in the
         # system.  Self interactions for the ahs is not always zero!
-        glf.params[('AH1', 'AH1')] = {'A': configurator.ahdomain.A, 'B': configurator.ahdomain.Bself, 'r0': configurator.ahdomain.r0, 'rc': configurator.ahdomain.rc}
+        glf.params[('AH1', 'AH1')] = {'A': configurator.ahdomain.A, 'B': configurator.ahdomain.Bself_other, 'r0': configurator.ahdomain.r0, 'rc': configurator.ahdomain.rc}
         glf.params[('AH1', 'AH2')] = {'A': configurator.ahdomain.A, 'B': 0.0, 'r0': configurator.ahdomain.r0, 'rc': configurator.ahdomain.rc}
-        glf.params[('AH2', 'AH2')] = {'A': configurator.ahdomain.A, 'B': configurator.ahdomain.Bself, 'r0': configurator.ahdomain.r0, 'rc': configurator.ahdomain.rc}
+        glf.params[('AH2', 'AH2')] = {'A': configurator.ahdomain.A, 'B': configurator.ahdomain.Bself_hydrophobic, 'r0': configurator.ahdomain.r0, 'rc': configurator.ahdomain.rc}
         glf.r_cut[('AH1', 'AH1')] = configurator.ahdomain.rc
         glf.r_cut[('AH1', 'AH2')] = configurator.ahdomain.r0
         glf.r_cut[('AH2', 'AH2')] = configurator.ahdomain.rc
-        
+       
+    if configurator.lipids and configurator.ahdomain:
         ###############################
         # Membrane-AH interactions
         ###############################
@@ -166,13 +168,15 @@ if __name__ == "__main__":
     ###############################
     # Assign bonded interaction strengths
     harmonic = md.bond.Harmonic()
-    harmonic.params['lipidbond'] = dict(k = configurator.lipids.kbond, r0 = configurator.lipids.rbond)
+    if configurator.lipids:
+        harmonic.params['lipidbond'] = dict(k = configurator.lipids.kbond, r0 = configurator.lipids.rbond)
     if configurator.ahdomain:
         harmonic.params['ahbond'] = dict(k = configurator.ahdomain.kbond, r0 = configurator.ahdomain.rbond)
     
     # Assign angle interaction strengths
     angleharmonic = md.angle.Harmonic()
-    angleharmonic.params['lipidbend'] = dict(k = configurator.lipids.kbend, t0 = np.pi)
+    if configurator.lipids:
+        angleharmonic.params['lipidbend'] = dict(k = configurator.lipids.kbend, t0 = np.pi)
     if configurator.ahdomain:
         angleharmonic.params['ahbend'] = dict(k = configurator.ahdomain.kbend, t0 = configurator.ahdomain.thetabend)
     
@@ -181,9 +185,10 @@ if __name__ == "__main__":
     if configurator.integrator == 'langevin':
         langevin = hoomd.md.methods.Langevin(hoomd.filter.All(),
                                              kT = configurator.kT)
-        langevin.gamma['H'] = configurator.lipids.gamma
-        langevin.gamma['I'] = configurator.lipids.gamma
-        langevin.gamma['T'] = configurator.lipids.gamma
+        if configurator.lipids:
+            langevin.gamma['H'] = configurator.lipids.gamma
+            langevin.gamma['I'] = configurator.lipids.gamma
+            langevin.gamma['T'] = configurator.lipids.gamma
         if configurator.ahdomain:
             langevin.gamma['AH1'] = configurator.ahdomain.gamma
             langevin.gamma['AH2'] = configurator.ahdomain.gamma

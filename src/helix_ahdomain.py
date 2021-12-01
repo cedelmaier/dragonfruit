@@ -32,6 +32,7 @@ class helix_ahdomain(ahdomain):
         self.naa                            = np.float64(yaml_file['ah_domain']['naa'])
         self.initial_arrangement            = yaml_file['ah_domain']['initial_arrangement']
         self.sequence                       = yaml_file['ah_domain']['sequence']
+        self.initial_location               = yaml_file['ah_domain']['initial_location']
 
         # Derived quantities
         self.total_length = self.naa * self.translation_per_residue
@@ -64,6 +65,10 @@ class helix_ahdomain(ahdomain):
                                  'P': True,
                                  'G': True}
 
+        if self.initial_location != "random" and self.initial_location != "upper_half":
+            print(f"Initial location {self.initial_location} not recognized, exiting!")
+            sys.exit(1)
+
     def CreateAH(self, snap):
         # Early bail if no AH domains
         if self.nah == 0:
@@ -94,7 +99,10 @@ class helix_ahdomain(ahdomain):
                 # Assign the location of the AH filament
                 xrand = random.uniform(-1.0*rboxxy, rboxxy)
                 yrand = random.uniform(-1.0*rboxxy, rboxxy)
-                zrand = random.uniform(self.bead_size*self.nbeads, rboxz)
+                if self.initial_location == "upper_half":
+                    zrand = random.uniform(self.bead_size*self.nbeads, rboxz)
+                elif self.initial_location == "random":
+                    zrand = random.uniform(-1.0*rboxz, rboxz)
                 # Assign a random unit vector
                 v = generate_random_unit_vector(3)
 
@@ -172,7 +180,8 @@ class helix_ahdomain(ahdomain):
         print(f"  B surface                         = {self.Bsurface}")
         print(f"  B intermediate                    = {self.Bintermediate}")
         print(f"  B deep                            = {self.Bdeep}")
-        print(f"  B self                            = {self.Bself}")
+        print(f"  B self hydrophobic                = {self.Bself_hydrophobic}")
+        print(f"  B self other                      = {self.Bself_other}")
         print(f"AH R (sigma)                        = {self.r0}")
         print(f"AH RC (sigma)                       = {self.rc}")
         print(f"AH r (sigma)                        = {self.rbond}")

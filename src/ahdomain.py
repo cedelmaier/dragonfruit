@@ -24,7 +24,9 @@ class ahdomain(object):
         self.Bsurface         = np.float64(yaml_file['ah_domain']['B_surface'])
         self.Bintermediate    = np.float64(yaml_file['ah_domain']['B_intermediate'])
         self.Bdeep            = np.float64(yaml_file['ah_domain']['B_deep'])
-        self.Bself            = np.float64(yaml_file['ah_domain']['B_self'])
+        #self.Bself            = np.float64(yaml_file['ah_domain']['B_self'])
+        self.Bself_hydrophobic  = np.float64(yaml_file['ah_domain']['B_self_hydrophobic'])
+        self.Bself_other        = np.float64(yaml_file['ah_domain']['B_self_other'])
         self.kbond            = np.float64(yaml_file['ah_domain']['kbond'])
         self.kbend            = np.float64(yaml_file['ah_domain']['kbend'])
         self.is_init          = yaml_file['ah_domain']['is_init']
