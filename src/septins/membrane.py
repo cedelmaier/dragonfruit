@@ -1,4 +1,7 @@
-# Configuation class for membranes in HOOMD
+# XXX: Copyright info here
+
+"""Membrane class for septin project"""
+
 import hoomd
 import hoomd.md as md
 import gsd.hoomd
@@ -11,7 +14,7 @@ import yaml
 
 import numpy as np
 
-class membrane(object):
+class Membrane(object):
     def __init__(self, bead_size, yaml_file):
         # Lipid parameters
         self.nbeads    = np.int32(np.float64(yaml_file['membrane']['nbeads']))

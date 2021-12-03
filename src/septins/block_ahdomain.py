@@ -1,4 +1,7 @@
-# Configuration for block copolymer ah domain
+# XXX: Copyright info here
+
+"""Class for block-style AH domains"""
+
 import hoomd
 import hoomd.md as md
 import gsd.hoomd
@@ -11,9 +14,12 @@ import yaml
 
 import numpy as np
 from ahdomain import ahdomain
+
+# Magic to get the library directory properly
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'lib'))
 from common import *
 
-class block_ahdomain(ahdomain):
+class BlockAHDomain(ahdomain):
     def __init__(self, bead_size, yaml_file):
         super().__init__(bead_size, yaml_file)
 

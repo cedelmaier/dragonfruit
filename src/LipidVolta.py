@@ -12,15 +12,22 @@ import yaml
 
 import numpy as np
 
-from configurator import Configurator
+# Magic to get the library directory properly
+sys.path.append(os.path.join(os.path.dirname(__file__), 'septins'))
+from septin_seed import SeptinSeed
 
 # Create a rudimentary parser to get the number of steps, the write frequency,
 # and the box length
 def parse_args():
-    parser = argparse.ArgumentParser(prog='lipid_volta.py')
+    parser = argparse.ArgumentParser(prog='LipidVolta.py')
 
-    parser.add_argument('--default_file', type=str, default='lipid.default.yaml',
-            help='Default configuration file')
+    # General options
+    parser.add_argument('--yaml', type=str, default='lipid.default.yaml',
+            help='YAML configuration file')
+
+    parser.add_argument('-d', '--workdir', action = 'store_true',
+            help = 'Working directory')
+
 
     opts = parser.parse_args()
 
@@ -50,7 +57,17 @@ if __name__ == "__main__":
     # Parse those args
     opts = parse_args()
 
-    configurator = Configurator(opts)
+    cwd = os.getcwd()
+    if not opts.workdir:
+        opts.workdir = os.path.abspath(cwd)
+    elif not os.path.exists(opts.workdir):
+        raise IOError("Working directory {} does not exiting.".format(
+            opts.workdir))
+    else:
+        opts.workdir = os.path.abspath(opts.workdir)
+
+    # Configurator is just a septin seed, since we moved the functionality into that class
+    configurator = SeptinSeed(opts.workdir, opts)
 
     ###############################################################################
     # Set up the system
@@ -82,11 +99,7 @@ if __name__ == "__main__":
         sys.exit(1)
 
     # Initialize the membrane and AH domains with information from the snapshot (if available)
-    configurator.Init(snap)
-
-    ## Configure the membrane part of the system
-    #configurator.CreateMembrane(snap)
-    #configurator.CreateAH(snap)
+    configurator.Configure(snap)
 
     # Print information
     configurator.PrintInformation(snap)

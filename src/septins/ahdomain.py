@@ -11,6 +11,9 @@ import sys
 import yaml
 
 import numpy as np
+
+# Magic to get the library directory properly
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'lib'))
 from common import *
 
 class ahdomain(object):

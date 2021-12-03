@@ -1,4 +1,7 @@
-# Configuration class for helix AH domains in HOOMD
+# XXX: Put a license here
+
+"""Class for helix-style AH domains"""
+
 import hoomd
 import hoomd.md as md
 import gsd.hoomd
@@ -12,6 +15,9 @@ import yaml
 import numpy as np
 from scipy.optimize import fsolve
 from ahdomain import ahdomain
+
+# Magic to get the library directory properly
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'lib'))
 from common import *
 
 def helix_position(a, b, t):
@@ -20,7 +26,7 @@ def helix_position(a, b, t):
 def helix_space_func(t0, a, b, d):
     return 4.0 * np.square(a) * np.square(np.sin(t0/2.0)) + np.square(b*t0) - np.square(d)
 
-class helix_ahdomain(ahdomain):
+class HelixAHDomain(ahdomain):
     def __init__(self, bead_size, yaml_file):
         super().__init__(bead_size, yaml_file)
 
