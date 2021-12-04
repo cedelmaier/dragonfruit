@@ -13,7 +13,6 @@ import pandas as pd
 
 # Magic to get the library directory properly
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'lib'))
-#from block_copolymer import BlockCopolymer
 from membrane import Membrane
 from block_ahdomain import BlockAHDomain
 from helix_ahdomain import HelixAHDomain
@@ -22,6 +21,8 @@ from seed_graph_funcs import *
 
 class SeptinSeed(SeedBase):
     def __init__(self, path, opts):
+        print(f"SeptinSeed::__init__")
+
         SeedBase.__init__(self, path, opts)
 
         # Set the internal data classes
@@ -47,26 +48,10 @@ class SeptinSeed(SeedBase):
                 print(f"AH domain type {self.ahtype} not implemented, exiting!")
                 sys.exit(1)
 
-        ## Set the trajectory file we are analyzing
-        #self.trajectory_filename = self.default_yaml['simulation']['trajectory_file']
+        # Set the name for the results file at the end
+        self.hd5_name = "SeptinSeed.h5"
 
-        ## Get membrane information
-        #self.nbeads_membrane = np.float64(self.default_yaml['membrane']['nbeads'])
-        #self.nlipids_per_layer = np.square(np.int64(self.default_yaml['membrane']['ngrid']))
-        #self.nlipids = 2*self.nlipids_per_layer
-        #self.nmembrane = self.nlipids * self.nbeads_membrane
-
-        ## Get AH information if it exists
-        #if 'ah_domain' in self.default_yaml:
-        #    self.nahdomains = np.int64(self.default_yaml['ah_domain']['n_ah'])
-        #    self.ah_start_nx = np.int64(self.nmembrane)
-        #    self.ahdomain = BlockCopolymer(self.default_yaml, self.ah_start_nx)
-
-
-        #self.hd5_name = "SeptinSeed.h5"
-
-        #print(f"  Membrane beads: {self.nmembrane}")
-        #print(f"  AH starting index: {self.ah_start_nx}")
+        print(f"SeptinSeed::__init__ return")
 
     def ReadData(self):
         r""" Read the data from a YAML file for a single seed
@@ -77,6 +62,8 @@ class SeptinSeed(SeedBase):
         self.deltatau           = np.float64(self.default_yaml['simulation']['deltatau'])
         self.nsteps             = np.int32(np.float64(self.default_yaml['simulation']['nsteps']))
         self.nwrite             = np.int32(np.float64(self.default_yaml['simulation']['nwrite']))
+        self.min_frame          = np.int32(np.float64(self.default_yaml['simulation']['min_frame']))
+        self.max_frame          = np.int32(np.float64(self.default_yaml['simulation']['max_frame']))
         self.lbox               = np.float64(self.default_yaml['simulation']['lbox'])
         self.nseed              = np.int32(np.float64(self.default_yaml['simulation']['seed']))
         self.compute_mode       = self.default_yaml['simulation']['mode']
@@ -123,6 +110,8 @@ class SeptinSeed(SeedBase):
         print(f"Integrator              = {self.integrator}")
         print(f"Delta tau               = {self.deltatau}")
         print(f"Simulation time (tau)   = {self.deltatau*self.nsteps}")
+        print(f"nwrite                  = {self.nwrite}")
+        print(f"min/max frame           = {self.min_frame}, {self.max_frame}")
         print(f"kBT                     = {self.kT}")
         print(f"seed                    = {self.nseed}")
         print(f"box                     = ({snap.configuration.box[0]}, {snap.configuration.box[1]}, {snap.configuration.box[2]})")
@@ -198,28 +187,19 @@ class SeptinSeed(SeedBase):
         print(f"Running seed analysis")
         print(f"Path: {self.path}")
         print(f"  yaml file: {self.yaml_filename}")
-        print(f"  trajectory file: {self.trajectory_filename}")
+        print(f"  trajectory file: {self.trajectory_file}")
 
         # If we are doing the analysis load the trajectory file
-        self.traj_all = gsd.hoomd.open(os.path.join(self.path, self.trajectory_filename))
+        self.traj_all = gsd.hoomd.open(os.path.join(self.path, self.trajectory_file))
         print(f"Analyzing nframes: {len(self.traj_all)}")
-
-        # XXX: These are hardcoded for now, change later for the analysis for what frames, etc
-        # we want to do the analysis on
-        self.nmeasure = 10
-        self.min_frame = 000
-        self.max_frame = 200
 
         # Set up the storage arrays for variables
         self.timedata = {}
         self.timedata['timestep'] = [] # Create an empty list for the frame times
 
-
         # Main analysis loop
         for itx,traj in enumerate(self.traj_all):
-            # Bail if we don't want to analyze this timepoint
-            if itx % self.nmeasure != 0:
-                continue
+            # Analyze every timepoint in the sequence
             if itx < self.min_frame:
                 continue
             if itx >= self.max_frame:

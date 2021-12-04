@@ -14,6 +14,7 @@ import pandas as pd
 
 # Magic to get the proper library directories
 sys.path.append(os.path.join(os.path.dirname(__file__), 'lib'))
+sys.path.append(os.path.join(os.path.dirname(__file__), 'septins'))
 from stylelib.common_styles import septin_runs_stl
 from septin_seed import SeptinSeed
 
