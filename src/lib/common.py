@@ -21,3 +21,10 @@ def sphere_overlap(sphere_diameter, r1, r2):
     distmag = np.linalg.norm(r1 - r2)
     return distmag < sphere_diameter
 
+# Define a moving average
+def moving_average(a, n=2):
+    r""" Moving average
+    """
+    ret = np.cumsum(a, dtype=np.float32)
+    ret[n:] = ret[n:] - ret[:-n]
+    return np.divide(ret[n-1:],n)

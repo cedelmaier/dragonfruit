@@ -44,6 +44,13 @@ class Membrane(object):
         self.lipidmass = self.mdopc
         self.lipidmass_per_bead = self.lipidmass / self.nbeads
 
+        # Initial configuration information for analysis
+        self.analysis_init = False
+        self.getTypeIDbyName = {}
+        self.getNamebyTypeID = {}
+        self.nmembrane = self.nbeads * 2 * self.ngrid * self.ngrid
+        self.nlipids = 2 * self.ngrid * self.ngrid
+
     # Init any information that required a snapshot
     def InitMembrane(self, snap):
         if self.is_init:
@@ -117,6 +124,8 @@ class Membrane(object):
         # Print out the relevant information about the lipids
         print(f"--------")
         print(f"Lipid information")
+        print(f"N beads in membrane     = {self.nmembrane}")
+        print(f"N lipids                = {self.nlipids}")
         print(f"Lipid mass (amu)        = {self.lipidmass}")
         print(f"  Lipid mass per bead   = {self.lipidmass_per_bead}")
         print(f"Gamma (m/tau)           = {self.gamma}")
@@ -130,11 +139,6 @@ class Membrane(object):
         print(f"Bond k (kBT/sigma^2)    = {self.kbond}")
         print(f"Bend k (kBT/rad^2)      = {self.kbend}")
 
-        # Write out any interesting derived information
-        self.nlipids = 0
-        for idx in range(snap.particles.N):
-            if snap.particles.typeid[idx] == 0:
-                self.nlipids += 1
         self.nlipids_per_leafleat = self.nlipids / 2
         lbox = snap.configuration.box[0]
         self.area_per_lipid = (lbox * lbox) / (self.nlipids_per_leafleat)
@@ -143,4 +147,29 @@ class Membrane(object):
         print(f"  Number of lipid patches:              {self.nlipids}")
         print(f"  Number of lipid patches per leafleat: {self.nlipids_per_leafleat}")
         print(f"  Area per lipid:                       {self.area_per_lipid}")
+
+    def ConfigureAnalysis(self, snap):
+        r""" Configure the analysis for the trajectory
+        """
+        print(f"Membrane::ConfigureAnalysis")
+
+        if self.analysis_init:
+            print(f"Membrane: analysis already set up!")
+            return
+
+        # Get the TypeID by name or by type
+        for idx,val in enumerate(snap.particles.types):
+            self.getTypeIDbyName[val] = idx
+            self.getNamebyTypeID[idx] = val
+
+        print(f"Membrane::ConfigureAnalysis return")
+
+    def GetLeafletIndices(self, snap, ptype):
+        r""" Get the indices for the lipids, upper and lower leaflets
+        """
+        idx = np.where(snap.particles.typeid == self.getTypeIDbyName[ptype])[0]
+        leaf1_idx = idx[:len(idx)//2]
+        leaf2_idx = idx[len(idx)//2:]
+
+        return [idx, leaf1_idx, leaf2_idx]
 

@@ -11,10 +11,14 @@ import gsd.hoomd
 import numpy as np
 import pandas as pd
 
+# Analysis imports
+import freud
+from freud import box
+
 # Magic to get the library directory properly
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'lib'))
 from membrane import Membrane
-from block_ahdomain import BlockAHDomain
+from block_ahdomain import BindingState, BlockAHDomain
 from helix_ahdomain import HelixAHDomain
 from seed_base import SeedBase
 from seed_graph_funcs import *
@@ -70,6 +74,7 @@ class SeptinSeed(SeedBase):
         self.trajectory_file    = self.default_yaml['simulation']['trajectory_file']
         self.init_type          = self.default_yaml['simulation']['init_type']
         self.integrator         = self.default_yaml['simulation']['integrator']
+        self.time_divisions     = np.int32(np.float64(self.default_yaml['simulation']['time_divisions']))
 
         # Check integrator settings to make sure it's okay!
         if (self.integrator != 'langevin' and self.integrator != 'NPT' and self.integrator != 'NPH'):
@@ -112,6 +117,7 @@ class SeptinSeed(SeedBase):
         print(f"Simulation time (tau)   = {self.deltatau*self.nsteps}")
         print(f"nwrite                  = {self.nwrite}")
         print(f"min/max frame           = {self.min_frame}, {self.max_frame}")
+        print(f"time divisions          = {self.time_divisions}")
         print(f"kBT                     = {self.kT}")
         print(f"seed                    = {self.nseed}")
         print(f"box                     = ({snap.configuration.box[0]}, {snap.configuration.box[1]}, {snap.configuration.box[2]})")
@@ -135,17 +141,6 @@ class SeptinSeed(SeedBase):
             self.lipids.InitMembrane(snap)
         if self.ahdomain:
             self.ahdomain.InitAH(snap)
-
-    def GetHeadIndices(self, traj):
-        r"""Get the head indices for the lipids, both upper
-        and lower leaflets
-        """
-        head_idx = np.arange(0, self.nmembrane, self.nbeads)
-        idx_skip = self.nbeads*2
-        leaf1_idx = np.arange(0, self.nmembrane, idx_skip)
-        lead2_idx = np.arange(self.nbeads, self.nmembrane, idx_skip)
-
-        return [head_idx, leaf1_idx, leaf2_idx]
 
     def CheckLoadAnalyze(self, file_path, force_analyze = False):
         r""" Check if the data can be loaded from an HD5 file
@@ -193,32 +188,60 @@ class SeptinSeed(SeedBase):
         self.traj_all = gsd.hoomd.open(os.path.join(self.path, self.trajectory_file))
         print(f"Analyzing nframes: {len(self.traj_all)}")
 
+        # Configure membrane/ahdomain and print the information
+        if self.lipids:
+            self.lipids.ConfigureAnalysis(self.traj_all[0])
+        if self.ahdomain:
+            self.ahdomain.ConfigureAnalysis(self.traj_all[0])
+        self.PrintInformation(self.traj_all[0])
+
         # Set up the storage arrays for variables
         self.timedata = {}
+        self.distdata = {}
         self.timedata['timestep'] = [] # Create an empty list for the frame times
 
+        # Keep track of the current frame and the current time division
+        self.current_time_division = 0
+        self.current_time_trigger = False
+        self.first_trigger = True
+
         # Main analysis loop
-        for itx,traj in enumerate(self.traj_all):
+        for itx,snap in enumerate(self.traj_all):
             # Analyze every timepoint in the sequence
+            self.current_frame =  itx # Keep track of the current frame number
+            #print(f"division: {(self.max_frame - self.min_frame)/self.time_divisions}")
+            if (self.current_frame % np.int64((self.max_frame - self.min_frame)/self.time_divisions) == 0 and not self.first_trigger):
+                self.current_time_trigger = True # XXX Probably a better way to do this, but need to get it done
+            elif (self.first_trigger):
+                self.first_trigger = False
+
             if itx < self.min_frame:
                 continue
             if itx >= self.max_frame:
                 break
-            print(f"    Analyzing frame: {itx}")
+            print(f"Analyzing frame: {itx}")
 
             # Get the timestep of the current analysis from the trajectory
-            timestep = np.int64(traj.configuration.step)
-            print(f"    Timestep: {timestep}")
+            timestep = np.int64(snap.configuration.step)
+            if self.current_time_trigger:
+                print(f"    Timestep: {timestep}, time_trigger: {self.current_time_trigger}, {self.current_time_division}")
+            else:
+                print(f"    Timestep: {timestep}")
+
             self.timedata['timestep'].append(timestep)
 
             # Here are the actual guts of the analyses
-            self.Temperature(timestep, traj)
-            self.Pressure(timestep, traj)
-            self.MembraneArea(timestep, traj)
-            
+            self.Temperature(timestep, snap)
+            self.Pressure(timestep, snap)
+            self.MembraneArea(timestep, snap)
 
+            # AH domain analysis
+            self.AHDomainKon(timestep, snap)
 
-
+            # Reset the triggers
+            if self.current_time_trigger:
+                self.current_time_division += 1
+            self.current_time_trigger = False
 
         # Make sure to clean up after ourselves if we've opened the file
         self.traj_all.close()
@@ -230,12 +253,26 @@ class SeptinSeed(SeedBase):
         self.SaveHD5()
 
     def Postprocess(self):
+        r""" Postprocess information for things like distributions
+        """
+
+        # Increment the time_division counter to force a change where needed
+        self.current_time_division += 1
+
+        # Postprocess distributions
+        self.PostprocessDistributions()
+
+        # Also postprocess for saving
+        self.PostprocessHD5()
+
+    def PostprocessHD5(self):
         r""" Postprocess the results to save in HD5F format
         """
         # Have to do timestep separately
         timestep = np.array(self.timedata['timestep'], dtype = np.int64)
         df_timestep = pd.DataFrame(timestep, columns = ['timestep'])
 
+        # Process the timesteps
         dfs = []
         dfs.append(df_timestep)
         for key in sorted(self.timedata):
@@ -246,40 +283,183 @@ class SeptinSeed(SeedBase):
             df = pd.DataFrame(val_arr, columns = [key])
             dfs.append(df)
 
+        # Process the distribution data too
+        dfs.append(self.df_lifetimes)
+        dfs.append(self.subdivision_df)
+
         self.df = pd.concat(dfs, axis=1)
         print(self.df)
 
-    def Temperature(self, timestep, traj):
+    def PostprocessDistributions(self):
+        r""" Postprocess the distributions
+        """
+
+        lifetime_dict = {}
+        lifetime_dict[BindingState.free] = []
+        lifetime_dict[BindingState.near] = []
+        lifetime_dict[BindingState.surface] = []
+        lifetime_dict[BindingState.intermediate] = []
+        lifetime_dict[BindingState.deep] = []
+        subdivision_lifetime_dict = {}
+        # Do the lifetime distribution
+        for ahdx in range(self.ahdomain.nah):
+        #for ahdx in range(1):
+            subdomain = self.ahdomain.GetSubAHDomain(ahdx)
+            # Flush the binding state information
+            subdomain.UpdateBindingState(-1, self.current_time_division)
+
+            lifetime_dict[BindingState.free].extend(subdomain.lifetime_dict[BindingState.free]) 
+            lifetime_dict[BindingState.near].extend(subdomain.lifetime_dict[BindingState.near]) 
+            lifetime_dict[BindingState.surface].extend(subdomain.lifetime_dict[BindingState.surface]) 
+            lifetime_dict[BindingState.intermediate].extend(subdomain.lifetime_dict[BindingState.intermediate]) 
+            lifetime_dict[BindingState.deep].extend(subdomain.lifetime_dict[BindingState.deep]) 
+
+            # Now compile the results for all the subdivision, the first division counts at the end of the range
+            for itx in range(0, self.current_time_division):
+                if itx not in subdivision_lifetime_dict:
+                    subdivision_lifetime_dict[itx] = {}
+                    subdivision_lifetime_dict[itx][BindingState.free] = []
+                    subdivision_lifetime_dict[itx][BindingState.near] = []
+                    subdivision_lifetime_dict[itx][BindingState.surface] = []
+                    subdivision_lifetime_dict[itx][BindingState.intermediate] = []
+                    subdivision_lifetime_dict[itx][BindingState.deep] = []
+                subdivision_lifetime_dict[itx][BindingState.free].extend(subdomain.lifetime_subdivision_dict[itx][BindingState.free]) 
+                subdivision_lifetime_dict[itx][BindingState.near].extend(subdomain.lifetime_subdivision_dict[itx][BindingState.near]) 
+                subdivision_lifetime_dict[itx][BindingState.surface].extend(subdomain.lifetime_subdivision_dict[itx][BindingState.surface]) 
+                subdivision_lifetime_dict[itx][BindingState.intermediate].extend(subdomain.lifetime_subdivision_dict[itx][BindingState.intermediate]) 
+                subdivision_lifetime_dict[itx][BindingState.deep].extend(subdomain.lifetime_subdivision_dict[itx][BindingState.deep]) 
+
+        # Convert lifetime information to DFs to save
+        self.df_lifetimes = pd.DataFrame(dict([ (k.name,pd.Series(np.float32(v))) for k,v in lifetime_dict.items() ]))
+
+        # Conver the time subdivisions into DFs to save
+        subdivision_dfs = []
+        for time_division,bstate in subdivision_lifetime_dict.items():
+            # For each state name, create a new DF
+            for state_name,val in bstate.items():
+                col_name = state_name.name + str(time_division)
+                df = pd.DataFrame(val, columns = [col_name])
+                subdivision_dfs.append(df)
+        self.subdivision_df = pd.concat(subdivision_dfs, axis=1)
+
+    def Temperature(self, timestep, snap):
         r""" Simulation kinetic temperature
         """
-        T = traj.log['md/compute/ThermodynamicQuantities/kinetic_temperature'][0]
+        T = snap.log['md/compute/ThermodynamicQuantities/kinetic_temperature'][0]
         if 'T' not in self.timedata:
             self.timedata['T'] = {}
         self.timedata['T'][timestep] = T
 
-    def Pressure(self, timestep, traj):
+    def Pressure(self, timestep, snap):
         r""" Simulation pressure
         """
-        P = traj.log['md/compute/ThermodynamicQuantities/pressure'][0]
+        P = snap.log['md/compute/ThermodynamicQuantities/pressure'][0]
         if 'P' not in self.timedata:
             self.timedata['P'] = {}
         self.timedata['P'][timestep] = P
 
-    def MembraneArea(self, timestep, traj):
+    def MembraneArea(self, timestep, snap):
         r""" Membrane area
         """
-        Lx = np.float64(traj.configuration.box[0])
-        Ly = np.float64(traj.configuration.box[1])
+        Lx = np.float64(snap.configuration.box[0])
+        Ly = np.float64(snap.configuration.box[1])
         membrane_area = Lx*Ly
         if 'membrane_area' not in self.timedata:
             self.timedata['membrane_area'] = {}
         self.timedata['membrane_area'][timestep] = membrane_area
 
-    def Graph(self, axarr, color = 'b'):
-        r"""Default graphing call for single seeds
+    def AHDomainKon(self, timestep, snap):
+        r""" k_on measurements for ah domains
         """
-        graph_scatter(self.label, self.df["timestep"], self.df["T"], axarr[0], mtitle = "Temperature", xtitle = "Timestep", ytitle = "Temperature (kT)")
-        graph_scatter(self.label, self.df["timestep"], self.df["P"], axarr[1], mtitle = "Pressure", xtitle = "Timestep", ytitle = "Presure (kT/$\sigma^{3}$)")
-        graph_scatter(self.label, self.df["timestep"], self.df["membrane_area"], axarr[2], mtitle = "Membrane Area", xtitle = "Timestep", ytitle = "Membrane area ($\sigma^{2}$)")
+        # Bail if there isn't an AH domain or a membrane
+        if not self.ahdomain or not self.lipids:
+            return
+
+        # Create the lifetime subdivisions if we need to
+        if 'lifetime_subdivisions' not in self.distdata:
+            self.distdata['lifetime_subdivisions'] = {}
+
+        # Get the head, intermeidate, and tail indices for the lipids
+        [h_idx, leaf1_h_idx, leaf2_h_idx] = self.lipids.GetLeafletIndices(snap, 'H')
+        [i_idx, leaf1_i_idx, leaf2_i_idx] = self.lipids.GetLeafletIndices(snap, 'I')
+        [t_idx, leaf1_t_idx, leaf2_t_idx] = self.lipids.GetLeafletIndices(snap, 'T')
+
+        # Loop over membrane/AH combinations to look for the interactions,
+        # and then record them in the individual SingleAHDomains
+        for ahdx in range(self.ahdomain.nah):
+        #for ahdx in range(1):
+            # Get the current box size
+            box_data = snap.configuration.box
+            f_box = box.Box(Lx = box_data[0], Ly = box_data[1], Lz = box_data[2])
+
+            subdomain = self.ahdomain.GetSubAHDomain(ahdx)
+
+            # Set control variables first
+            near_membrane = False
+            surface_interaction = False
+            intermediate_interaction = False
+            deep_interaction = False
+
+            r_cutoff = 1.0*(self.lipids.r0 + self.ahdomain.r0)
+
+            # Check if we are near the membrane
+            # XXX: There is probably a way to significantly speed this up by only constructing the
+            #      AABB query once, and then filtering out the results?
+            # XXX: For now, use a cutoff of something like within the range of 10 cutoff radii
+            system_near = freud.AABBQuery(f_box, snap.particles.position[h_idx])
+            query_points = snap.particles.position[subdomain.index_all]
+            nlist_near = system_near.query(query_points, {"r_max": 10.0*r_cutoff}).toNeighborList()
+            if len(nlist_near) > 0: near_membrane = True
+
+            # Do the heads first, do we have interactions with the hydrophilic heads
+            membrane_head_system = freud.AABBQuery(f_box, snap.particles.position[h_idx])
+            # Check the hydrophilic portinos of the protein
+            query_points = snap.particles.position[subdomain.index_ah1]
+            nlist_surface = membrane_head_system.query(query_points, {"r_max": r_cutoff}).toNeighborList()
+            if len(nlist_surface) > 0: surface_interaction = True
+
+            # Check if hydrophobic regions are near tails
+            membrane_intermediate_system = freud.AABBQuery(f_box, snap.particles.position[i_idx])
+            query_points = snap.particles.position[subdomain.index_ah2]
+            nlist_intermediate = membrane_intermediate_system.query(query_points, {"r_max": r_cutoff}).toNeighborList()
+            if len(nlist_intermediate) > 0: intermediate_interaction = True
+
+            # Check if hydrophobic regions are near the deep
+            membrane_deep_system = freud.AABBQuery(f_box, snap.particles.position[t_idx])
+            query_points = snap.particles.position[subdomain.index_ah2]
+            nlist_deep = membrane_deep_system.query(query_points, {"r_max": r_cutoff}).toNeighborList()
+            if len(nlist_deep) > 0: deep_interaction = True
+
+            # Check all of the conditions, in order, to tell the ahdomain what it is doing
+            # Set the binding type to what we see here in order
+            # -1 for uninitialized, 0 for free,
+            # 1 for near surface, 2 for surface interact,
+            # 3 for intermediate, 4 for deep
+            current_binding_state = BindingState.init
+            if deep_interaction:
+                current_binding_state = BindingState.deep
+            elif intermediate_interaction:
+                current_binding_state = BindingState.intermediate
+            elif surface_interaction:
+                current_binding_state = BindingState.surface
+            elif near_membrane:
+                current_binding_state = BindingState.near
+            else:
+                current_binding_state = BindingState.free
+
+            # Now, pass this information to the subdomain to do with it what it will
+            subdomain.UpdateBindingState(current_binding_state, self.current_time_division)
+
+    def GraphDynamic(self, axarr, color = 'b'):
+        r"""Default graphing call for single seeds dynamic information
+        """
+        graph_seed_scatter(self.label, self.df["timestep"], self.df["T"], axarr[0], mtitle = "Temperature", xtitle = "Timestep", ytitle = "Temperature (kT)")
+        graph_seed_scatter(self.label, self.df["timestep"], self.df["P"], axarr[1], mtitle = "Pressure", xtitle = "Timestep", ytitle = "Presure (kT/$\sigma^{3}$)")
+        graph_seed_scatter(self.label, self.df["timestep"], self.df["membrane_area"], axarr[2], mtitle = "Membrane Area", xtitle = "Timestep", ytitle = "Membrane area ($\sigma^{2}$)")
+
+    def GraphDistributions(self, axarr, color = 'b'):
+        r"""Default graphing call for single seed distribution information
+        """
+        graph_seed_lifetime_distribution(self.label, self.df[['free', 'near', 'surface', 'intermediate', 'deep']], axarr, mtitle = "Lifetime", xtitle = "Lifetime (frames)", ytitle = "Number")
 
 

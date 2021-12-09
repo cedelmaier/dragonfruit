@@ -81,10 +81,18 @@ class SeptinAnalysis(object):
 
         if self.opts.graph:
             plt.style.use(septin_runs_stl)
-            fig, axarr = plt.subplots(3, 1, figsize=(15,10))
-            sd.Graph(axarr)
+
+            # Plot dynamic variables
+            fig, axarr = plt.subplots(3, 1, figsize=(15, 10))
+            sd.GraphDynamic(axarr)
             fig.tight_layout()
             fig.savefig('septin_parameters.pdf', dpi=fig.dpi)
+
+            # Plot distribution data
+            fig, axarr = plt.subplots(3, 2, figsize=(15,10))
+            sd.GraphDistributions(axarr)
+            fig.tight_layout()
+            fig.savefig('septin_distributions.pdf', dpi=fig.dpi)
         
 
 
