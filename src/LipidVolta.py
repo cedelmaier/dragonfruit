@@ -199,7 +199,7 @@ if __name__ == "__main__":
         langevin = hoomd.md.methods.Langevin(hoomd.filter.All(),
                                              kT = configurator.kT)
         if configurator.lipids:
-            langevin.gamma['H'] = configurator.lipids.gamma
+            langevin.gamma['H'] = configurator.lipids.gamma_head
             langevin.gamma['I'] = configurator.lipids.gamma
             langevin.gamma['T'] = configurator.lipids.gamma
         if configurator.ahdomain:
@@ -207,6 +207,7 @@ if __name__ == "__main__":
             langevin.gamma['AH2'] = configurator.ahdomain.gamma
 
         integrator.methods.append(langevin)
+
     elif configurator.integrator == 'NPT':
         npt = hoomd.md.methods.NPT(hoomd.filter.All(),
                                    kT = configurator.kT,
@@ -217,6 +218,19 @@ if __name__ == "__main__":
                                    box_dof = [True, True, False, False, False, False])
 
         integrator.methods.append(npt)
+
+    elif configurator.integrator == "Brownian":
+        brownian = hoomd.md.methods.Brownian(hoomd.filter.All(),
+                                             kT = configurator.kT)
+        if configurator.lipids:
+            brownian.gamma['H'] = configurator.lipids.gamma_head
+            brownian.gamma['I'] = configurator.lipids.gamma
+            brownian.gamma['T'] = configurator.lipids.gamma
+        if configurator.ahdomain:
+            brownian.gamma['AH1'] = configurator.ahdomain.gamma
+            brownian.gamma['AH2'] = configurator.ahdomain.gamma
+
+        integrator.methods.append(brownian)
     
     
     integrator.forces.append(glf)
@@ -234,6 +248,8 @@ if __name__ == "__main__":
         elif configurator.integrator == 'NPT':
             sim.state.thermalize_particle_momenta(hoomd.filter.All(), configurator.kT)
             #npt.thermalize_thermostat_and_barostat_dof()
+        elif configurator.integrator == 'Brownian':
+            sim.state.thermalize_particle_momenta(hoomd.filter.All(), configurator.kT)
     elif configurator.init_type == 'read_gsd':
         if configurator.ahdomain:
             ahfilter = hoomd.filter.Type(['AH1', 'AH2'])

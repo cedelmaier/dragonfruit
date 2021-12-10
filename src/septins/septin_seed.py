@@ -77,7 +77,7 @@ class SeptinSeed(SeedBase):
         self.time_divisions     = np.int32(np.float64(self.default_yaml['simulation']['time_divisions']))
 
         # Check integrator settings to make sure it's okay!
-        if (self.integrator != 'langevin' and self.integrator != 'NPT' and self.integrator != 'NPH'):
+        if (self.integrator != 'langevin' and self.integrator != 'NPT' and self.integrator != 'NPH' and self.integrator != 'Brownian'):
             print(f"Integrator {self.integrator} not used for this system, exiting!")
             sys.exit(1)
 

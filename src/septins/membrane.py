@@ -32,6 +32,12 @@ class Membrane(object):
         # Head beads are slightly smaller than the normal beads
         self.r0 = self.bead_size
         self.rc = 2.0 * self.r0
+
+        # Also account for a slightly different diffusion for them
+        if 'gamma_head' in yaml_file['membrane']:
+            self.gamma_head = np.float64(yaml_file['membrane']['gamma_head'])
+        else:
+            self.gamma_head = self.gamma * 0.75
    
         # Special choices for the head bead size
         self.rhh = 0.75 * self.r0
@@ -129,6 +135,7 @@ class Membrane(object):
         print(f"Lipid mass (amu)        = {self.lipidmass}")
         print(f"  Lipid mass per bead   = {self.lipidmass_per_bead}")
         print(f"Gamma (m/tau)           = {self.gamma}")
+        print(f"  Gamma head (m/tau)    = {self.gamma_head}")
         print(f"A (kBT)                 = {self.A}")
         print(f"B (kBT)                 = {self.B}")
         print(f"R (sigma)               = {self.r0}")
