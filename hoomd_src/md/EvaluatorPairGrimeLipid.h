@@ -26,7 +26,10 @@
 #define HOSTDEVICE
 #endif
 
-
+namespace hoomd
+    {
+namespace md
+    {
 //! Class for evaluating the GrimeLipid pair potential
 /*! <b>General Overview<\b>
 
@@ -189,5 +192,8 @@ class EvaluatorPairGrimeLipid
         Scalar r0;      //!< r0 parameter extracted from the params passed to the constructor
         Scalar rc;      //!< rc parameter extracted from the params passed to the constructor
     };
+
+    } // end namespace md
+    } // end namespace hoomd
 
 #endif
