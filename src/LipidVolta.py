@@ -61,7 +61,7 @@ if __name__ == "__main__":
     if not opts.workdir:
         opts.workdir = os.path.abspath(cwd)
     elif not os.path.exists(opts.workdir):
-        raise IOError("Working directory {} does not exiting.".format(
+        raise IOError("Working directory {} does not exist, exiting.".format(
             opts.workdir))
     else:
         opts.workdir = os.path.abspath(opts.workdir)
@@ -110,7 +110,8 @@ if __name__ == "__main__":
     sim.create_state_from_snapshot(snap)
 
     # Create the pair potential
-    glf = md.pair.GrimeLipid(nlist=md.nlist.Cell())
+    cell = hoomd.md.nlist.Cell(buffer=0.4)
+    glf = md.pair.GrimeLipid(nlist=cell)
     
     # Setting the particles is interesting. First off, assign zero to every combination
     # in the system
