@@ -160,10 +160,10 @@ typedef PotentialPairGPU<EvaluatorPairReactionField, kernel::gpu_compute_reactio
 typedef PotentialPairGPU<EvaluatorPairBuckingham, kernel::gpu_compute_buckingham_forces>
     PotentialPairBuckinghamGPU;
 //! Pair potential force compute for GrimeLipid forces on the GPU
-typedef PotentialPairGPU<EvaluatorPairGrimeLipid, gpu_compute_grimelipid_forces>
+typedef PotentialPairGPU<EvaluatorPairGrimeLipid, kernel::gpu_compute_grimelipid_forces>
     PotentialPairGrimeLipidGPU;
 //! Pair potential force compute for BornMayerHuggins forces on the GPU
-typedef PotentialPairGPU<EvaluatorPairBornMayerHuggins, gpu_compute_bornmayerhuggins_forces>
+typedef PotentialPairGPU<EvaluatorPairBornMayerHuggins, kernel::gpu_compute_bornmayerhuggins_forces>
     PotentialPairBornMayerHugginsGPU;
 //! Pair potential force compute for lj1208 forces on the GPU
 typedef PotentialPairGPU<EvaluatorPairLJ1208, kernel::gpu_compute_lj1208_forces>
