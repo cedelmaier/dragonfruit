@@ -2,8 +2,7 @@
 Collection of software and packages for simulating membranes with HOOMD
 
 # Basic structure of code
-.. code::
-.
+```
 `-- Run
     |-- Simulation
         |-- Seed 1
@@ -11,3 +10,4 @@ Collection of software and packages for simulating membranes with HOOMD
     `-- Simulation
         |-- Seed 1
         |-- Seed 2
+```
