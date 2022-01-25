@@ -20,8 +20,8 @@ Load the correct modules to compile HOOMD.
     module load git
     module load cmake
     module load python/3.9.6
-    module load cuda/11.4
     module load gcc/9.1.0
+    module load cuda/11.4
 
 Create a python virtual environment to load everything into with 'install' command later.
 NOTE: You can get away with doing this various ways. Just be sure you know what exactly
@@ -38,6 +38,11 @@ compilation).
     git fetch --all --tags
     git checkout tags/v3.0.0-beta.13
     python3 ./install-prereq-headers.py
+
+Any other prerequisites needed?
+
+    python3 -m pip install gsd
+    python3 -m pip install freud-analysis
 
 Copy in the files that are necessary from this repository for the additional features in HOOMD.
 These features include the 'soft' excluded volume potential as well as a prototype Born-Mayer-Huggins
@@ -62,6 +67,7 @@ beacuse with CUDA, sometimes you can run out of memory on the compile nodes and 
 errors that are hard to track down. NOTE: This will take a long time to complete.
 
     cmake --build ./ -j2
+    cmake --install ./
 
     
 
