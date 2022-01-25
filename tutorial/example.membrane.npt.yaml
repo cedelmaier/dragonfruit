@@ -1,0 +1,28 @@
+# All units should be in simulation units, unless otherwise explicitly stated!!!!!!!!
+simulation:
+  kT: 1.0 # Energy units
+  bead_size: 1.0 # Characteristic size of system
+  deltatau: 0.05 # Timestep in tau
+  nsteps: 5e6 # Total number of steps
+  nwrite: 1e4 # Number between writing output trajectories
+  min_frame: 0
+  max_frame: 50000
+  time_divisions: 5
+  lbox: ChiParam(format_str = "lbox{}", exec_str = "[100.0, 103.0]") # Size of final box, simulation units (sigma)
+  seed: ChiSeed(bounds = [0,1])
+  mode: gpu
+  trajectory_file: traj_npt_membrane.gsd
+  init_type: all
+  integrator: NPT
+  tau: 42.1052631579 # Temperature coupling tau (20 ps)
+  tauS: 421.0526315789 # Pressure coupling tauS (200 ps)
+membrane:
+  is_init: False
+  nbeads: 4 # Number of beads to use for membrane
+  ngrid: 100 # Number of repeats to place in final box
+  mass: 734.309 # Total mass of DOPCs (m)
+  gamma: 0.872 # Drag coefficient (m/tau)
+  A: 187.5 # Repulsive component of potential (kT/sigma)
+  B: 2.33333 # Attractive component of potential (kT/sigma)
+  kbond: 2812.5 # Bond strength for membranes (kT/sigma^2)
+  kbend: 2.0 # Angular strength for membranes (kT/rad^2)

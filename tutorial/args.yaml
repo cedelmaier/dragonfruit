@@ -1,0 +1,11 @@
+start:
+- spindle_bd_mp
+- spindle_bd_mp.default.yaml
+- spindle_bd_mp.equil.yaml
+- -o
+analyze:
+- SpindleAnalysis
+- -sd
+- -A
+- -F
+- WT_Cen2
