@@ -28,3 +28,29 @@ def moving_average(a, n=2):
     ret = np.cumsum(a, dtype=np.float32)
     ret[n:] = ret[n:] - ret[:-n]
     return np.divide(ret[n-1:],n)
+
+# Define a radial average
+def radial_average(uq, bin_size, pixel_size):
+    cen_x = np.int32(uq.shape[1]/2)
+    cen_y = np.int32(uq.shape[0]/2)
+    X, Y = np.meshgrid(np.arange(uq.shape[1]) - cen_x, np.arange(uq.shape[0]) - cen_y)
+    R = np.sqrt(X**2 + Y**2)
+    # Rreal has the information about the actual location of points
+    Rreal = pixel_size * R
+
+    # Set Rmax so that we don't go outside the circle averaging
+    Rmax = Rreal[0, cen_x]
+
+    # Calculate the number of bins
+    nbins = np.int32(np.floor(Rmax / bin_size))
+    bin_edges = np.arange(0, nbins+1)*bin_size
+    bin_mids = (bin_edges[0:-1] + bin_edges[1:])/2
+
+    intensity = np.zeros(len(bin_mids))
+    # Loop over the bins and count up what we need
+    for ibin in np.arange(nbins):
+        mask = (np.greater_equal(Rreal, bin_edges[ibin])) & (np.less(Rreal, bin_edges[ibin+1]))
+        values = np.abs(uq[mask])
+        intensity[ibin] = np.mean(values)
+
+    return [bin_mids, intensity]

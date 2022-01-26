@@ -115,9 +115,10 @@ if __name__ == "__main__":
     
     # Setting the particles is interesting. First off, assign zero to every combination
     # in the system
+    ss_types = ['SS1']
     lipid_types = ['H', 'I', 'T']
     ah_types = ['AH1', 'AH2']
-   
+
     if configurator.lipids:
         ###############################
         # Membrane-membrane interactions
@@ -156,7 +157,15 @@ if __name__ == "__main__":
         glf.r_cut[('AH1', 'AH1')] = configurator.ahdomain.rc
         glf.r_cut[('AH1', 'AH2')] = configurator.ahdomain.r0
         glf.r_cut[('AH2', 'AH2')] = configurator.ahdomain.rc
-       
+    
+    # Create some simple sphere parameters
+    if configurator.simple_spheres:
+        ###############################
+        # Simple sphere self-interactions
+        ###############################
+        glf.params[('SS1', 'SS1')] = {'A': configurator.simple_spheres.A, 'B': 0.0, 'r0': configurator.simple_spheres.r0, 'rc': configurator.simple_spheres.rc}
+        glf.r_cut[('SS1', 'SS1')] = configurator.simple_spheres.rc
+   
     if configurator.lipids and configurator.ahdomain:
         ###############################
         # Membrane-AH interactions
@@ -176,6 +185,22 @@ if __name__ == "__main__":
         # Now set only the tail-tail interactions for ahs and the membrane
         glf.params[('T', 'AH2')] = {'A': configurator.ahdomain.A, 'B': configurator.ahdomain.Bdeep, 'r0': 0.5*(configurator.ahdomain.r0+configurator.lipids.r0), 'rc': 1.0*(configurator.ahdomain.r0+configurator.lipids.r0)}
         glf.r_cut[('T', 'AH2')] = 1.0*(configurator.ahdomain.r0+configurator.lipids.r0)
+
+    if configurator.lipids and configurator.simple_spheres:
+        ###############################
+        # Membrane-Simple spheres interactions
+        ###############################
+        for x in itertools.product(lipid_types, ss_types):
+            glf.params[x] = {'A': configurator.simple_spheres.A, 'B': 0.0, 'r0': 0.5*(configurator.lipids.r0+configurator.simple_spheres.r0), 'rc': 1.0*(configurator.lipids.r0+configurator.simple_spheres.r0)}
+            glf.r_cut[x] = 1.0*(configurator.lipids.r0+configurator.simple_spheres.r0)
+
+    if configurator.ahdomain and configurator.simple_spheres:
+        ###############################
+        # AHdomain-Simple spheres interactions
+        ###############################
+        for x in itertools.product(ah_types, ss_types):
+            glf.params[x] = {'A': configurator.simple_spheres.A, 'B': 0.0, 'r0': 0.5*(configurator.ahdomain.r0+configurator.simple_spheres.r0), 'rc': 1.0*(configurator.ahdomain.r0+configurator.simple_spheres.r0)}
+            glf.r_cut[x] = 1.0*(configurator.ahdomain.r0+configurator.simple_spheres.r0)
     
     ###############################
     # Bonded and angle interactions
@@ -206,6 +231,8 @@ if __name__ == "__main__":
         if configurator.ahdomain:
             langevin.gamma['AH1'] = configurator.ahdomain.gamma
             langevin.gamma['AH2'] = configurator.ahdomain.gamma
+        if configurator.simple_spheres:
+            langevin.gamma['SS1'] = configurator.simple_spheres.gamma
 
         integrator.methods.append(langevin)
 
@@ -230,6 +257,8 @@ if __name__ == "__main__":
         if configurator.ahdomain:
             brownian.gamma['AH1'] = configurator.ahdomain.gamma
             brownian.gamma['AH2'] = configurator.ahdomain.gamma
+        if configurator.simple_spheres:
+            brownian.gamma['SS1'] = configurator.simple_spheres.gamma
 
         integrator.methods.append(brownian)
     

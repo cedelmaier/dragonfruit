@@ -17,6 +17,7 @@ from freud import box
 
 # Magic to get the library directory properly
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'lib'))
+from simple_spheres import SimpleSpheres
 from membrane import Membrane
 from block_ahdomain import BindingState, BlockAHDomain
 from helix_ahdomain import HelixAHDomain
@@ -32,6 +33,7 @@ class SeptinSeed(SeedBase):
         # Set the internal data classes
         self.lipids = None
         self.ahdomain = None
+        self.simple_spheres = None
 
         self.ReadData()
 
@@ -51,6 +53,8 @@ class SeptinSeed(SeedBase):
             else:
                 print(f"AH domain type {self.ahtype} not implemented, exiting!")
                 sys.exit(1)
+        if 'simple_spheres' in self.default_yaml:
+            self.simple_spheres = SimpleSpheres(self.bead_size, self.default_yaml)
 
         # Set the name for the results file at the end
         self.hd5_name = "SeptinSeed.h5"
@@ -130,6 +134,8 @@ class SeptinSeed(SeedBase):
             self.lipids.PrintInformation(snap)
         if self.ahdomain:
             self.ahdomain.PrintInformation(snap)
+        if self.simple_spheres:
+            self.simple_spheres.PrintInformation(snap)
 
     def Configure(self, snap):
         r""" Configure the simulation snapshot for HOOMD
@@ -141,6 +147,8 @@ class SeptinSeed(SeedBase):
             self.lipids.InitMembrane(snap)
         if self.ahdomain:
             self.ahdomain.InitAH(snap)
+        if self.simple_spheres:
+            self.simple_spheres.InitSimpleSpheres(snap)
 
     def CheckLoadAnalyze(self, file_path, force_analyze = False):
         r""" Check if the data can be loaded from an HD5 file
@@ -197,6 +205,7 @@ class SeptinSeed(SeedBase):
 
         # Set up the storage arrays for variables
         self.timedata = {}
+        self.modedata = {}
         self.distdata = {}
         self.timedata['timestep'] = [] # Create an empty list for the frame times
 
@@ -234,6 +243,9 @@ class SeptinSeed(SeedBase):
             self.Temperature(timestep, snap)
             self.Pressure(timestep, snap)
             self.MembraneArea(timestep, snap)
+
+            # Membrane analysis
+            self.MembraneModesFFT(timestep, snap)
 
             # AH domain analysis
             self.AHDomainKon(timestep, snap)
@@ -367,6 +379,62 @@ class SeptinSeed(SeedBase):
         if 'membrane_area' not in self.timedata:
             self.timedata['membrane_area'] = {}
         self.timedata['membrane_area'][timestep] = membrane_area
+
+    def MembraneModesFFT(self, timestep, snap):
+        r""" Membrane bending modes via FFT
+        """
+
+        if not self.lipids:
+            return
+
+        # Get the head, intermeidate, and tail indices for the lipids
+        [h_idx, leaf1_h_idx, leaf2_h_idx] = self.lipids.GetLeafletIndices(snap, 'H')
+        # Get the box size for this timeframe
+        Lx = np.float64(snap.configuration.box[0])
+        Ly = np.float64(snap.configuration.box[1])
+
+        # Get the Z positions of the lipid heads and recenter
+        positions = snap.particles.position
+        z1 = positions[leaf1_h_idx, 2]
+        z2 = positions[leaf2_h_idx, 2]
+        z0 = (np.sum(z1) + np.sum(z2))/(len(z1) + len(z2))
+        z1 = z1 - z0
+        z2 = z2 - z0
+
+        # Get the r positions for each leaflet
+        r1 = positions[leaf1_h_idx, 0:2]
+        r2 = positions[leaf2_h_idx, 0:2]
+
+        # Interpolation method to put on a grid
+        # XXX: Hardcoded for now, change later!
+        Nxgrid = 100j
+        Nygrid = 100j
+        grid_x, grid_y = np.mgrid[-Lx/2:Lx/2:Nxgrid, -Ly/2:Ly/2:Nygrid]
+        from scipy.interpolate import griddata
+        grid_z1 = griddata(r1, z1, (grid_x, grid_y), method = 'cubic', fill_value = np.mean(z1))
+        grid_z2 = griddata(r2, z2, (grid_x, grid_y), method = 'cubic', fill_value = np.mean(z2))
+
+        # Take the 2d fourier transform
+        u1 = np.fft.fft2(grid_z1, norm = 'forward')
+        u1shift = np.fft.fftshift(u1)
+        u2 = np.fft.fft2(grid_z2, norm = 'forward')
+        u2shift = np.fft.fftshift(u2)
+
+        # Get the sample frequencies
+        freqx = np.fft.fftshift(np.fft.fftfreq(u1shift.shape[1], xpixel))
+        freqy = np.fft.fftshift(np.fft.fftfreq(u2shift.shape[0], ypixel))
+
+        # Compute final variables
+        uq_2d_fft = 0.5*(u1shift + u2shift)
+
+        # Save the information we need later
+        if 'membranemodes_fft' not in self.modedata:
+            self.modedata['membranemodes_fft'] = {}
+        if 'qcutoff_fft' not in self.modedata:
+            self.modedata['qcutoff_fft'] = {}
+
+        self.modedata['membranemodes_fft'][timestep] = uq_2d_fft
+        self.modedata['qcutoff_fft'][timestep] = qcutoff
 
     def AHDomainKon(self, timestep, snap):
         r""" k_on measurements for ah domains
