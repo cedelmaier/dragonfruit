@@ -39,15 +39,6 @@ def graph_seed_lifetime_distribution(sdlabel,
 
     r""" Plotting function for total lifetime of septin attachments
     """
-    #ax.set_title(mtitle)
-    #ax.set_ylabel(ytitle)
-    #if xlabel: ax.set_xlabel(xtitle)
-
-    # XXX Max frame hardcoded to 200
-    #hist, bin_edges = np.histogram(df['free'], bins = 10, range = (0, 200))
-    #hist = df.hist(ax = axarr, bins = 20, range = (0, 200))
-    #axarr.set_xlabel("Lifetime (frame)")
-
     hist_free, bin_edges_free = np.histogram(df['free'], bins = 10, range = (0, 200))
     hist_near, bin_edges_near = np.histogram(df['near'], bins = 10, range = (0, 200))
     hist_surf, bin_edges = np.histogram(df['surface'], bins = 10, range = (0, 200))
@@ -74,3 +65,53 @@ def graph_seed_lifetime_distribution(sdlabel,
     axarr[2][0].set_title("Deep")
 
     axarr[-1][-1].axis('off')
+
+def graph_seed_membranemodes(sdlabel,
+                             df,
+                             ax,
+                             mtitle = '',
+                             xtitle = '',
+                             ytitle = '',
+                             color = 'b',
+                             xlabel = True):
+    r""" Plotting function for total membrane modes
+    """
+    ax.scatter(df['x_fft'], df['su_fft'], color = 'r', marker = '+', linewidth = 1)
+    ax.scatter(df['x_direct'], df['su_direct'], color = 'b', marker = 'o', s = 80, facecolors = 'none')
+    ax.set_yscale('log')
+    ax.set_xscale('log')
+    ax.set_title(mtitle)
+    if xlabel: ax.set_xlabel(xtitle)
+    ax.set_ylabel(ytitle)
+
+def msd_fit(t, n, D):
+    return 2*n*D*t
+
+def graph_seed_simplespheres_msd(sdlabel,
+                                 deltatau,
+                                 df,
+                                 ax,
+                                 mtitle = '',
+                                 xtitle = '',
+                                 ytitle = '',
+                                 color = 'b',
+                                 xlabel = True):
+    r""" Plotting function for simple spehres MSD
+    """
+    timesteps = df['timestep'].to_numpy()*deltatau
+    msd = df['msd_simple'].to_numpy()
+    ax.scatter(timesteps, msd, color = 'b', marker = 'o', s = 80, facecolors = 'none')
+
+    # Put a fit on the curve
+    from scipy.optimize import curve_fit
+    popt, pcov = curve_fit(lambda t, D: msd_fit(t, 3, D), timesteps, msd, 1.0)
+    ax.plot(timesteps, msd_fit(timesteps, 3, popt[0]), 'r--', linewidth = 1)
+    print(f"Diffusion: {popt[0]}")
+
+    ax.set_title(mtitle)
+    ax.set_title(mtitle)
+    if xlabel: ax.set_xlabel(xtitle)
+    ax.set_ylabel(ytitle)
+    
+
+

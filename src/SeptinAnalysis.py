@@ -31,8 +31,6 @@ def parse_args():
     parser.add_argument('--yaml', type = str,
             help = 'YAML file to read')
 
-
-
     # Control options
     parser.add_argument('-A', '--analyze', action = 'store_true',
             help = 'Analyze data from simulation(s)')
@@ -88,11 +86,23 @@ class SeptinAnalysis(object):
             fig.tight_layout()
             fig.savefig('septin_parameters.pdf', dpi=fig.dpi)
 
+            # Plot diffusion if it exists
+            fig, axarr = plt.subplots(1, 1, figsize=(15,10))
+            sd.GraphSimpleMSD(axarr)
+            fig.tight_layout()
+            fig.savefig('septin_simple_msd.pdf', dpi=fig.dpi)
+
             # Plot distribution data
             fig, axarr = plt.subplots(3, 2, figsize=(15,10))
             sd.GraphDistributions(axarr)
             fig.tight_layout()
             fig.savefig('septin_distributions.pdf', dpi=fig.dpi)
+
+            # Plot membrane modes
+            fig, axarr = plt.subplots(1, 1, figsize=(15,10))
+            sd.GraphMembraneModes(axarr)
+            fig.tight_layout()
+            fig.savefig('septin_membranemodes.pdf', dpi=fig.dpi)
         
 
 

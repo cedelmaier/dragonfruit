@@ -52,8 +52,8 @@ class Membrane(object):
 
         # Initial configuration information for analysis
         self.analysis_init = False
-        self.getTypeIDbyName = {}
-        self.getNamebyTypeID = {}
+        self.getTypebyName = {}
+        self.getNamebyType = {}
         self.nmembrane = self.nbeads * 2 * self.ngrid * self.ngrid
         self.nlipids = 2 * self.ngrid * self.ngrid
 
@@ -61,12 +61,11 @@ class Membrane(object):
     def InitMembrane(self, snap):
         if self.is_init:
             print(f"Creating membrane from file")
-            self.getTypeByName = {}
             for itype,ntype in enumerate(snap.particles.types):
-                self.getTypeByName[ntype] = itype
+                self.getTypebyName[ntype] = itype
         else:
             print(f"Creating membrane from scratch!")
-            self.getTypeByName = {'H': 0, 'I': 1, 'T': 2}
+            self.getTypebyName = {'H': 0, 'I': 1, 'T': 2}
             self.CreateMembrane(snap)
         self.is_init = True
 
@@ -99,11 +98,11 @@ class Membrane(object):
         
                 # Set the typeid in an ugly if else block, but easiest way to control the double Tail portion
                 if i == 0:
-                    snap.particles.typeid[idx] = self.getTypeByName['H']
+                    snap.particles.typeid[idx] = self.getTypebyName['H']
                 elif i == 1:
-                    snap.particles.typeid[idx] = self.getTypeByName['I']
+                    snap.particles.typeid[idx] = self.getTypebyName['I']
                 else:
-                    snap.particles.typeid[idx] = self.getTypeByName['T']
+                    snap.particles.typeid[idx] = self.getTypebyName['T']
         
                 # Set the mass for the beads to be the same
                 snap.particles.mass[idx] = self.lipidmass_per_bead
@@ -146,13 +145,13 @@ class Membrane(object):
         print(f"Bond k (kBT/sigma^2)    = {self.kbond}")
         print(f"Bend k (kBT/rad^2)      = {self.kbend}")
 
-        self.nlipids_per_leafleat = self.nlipids / 2
+        self.nlipids_per_leaflet = self.nlipids / 2
         lbox = snap.configuration.box[0]
-        self.area_per_lipid = (lbox * lbox) / (self.nlipids_per_leafleat)
+        self.area_per_lipid = (lbox * lbox) / (self.nlipids_per_leaflet)
         print(f"--------")
         print(f"Derived membrane values")
         print(f"  Number of lipid patches:              {self.nlipids}")
-        print(f"  Number of lipid patches per leafleat: {self.nlipids_per_leafleat}")
+        print(f"  Number of lipid patches per leaflat:  {self.nlipids_per_leaflet}")
         print(f"  Area per lipid:                       {self.area_per_lipid}")
 
     def ConfigureAnalysis(self, snap):
@@ -166,15 +165,15 @@ class Membrane(object):
 
         # Get the TypeID by name or by type
         for idx,val in enumerate(snap.particles.types):
-            self.getTypeIDbyName[val] = idx
-            self.getNamebyTypeID[idx] = val
+            self.getTypebyName[val] = idx
+            self.getNamebyType[idx] = val
 
         print(f"Membrane::ConfigureAnalysis return")
 
     def GetLeafletIndices(self, snap, ptype):
         r""" Get the indices for the lipids, upper and lower leaflets
         """
-        idx = np.where(snap.particles.typeid == self.getTypeIDbyName[ptype])[0]
+        idx = np.where(snap.particles.typeid == self.getTypebyName[ptype])[0]
         leaf1_idx = idx[:len(idx)//2]
         leaf2_idx = idx[len(idx)//2:]
 

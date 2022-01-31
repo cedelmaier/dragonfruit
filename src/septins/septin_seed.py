@@ -22,6 +22,7 @@ from membrane import Membrane
 from block_ahdomain import BindingState, BlockAHDomain
 from helix_ahdomain import HelixAHDomain
 from seed_base import SeedBase
+from common import radial_average
 from seed_graph_funcs import *
 
 class SeptinSeed(SeedBase):
@@ -53,6 +54,7 @@ class SeptinSeed(SeedBase):
             else:
                 print(f"AH domain type {self.ahtype} not implemented, exiting!")
                 sys.exit(1)
+        # Simple spheres for testing purposes
         if 'simple_spheres' in self.default_yaml:
             self.simple_spheres = SimpleSpheres(self.bead_size, self.default_yaml)
 
@@ -64,6 +66,7 @@ class SeptinSeed(SeedBase):
     def ReadData(self):
         r""" Read the data from a YAML file for a single seed
         """
+        print(f"SeptinSeed::ReadData")
         # Simulation parameters
         self.kT                 = np.float64(self.default_yaml['simulation']['kT'])
         self.bead_size          = np.float64(self.default_yaml['simulation']['bead_size'])
@@ -109,6 +112,7 @@ class SeptinSeed(SeedBase):
         else:
             print(f"Need to specify a correct initialization type, tried {self.init_type}, exiting!")
             sys.exit(1)
+        print(f"SeptinSeed::ReadData return")
 
     def PrintInformation(self, snap):
         r""" Print parameter information for SeptinSeed
@@ -140,6 +144,7 @@ class SeptinSeed(SeedBase):
     def Configure(self, snap):
         r""" Configure the simulation snapshot for HOOMD
         """
+        print(f"SeptinSeed::Configure")
         # Create a default configuration box size if we don't have a membrane
         snap.configuration.box = [self.lbox, self.lbox, self.lbox, 0, 0, 0]
 
@@ -149,6 +154,8 @@ class SeptinSeed(SeedBase):
             self.ahdomain.InitAH(snap)
         if self.simple_spheres:
             self.simple_spheres.InitSimpleSpheres(snap)
+
+        print(f"SeptinSeed::Configure return")
 
     def CheckLoadAnalyze(self, file_path, force_analyze = False):
         r""" Check if the data can be loaded from an HD5 file
@@ -178,6 +185,7 @@ class SeptinSeed(SeedBase):
     def Analyze(self, force_analyze = False):
         r"""Analysis of septin/membrane simulation seed
         """
+        print(f"SeptinSeed::Analyze")
         # Check the options for if we are forcing analysis
         if self.opts.force:
             force_analyze = True
@@ -201,6 +209,8 @@ class SeptinSeed(SeedBase):
             self.lipids.ConfigureAnalysis(self.traj_all[0])
         if self.ahdomain:
             self.ahdomain.ConfigureAnalysis(self.traj_all[0])
+        if self.simple_spheres:
+            self.simple_spheres.ConfigureAnalysis(self.traj_all[0])
         self.PrintInformation(self.traj_all[0])
 
         # Set up the storage arrays for variables
@@ -245,10 +255,13 @@ class SeptinSeed(SeedBase):
             self.MembraneArea(timestep, snap)
 
             # Membrane analysis
-            self.MembraneModesFFT(timestep, snap)
+            self.MembraneModes(timestep, snap)
 
             # AH domain analysis
             self.AHDomainKon(timestep, snap)
+
+            # Simple spheres analysis
+            self.SimpleDiffusion(timestep, snap)
 
             # Reset the triggers
             if self.current_time_trigger:
@@ -264,6 +277,8 @@ class SeptinSeed(SeedBase):
         # Save the data
         self.SaveHD5()
 
+        print(f"SeptinSeed::Analyze return")
+
     def Postprocess(self):
         r""" Postprocess information for things like distributions
         """
@@ -271,11 +286,37 @@ class SeptinSeed(SeedBase):
         # Increment the time_division counter to force a change where needed
         self.current_time_division += 1
 
+        # Postprocess dynamic data (e.g. MSD for simple spheres)
+        self.PostprocessDynamics()
+
         # Postprocess distributions
         self.PostprocessDistributions()
 
         # Also postprocess for saving
         self.PostprocessHD5()
+
+    def PostprocessDynamics(self):
+        r""" Postprocess dynamic data
+        """
+        # Early return if something doesn't exist
+        if 'simple_diffusion' not in self.timedata:
+            return
+
+        timestep = np.array(self.timedata['timestep'], dtype = np.int64)
+        positions = self.timedata['simple_diffusion']
+        positions_arr = np.array([positions[ts] for ts in timestep], dtype = np.float64)
+
+        print(f"{positions_arr.shape}")
+
+        final_box = freud.Box.cube(100.0)
+        msd_compute = freud.msd.MSD(box = final_box, mode = 'window')
+        msd_compute.compute(positions_arr)
+        msd_arr = msd_compute.msd
+
+        # Enter this into the timedata calculation
+        self.timedata['msd_simple'] = {}
+        for idx,ts in enumerate(timestep):
+            self.timedata['msd_simple'][ts] = msd_arr[idx]
 
     def PostprocessHD5(self):
         r""" Postprocess the results to save in HD5F format
@@ -290,14 +331,24 @@ class SeptinSeed(SeedBase):
         for key in sorted(self.timedata):
             if key == 'timestep':
                 continue
+            if key == 'simple_diffusion':
+                continue
             val_dict = self.timedata[key]
             val_arr = np.array([val_dict[ts] for ts in timestep], dtype = np.float64)
             df = pd.DataFrame(val_arr, columns = [key])
             dfs.append(df)
 
         # Process the distribution data too
-        dfs.append(self.df_lifetimes)
-        dfs.append(self.subdivision_df)
+        if self.lipids and self.ahdomain:
+            dfs.append(self.df_lifetimes)
+            dfs.append(self.subdivision_df)
+
+        # Process membrane mode data
+        if self.lipids:
+            dfs.append(self.df_x_fft)
+            dfs.append(self.df_su_fft)
+            dfs.append(self.df_x_direct)
+            dfs.append(self.df_su_direct)
 
         self.df = pd.concat(dfs, axis=1)
         print(self.df)
@@ -305,7 +356,17 @@ class SeptinSeed(SeedBase):
     def PostprocessDistributions(self):
         r""" Postprocess the distributions
         """
+        self.PostprocessLifetimes()
+        self.PostprocessMembraneModes()
 
+    def PostprocessLifetimes(self):
+        r""" Postprocess lifetime distributions
+        """
+        # Early exit if it doesn't exist
+        if not self.lipids or not self.ahdomain:
+            return
+
+        # Postprocess lifetimes
         lifetime_dict = {}
         lifetime_dict[BindingState.free] = []
         lifetime_dict[BindingState.near] = []
@@ -354,6 +415,52 @@ class SeptinSeed(SeedBase):
                 subdivision_dfs.append(df)
         self.subdivision_df = pd.concat(subdivision_dfs, axis=1)
 
+    def PostprocessMembraneModes(self):
+        r""" Postprocess membrane mode data
+        """
+        # Early check if we have somehow not run the analysis
+        if not self.lipids:
+            return
+
+        # Set up the bin size
+        deltaq = 0.0375 # Should be 0.05 nm^-1
+
+        # Loop over the timesteps
+        timestep = np.array(self.timedata['timestep'], dtype=np.int64)
+
+        membranemodes_fft = self.modedata['membranemodes_fft']
+        membranemodes_fft_arr = np.array([membranemodes_fft[ts] for ts in timestep], dtype = np.complex128)
+        qcutoff_fft = self.modedata['qcutoff_fft']
+        qcutoff_fft_arr = np.array([qcutoff_fft[ts] for ts in timestep], dtype = np.float64)
+        membranemodes_direct = self.modedata['membranemodes_direct']
+        membranemodes_direct_arr = np.array([membranemodes_direct[ts] for ts in timestep], dtype = np.complex128)
+        qcutoff_direct = self.modedata['qcutoff_direct']
+        qcutoff_direct_arr = np.array([qcutoff_direct[ts] for ts in timestep], dtype = np.float64)
+
+        # Loop over the membrane modes
+        intensity_fft_list = []
+        intensity_direct_list = []
+        for itx in np.arange(membranemodes_fft_arr.shape[0]):
+            [radii_fft, intensity_fft] = radial_average(membranemodes_fft_arr[itx,:,:], deltaq, qcutoff_fft_arr[itx])
+            intensity_fft_list.append(intensity_fft)
+            
+            [radii_direct, intensity_direct] = radial_average(membranemodes_direct_arr[itx,:,:], deltaq, qcutoff_direct_arr[itx])
+            intensity_direct_list.append(intensity_direct)
+
+        uq_fft_arr      = np.array(intensity_fft_list)
+        uq_direct_arr   = np.array(intensity_direct_list)
+
+        uq_fft_mean     = np.mean(uq_fft_arr, axis = 0)
+        uq_direct_mean  = np.mean(uq_direct_arr, axis = 0)
+
+        su_fft          = np.square(uq_fft_mean)*self.lipids.nlipids_per_leaflet
+        su_direct       = np.square(uq_direct_mean)*self.lipids.nlipids_per_leaflet
+
+        self.df_x_fft   = pd.DataFrame(radii_fft, columns=['x_fft'])
+        self.df_su_fft  = pd.DataFrame(su_fft, columns=['su_fft'])
+        self.df_x_direct    = pd.DataFrame(radii_direct, columns=['x_direct'])
+        self.df_su_direct   = pd.DataFrame(su_direct, columns=['su_direct'])
+
     def Temperature(self, timestep, snap):
         r""" Simulation kinetic temperature
         """
@@ -380,19 +487,43 @@ class SeptinSeed(SeedBase):
             self.timedata['membrane_area'] = {}
         self.timedata['membrane_area'][timestep] = membrane_area
 
-    def MembraneModesFFT(self, timestep, snap):
-        r""" Membrane bending modes via FFT
+    def SimpleDiffusion(self, timestep, snap):
+        r""" Diffusion analysis of parts of the system
+        """
+
+        if not self.simple_spheres:
+            return
+
+        if 'simple_diffusion' not in self.timedata:
+            self.timedata['simple_diffusion'] = {}
+        s_idx = self.simple_spheres.GetSimpleSpheresIndices(snap)
+        self.timedata['simple_diffusion'][timestep] = snap.particles.position[s_idx]
+
+    def MembraneModes(self, timestep, snap):
+        r""" Membrane bending modes for both direct and fft measurements
         """
 
         if not self.lipids:
             return
+
+        # Constants used for lots of things
+        Nx = 100
+        Ny = 100
+        Nxgrid = Nx * 1j
+        Nygrid = Ny * 1j
+        Ndirect = 3 # Number of direct measurements to make
 
         # Get the head, intermeidate, and tail indices for the lipids
         [h_idx, leaf1_h_idx, leaf2_h_idx] = self.lipids.GetLeafletIndices(snap, 'H')
         # Get the box size for this timeframe
         Lx = np.float64(snap.configuration.box[0])
         Ly = np.float64(snap.configuration.box[1])
+        qcutoffx = 2.0*np.pi/Lx
+        qcutoffy = 2.0*np.pi/Ly
 
+        ################
+        # Interpolation method on a grid
+        ################
         # Get the Z positions of the lipid heads and recenter
         positions = snap.particles.position
         z1 = positions[leaf1_h_idx, 2]
@@ -407,8 +538,8 @@ class SeptinSeed(SeedBase):
 
         # Interpolation method to put on a grid
         # XXX: Hardcoded for now, change later!
-        Nxgrid = 100j
-        Nygrid = 100j
+        xpixel = Lx/Nx
+        ypixel = Ly/Ny
         grid_x, grid_y = np.mgrid[-Lx/2:Lx/2:Nxgrid, -Ly/2:Ly/2:Nygrid]
         from scipy.interpolate import griddata
         grid_z1 = griddata(r1, z1, (grid_x, grid_y), method = 'cubic', fill_value = np.mean(z1))
@@ -427,14 +558,45 @@ class SeptinSeed(SeedBase):
         # Compute final variables
         uq_2d_fft = 0.5*(u1shift + u2shift)
 
+        ################
+        # Direct measurement of fourier coefficients
+        ################
+        u1direct = np.zeros((2*Ndirect+1,2*Ndirect+1), dtype=np.complex128)
+        u2direct = np.zeros((2*Ndirect+1,2*Ndirect+1), dtype=np.complex128)
+
+        for n in np.arange(-Ndirect,Ndirect+1,1):
+            for m in np.arange(-Ndirect,Ndirect+1,1):
+                idx = n + Ndirect
+                kdx = m + Ndirect
+
+                q = 2.0*np.pi*np.array([n/Lx, m/Ly])
+
+                for k,r1k in enumerate(r1):
+                    val = z1[k] * np.exp(-1j*np.dot(q,r1k))
+                    u1direct[idx,kdx] += val
+                for k,r2k in enumerate(r2):
+                    val = z2[k] * np.exp(-1j*np.dot(q,r2k))
+                    u2direct[idx,kdx] += val
+
+        # Compute the final version
+        uq_2d_direct = 1.0/(2.0*self.lipids.nlipids_per_leaflet)*(u1direct + u2direct)
+
         # Save the information we need later
         if 'membranemodes_fft' not in self.modedata:
             self.modedata['membranemodes_fft'] = {}
+        if 'membranemodes_direct' not in self.modedata:
+            self.modedata['membranemodes_direct'] = {}
         if 'qcutoff_fft' not in self.modedata:
             self.modedata['qcutoff_fft'] = {}
+        if 'qcutoff_direct' not in self.modedata:
+            self.modedata['qcutoff_direct'] = {}
 
+        # For the FFT, make sure to convert to q-space (has the 2pi in the numerator)
         self.modedata['membranemodes_fft'][timestep] = uq_2d_fft
-        self.modedata['qcutoff_fft'][timestep] = qcutoff
+        self.modedata['qcutoff_fft'][timestep] = (freqx[1] - freqx[0])*2.0*np.pi
+        
+        self.modedata['membranemodes_direct'][timestep] = uq_2d_direct
+        self.modedata['qcutoff_direct'][timestep] = qcutoffx
 
     def AHDomainKon(self, timestep, snap):
         r""" k_on measurements for ah domains
@@ -528,6 +690,22 @@ class SeptinSeed(SeedBase):
     def GraphDistributions(self, axarr, color = 'b'):
         r"""Default graphing call for single seed distribution information
         """
+        if not self.lipids or not self.ahdomain:
+            return
         graph_seed_lifetime_distribution(self.label, self.df[['free', 'near', 'surface', 'intermediate', 'deep']], axarr, mtitle = "Lifetime", xtitle = "Lifetime (frames)", ytitle = "Number")
+
+    def GraphMembraneModes(self, ax, color = 'b'):
+        r""" Default graphing acll for single seed membrane mode data
+        """
+        if not self.lipids:
+            return
+        graph_seed_membranemodes(self.label, self.df[['x_fft', 'su_fft', 'x_direct', 'su_direct']], ax, mtitle = "Membrane Modes", xtitle = r'q ($\sigma^{-1}$)', ytitle = r'$ \langle | u(q) |^{2} \rangle $ ($\sigma^{2}$)')
+
+    def GraphSimpleMSD(self, ax, color = 'b'):
+        r""" Default graphing call for single particle MSD tests
+        """
+        if not self.simple_spheres:
+            return
+        graph_seed_simplespheres_msd(self.label, self.deltatau, self.df[['timestep', 'msd_simple']], ax, mtitle = "Simple MSD", xtitle = r'Timestep', ytitle = r'MSD ($\sigma^{2}$)')
 
 

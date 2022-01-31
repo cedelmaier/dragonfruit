@@ -206,18 +206,19 @@ if __name__ == "__main__":
     # Bonded and angle interactions
     ###############################
     # Assign bonded interaction strengths
-    harmonic = md.bond.Harmonic()
-    if configurator.lipids:
-        harmonic.params['lipidbond'] = dict(k = configurator.lipids.kbond, r0 = configurator.lipids.rbond)
-    if configurator.ahdomain:
-        harmonic.params['ahbond'] = dict(k = configurator.ahdomain.kbond, r0 = configurator.ahdomain.rbond)
+    if configurator.lipids or configurator.ahdomain:
+        harmonic = md.bond.Harmonic()
+        if configurator.lipids:
+            harmonic.params['lipidbond'] = dict(k = configurator.lipids.kbond, r0 = configurator.lipids.rbond)
+        if configurator.ahdomain:
+            harmonic.params['ahbond'] = dict(k = configurator.ahdomain.kbond, r0 = configurator.ahdomain.rbond)
     
-    # Assign angle interaction strengths
-    angleharmonic = md.angle.Harmonic()
-    if configurator.lipids:
-        angleharmonic.params['lipidbend'] = dict(k = configurator.lipids.kbend, t0 = np.pi)
-    if configurator.ahdomain:
-        angleharmonic.params['ahbend'] = dict(k = configurator.ahdomain.kbend, t0 = configurator.ahdomain.thetabend)
+        # Assign angle interaction strengths
+        angleharmonic = md.angle.Harmonic()
+        if configurator.lipids:
+            angleharmonic.params['lipidbend'] = dict(k = configurator.lipids.kbend, t0 = np.pi)
+        if configurator.ahdomain:
+            angleharmonic.params['ahbend'] = dict(k = configurator.ahdomain.kbend, t0 = configurator.ahdomain.thetabend)
     
     # Set up the integrator for the system
     integrator = md.Integrator(dt = configurator.deltatau)
@@ -264,8 +265,9 @@ if __name__ == "__main__":
     
     
     integrator.forces.append(glf)
-    integrator.forces.append(harmonic)
-    integrator.forces.append(angleharmonic)
+    if configurator.lipids or configurator.ahdomain:
+        integrator.forces.append(harmonic)
+        integrator.forces.append(angleharmonic)
     
     # Add to the simulation
     sim.operations.integrator = integrator
