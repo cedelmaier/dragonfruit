@@ -69,5 +69,9 @@ errors that are hard to track down. NOTE: This will take a long time to complete
     cmake --build ./ -j2
     cmake --install ./
 
-    
+# Data I/O
+Here is an example of how to transfer entire directories between longleaf and a local machine.
+
+    scp -r edelmaie@longleaf.unc.edu:/pine/scr/e/d/edelmaie/supra_cg/dragonfruit/data/20220204 .
+    scp -r <uname>@longleaf.unc.edu:<pine location>/<directory> .
 

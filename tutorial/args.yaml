@@ -1,11 +1,8 @@
 start:
-- spindle_bd_mp
-- spindle_bd_mp.default.yaml
-- spindle_bd_mp.equil.yaml
-- -o
-analyze:
-- SpindleAnalysis
-- -sd
-- -A
-- -F
-- WT_Cen2
+- python3
+- /nas/longleaf/home/edelmaie/septin_project/supra_cg/dragonfruit/src/LipidVolta.py
+- --yaml
+- example.membrane.npt.yaml
+analysis:
+- python3
+- /nas/longleaf/home/edelmaie/septin_project/supra_cg/dragonfruit/src/SeptinAnalysis.py

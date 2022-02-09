@@ -347,8 +347,10 @@ class SeptinSeed(SeedBase):
         if self.lipids:
             dfs.append(self.df_x_fft)
             dfs.append(self.df_su_fft)
+            dfs.append(self.df_qcutoff_fft)
             dfs.append(self.df_x_direct)
             dfs.append(self.df_su_direct)
+            dfs.append(self.df_qcutoff_direct)
 
         self.df = pd.concat(dfs, axis=1)
         print(self.df)
@@ -440,12 +442,16 @@ class SeptinSeed(SeedBase):
         # Loop over the membrane modes
         intensity_fft_list = []
         intensity_direct_list = []
+        qcutoff_fft_list = []
+        qcutoff_direct_list = []
         for itx in np.arange(membranemodes_fft_arr.shape[0]):
             [radii_fft, intensity_fft] = radial_average(membranemodes_fft_arr[itx,:,:], deltaq, qcutoff_fft_arr[itx])
             intensity_fft_list.append(intensity_fft)
+            qcutoff_fft_list.append(qcutoff_fft_arr[itx])
             
             [radii_direct, intensity_direct] = radial_average(membranemodes_direct_arr[itx,:,:], deltaq, qcutoff_direct_arr[itx])
             intensity_direct_list.append(intensity_direct)
+            qcutoff_direct_list.append(qcutoff_direct_arr[itx])
 
         uq_fft_arr      = np.array(intensity_fft_list)
         uq_direct_arr   = np.array(intensity_direct_list)
@@ -456,10 +462,12 @@ class SeptinSeed(SeedBase):
         su_fft          = np.square(uq_fft_mean)*self.lipids.nlipids_per_leaflet
         su_direct       = np.square(uq_direct_mean)*self.lipids.nlipids_per_leaflet
 
-        self.df_x_fft   = pd.DataFrame(radii_fft, columns=['x_fft'])
-        self.df_su_fft  = pd.DataFrame(su_fft, columns=['su_fft'])
-        self.df_x_direct    = pd.DataFrame(radii_direct, columns=['x_direct'])
-        self.df_su_direct   = pd.DataFrame(su_direct, columns=['su_direct'])
+        self.df_x_fft           = pd.DataFrame(radii_fft, columns=['x_fft'])
+        self.df_su_fft          = pd.DataFrame(su_fft, columns=['su_fft'])
+        self.df_qcutoff_fft     = pd.DataFrame(qcutoff_fft_list, columns=['qcutoff_fft'])
+        self.df_x_direct        = pd.DataFrame(radii_direct, columns=['x_direct'])
+        self.df_su_direct       = pd.DataFrame(su_direct, columns=['su_direct'])
+        self.df_qcutoff_direct  = pd.DataFrame(qcutoff_direct_list, columns=['qcutoff_direct'])
 
     def Temperature(self, timestep, snap):
         r""" Simulation kinetic temperature
@@ -511,7 +519,7 @@ class SeptinSeed(SeedBase):
         Ny = 100
         Nxgrid = Nx * 1j
         Nygrid = Ny * 1j
-        Ndirect = 3 # Number of direct measurements to make
+        Ndirect = 11 # Number of direct measurements to make
 
         # Get the head, intermeidate, and tail indices for the lipids
         [h_idx, leaf1_h_idx, leaf2_h_idx] = self.lipids.GetLeafletIndices(snap, 'H')
@@ -699,7 +707,7 @@ class SeptinSeed(SeedBase):
         """
         if not self.lipids:
             return
-        graph_seed_membranemodes(self.label, self.df[['x_fft', 'su_fft', 'x_direct', 'su_direct']], ax, mtitle = "Membrane Modes", xtitle = r'q ($\sigma^{-1}$)', ytitle = r'$ \langle | u(q) |^{2} \rangle $ ($\sigma^{2}$)')
+        graph_seed_membranemodes(self.label, self.df[['x_fft', 'su_fft', 'x_direct', 'su_direct', 'qcutoff_fft', 'membrane_area']], self.lipids.nlipids_per_leaflet, ax, mtitle = "Membrane Modes", xtitle = r'q ($\sigma^{-1}$)', ytitle = r'$ \langle | u(q) |^{2} \rangle $ ($\sigma^{2}$)')
 
     def GraphSimpleMSD(self, ax, color = 'b'):
         r""" Default graphing call for single particle MSD tests

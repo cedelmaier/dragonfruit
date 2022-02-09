@@ -9,7 +9,7 @@ simulation:
   max_frame: 50000
   time_divisions: 5
   lbox: ChiParam(format_str = "lbox{}", exec_str = "[100.0, 103.0]") # Size of final box, simulation units (sigma)
-  seed: ChiSeed(bounds = [0,1])
+  seed: ChiSeed(bounds = [0,2])
   mode: gpu
   trajectory_file: traj_npt_membrane.gsd
   init_type: all
