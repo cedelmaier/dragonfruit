@@ -46,3 +46,19 @@ to use.
 
 This should submit all of the jobs to the longleaf cluster on the volta-gpu partition, run the simulations, and then
 run the analysis (in whatever current form it is in) on the cluster.
+
+# Directly running simulations
+If you want to directly run simulations, you need to be setup in a HOOMD environment locally. For instance, for
+an anaconda installation, you would need to get into the environment that you initially installed HOOMD into, such
+as
+
+    conda activate hoomd_300beta9
+
+Then, you can directly import HOOMD into a python script for running. If you change the old_chi_pet version of the YAML
+control file for a specific value (specific values), you can then run the command:
+
+    python3 <path_to_dragonfruit>/src/LipidVolta.py --yaml example.membrane.npt.yaml
+
+
+
+
