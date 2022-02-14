@@ -519,7 +519,7 @@ class SeptinSeed(SeedBase):
         Ny = 100
         Nxgrid = Nx * 1j
         Nygrid = Ny * 1j
-        Ndirect = 11 # Number of direct measurements to make
+        Ndirect = 5 # Number of direct measurements to make
 
         # Get the head, intermeidate, and tail indices for the lipids
         [h_idx, leaf1_h_idx, leaf2_h_idx] = self.lipids.GetLeafletIndices(snap, 'H')

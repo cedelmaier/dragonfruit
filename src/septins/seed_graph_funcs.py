@@ -85,20 +85,26 @@ def graph_seed_membranemodes(sdlabel,
 
     x_fft = df['x_fft'].to_numpy()
     su_fft = df['su_fft'].to_numpy()
-    qcutoff_mean = np.mean(df['qcutoff_fft'].to_numpy())
-    area_mean = np.mean(df['membrane_area'].to_numpy())
+    qcutoff_mean = np.nanmean(df['qcutoff_fft'].to_numpy())
+    area_mean = np.nanmean(df['membrane_area'].to_numpy())
+
+    # Figure out where the lower cutoff is
+    idx = np.where(np.greater(x_fft, qcutoff_mean))
+    idx = np.int32(idx[0][0])
+
+    # Generate some guesses for the fit
+    kcguess1 = nlipids_per_leaflet / area_mean / su_fft[idx] / (x_fft[idx]**4)
 
     # Try to do a fit
     from scipy.optimize import curve_fit
-    # XXX: Hardcoded for now
-    popt, pcov = curve_fit(lambda q, kc, gamma: suq_curve(q, nlipids_per_leaflet, area_mean, kc, gamma), x_fft[1:], su_fft[1:], bounds = ([0.0, -np.inf], [np.inf, np.inf]))
+    popt, pcov = curve_fit(lambda q, kc, gamma: suq_curve(q, nlipids_per_leaflet, area_mean, kc, gamma), x_fft[idx:], su_fft[idx:], bounds = ([0.0, -np.inf], [np.inf, np.inf]), p0 = [kcguess1, 0.0])
     print(f"Simuation fit values:")
     print(f"  kc:    {popt[0]}")
     print(f"  gamma: {popt[1]}")
-    ax.plot(x_fft[1:], suq_curve(x_fft[1:], N = nlipids_per_leaflet, A = area_mean, kc = popt[0], gamma = popt[1]), 'r--')
+    ax.plot(x_fft[idx:], suq_curve(x_fft[idx:], N = nlipids_per_leaflet, A = area_mean, kc = popt[0], gamma = popt[1]), 'r--')
 
     # Plot the vertical line for qcutoff
-    ax.avxline(x = qcutoff_mean, ymin = 0, ymax = 1.0, color = 'm', linestyle = '--')
+    ax.axvline(x = qcutoff_mean, ymin = 0, ymax = 1.0, color = 'm', linestyle = '--')
 
     ax.set_yscale('log')
     ax.set_xscale('log')

@@ -56,6 +56,7 @@ class Membrane(object):
         self.getNamebyType = {}
         self.nmembrane = self.nbeads * 2 * self.ngrid * self.ngrid
         self.nlipids = 2 * self.ngrid * self.ngrid
+        self.nlipids_per_leaflet = self.nlipids / 2
 
     # Init any information that required a snapshot
     def InitMembrane(self, snap):
@@ -145,7 +146,6 @@ class Membrane(object):
         print(f"Bond k (kBT/sigma^2)    = {self.kbond}")
         print(f"Bend k (kBT/rad^2)      = {self.kbend}")
 
-        self.nlipids_per_leaflet = self.nlipids / 2
         lbox = snap.configuration.box[0]
         self.area_per_lipid = (lbox * lbox) / (self.nlipids_per_leaflet)
         print(f"--------")
