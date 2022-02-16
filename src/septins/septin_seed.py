@@ -515,11 +515,12 @@ class SeptinSeed(SeedBase):
             return
 
         # Constants used for lots of things
-        Nx = 100
-        Ny = 100
+        # XXX: Need to check to make sure this is correct
+        Nx = self.lipids.ngrid
+        Ny = self.lipids.ngrid
         Nxgrid = Nx * 1j
         Nygrid = Ny * 1j
-        Ndirect = 5 # Number of direct measurements to make
+        Ndirect = self.lipids.ndirect # Get how many direct measurements to make
 
         # Get the head, intermeidate, and tail indices for the lipids
         [h_idx, leaf1_h_idx, leaf2_h_idx] = self.lipids.GetLeafletIndices(snap, 'H')
@@ -545,7 +546,6 @@ class SeptinSeed(SeedBase):
         r2 = positions[leaf2_h_idx, 0:2]
 
         # Interpolation method to put on a grid
-        # XXX: Hardcoded for now, change later!
         xpixel = Lx/Nx
         ypixel = Ly/Ny
         grid_x, grid_y = np.mgrid[-Lx/2:Lx/2:Nxgrid, -Ly/2:Ly/2:Nygrid]
@@ -572,6 +572,7 @@ class SeptinSeed(SeedBase):
         u1direct = np.zeros((2*Ndirect+1,2*Ndirect+1), dtype=np.complex128)
         u2direct = np.zeros((2*Ndirect+1,2*Ndirect+1), dtype=np.complex128)
 
+        # XXX: Speed up with np.vectorize?
         for n in np.arange(-Ndirect,Ndirect+1,1):
             for m in np.arange(-Ndirect,Ndirect+1,1):
                 idx = n + Ndirect
@@ -592,10 +593,10 @@ class SeptinSeed(SeedBase):
         # Save the information we need later
         if 'membranemodes_fft' not in self.modedata:
             self.modedata['membranemodes_fft'] = {}
-        if 'membranemodes_direct' not in self.modedata:
-            self.modedata['membranemodes_direct'] = {}
         if 'qcutoff_fft' not in self.modedata:
             self.modedata['qcutoff_fft'] = {}
+        if 'membranemodes_direct' not in self.modedata:
+            self.modedata['membranemodes_direct'] = {}
         if 'qcutoff_direct' not in self.modedata:
             self.modedata['qcutoff_direct'] = {}
 

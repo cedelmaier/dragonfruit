@@ -85,6 +85,10 @@ def graph_seed_membranemodes(sdlabel,
 
     x_fft = df['x_fft'].to_numpy()
     su_fft = df['su_fft'].to_numpy()
+
+    x_fft = x_fft[~np.isnan(x_fft)]
+    su_fft = su_fft[~np.isnan(su_fft)]
+
     qcutoff_mean = np.nanmean(df['qcutoff_fft'].to_numpy())
     area_mean = np.nanmean(df['membrane_area'].to_numpy())
 
@@ -94,13 +98,17 @@ def graph_seed_membranemodes(sdlabel,
 
     # Generate some guesses for the fit
     kcguess1 = nlipids_per_leaflet / area_mean / su_fft[idx] / (x_fft[idx]**4)
+    print(f"kcguess1: {kcguess1}")
+    print(f"{x_fft}")
+    print(f"{su_fft}")
 
     # Try to do a fit
     from scipy.optimize import curve_fit
     popt, pcov = curve_fit(lambda q, kc, gamma: suq_curve(q, nlipids_per_leaflet, area_mean, kc, gamma), x_fft[idx:], su_fft[idx:], bounds = ([0.0, -np.inf], [np.inf, np.inf]), p0 = [kcguess1, 0.0])
     print(f"Simuation fit values:")
-    print(f"  kc:    {popt[0]}")
-    print(f"  gamma: {popt[1]}")
+    print(f"  kc(guess):    {kcguess1}")
+    print(f"  kc:           {popt[0]}")
+    print(f"  gamma:        {popt[1]}")
     ax.plot(x_fft[idx:], suq_curve(x_fft[idx:], N = nlipids_per_leaflet, A = area_mean, kc = popt[0], gamma = popt[1]), 'r--')
 
     # Plot the vertical line for qcutoff

@@ -27,6 +27,7 @@ class Membrane(object):
         self.is_init   = yaml_file['membrane']['is_init']
         self.ngrid     = np.int32(np.float64(yaml_file['membrane']['ngrid']))
         self.lbox      = np.float64(yaml_file['simulation']['lbox'])
+        self.ndirect   = np.int32(np.float64(yaml_file['membrane']['ndirect']))
         self.bead_size = bead_size
 
         # Head beads are slightly smaller than the normal beads
@@ -153,6 +154,10 @@ class Membrane(object):
         print(f"  Number of lipid patches:              {self.nlipids}")
         print(f"  Number of lipid patches per leaflat:  {self.nlipids_per_leaflet}")
         print(f"  Area per lipid:                       {self.area_per_lipid}")
+
+        print(f"--------")
+        print(f"Analysis parameters")
+        print(f"  Ndirect:                              {self.ndirect}")
 
     def ConfigureAnalysis(self, snap):
         r""" Configure the analysis for the trajectory
