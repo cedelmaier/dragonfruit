@@ -80,15 +80,20 @@ def graph_seed_membranemodes(sdlabel,
                              xlabel = True):
     r""" Plotting function for total membrane modes
     """
-    ax.scatter(df['x_fft'], df['su_fft'], color = 'r', marker = '+', linewidth = 1)
-    ax.scatter(df['x_direct'], df['su_direct'], color = 'b', marker = 'o', s = 80, facecolors = 'none')
+    x_fft   = df['x_fft'].to_numpy()
+    su_fft  = df['su_fft'].to_numpy()
+    x_fft   = x_fft[~np.isnan(x_fft)]
+    su_fft  = su_fft[~np.isnan(su_fft)]
 
-    x_fft = df['x_fft'].to_numpy()
-    su_fft = df['su_fft'].to_numpy()
+    x_direct    = df['x_direct'].to_numpy()
+    su_direct   = df['su_direct'].to_numpy()
+    x_direct    = x_direct[~np.isnan(x_direct)]
+    su_direct   = su_direct[~np.isnan(su_direct)]
 
-    x_fft = x_fft[~np.isnan(x_fft)]
-    su_fft = su_fft[~np.isnan(su_fft)]
+    ax.scatter(x_fft[1:], su_fft[1:], color = color, marker = '+', linewidth = 1)
+    ax.scatter(x_direct[1:], su_direct[1:], color = color, marker = 'o', s = 80, facecolors = 'none')
 
+    # Figure out where cutoff etc are
     qcutoff_mean = np.nanmean(df['qcutoff_fft'].to_numpy())
     area_mean = np.nanmean(df['membrane_area'].to_numpy())
 
@@ -98,21 +103,22 @@ def graph_seed_membranemodes(sdlabel,
 
     # Generate some guesses for the fit
     kcguess1 = nlipids_per_leaflet / area_mean / su_fft[idx] / (x_fft[idx]**4)
-    print(f"kcguess1: {kcguess1}")
-    print(f"{x_fft}")
-    print(f"{su_fft}")
 
-    # Try to do a fit
+    # Try to do 2 fits, with and without the surface tension term
     from scipy.optimize import curve_fit
-    popt, pcov = curve_fit(lambda q, kc, gamma: suq_curve(q, nlipids_per_leaflet, area_mean, kc, gamma), x_fft[idx:], su_fft[idx:], bounds = ([0.0, -np.inf], [np.inf, np.inf]), p0 = [kcguess1, 0.0])
+    popt_kc, pcov_kc = curve_fit(lambda q, kc: suq_curve(q, nlipids_per_leaflet, area_mean, kc, 0.0), x_fft[idx:], su_fft[idx:], bounds = ([0.0, np.inf]), p0 = [kcguess1])
+    popt_ga, pcov_ga = curve_fit(lambda q, kc, gamma: suq_curve(q, nlipids_per_leaflet, area_mean, kc, gamma), x_fft[idx:], su_fft[idx:], bounds = ([0.0, -np.inf], [np.inf, np.inf]), p0 = [kcguess1, 0.0])
+
     print(f"Simuation fit values:")
     print(f"  kc(guess):    {kcguess1}")
-    print(f"  kc:           {popt[0]}")
-    print(f"  gamma:        {popt[1]}")
-    ax.plot(x_fft[idx:], suq_curve(x_fft[idx:], N = nlipids_per_leaflet, A = area_mean, kc = popt[0], gamma = popt[1]), 'r--')
+    print(f"  kc only:      {popt_kc[0]}")
+    print(f"  kc (both):    {popt_ga[0]}")
+    print(f"  gamma (both): {popt_ga[1]}")
+    ax.plot(x_fft[idx:], suq_curve(x_fft[idx:], N = nlipids_per_leaflet, A = area_mean, kc = popt_kc[0], gamma = 0.0), color = color, linestyle = '--')
+    ax.plot(x_fft[idx:], suq_curve(x_fft[idx:], N = nlipids_per_leaflet, A = area_mean, kc = popt_ga[0], gamma = popt_ga[1]), color = color, linestyle = ':')
 
     # Plot the vertical line for qcutoff
-    ax.axvline(x = qcutoff_mean, ymin = 0, ymax = 1.0, color = 'm', linestyle = '--')
+    ax.axvline(x = qcutoff_mean, ymin = 0, ymax = 1.0, color = 'k', linestyle = '-')
 
     ax.set_yscale('log')
     ax.set_xscale('log')

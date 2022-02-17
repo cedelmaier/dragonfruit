@@ -507,6 +507,58 @@ class SeptinSeed(SeedBase):
         s_idx = self.simple_spheres.GetSimpleSpheresIndices(snap)
         self.timedata['simple_diffusion'][timestep] = snap.particles.position[s_idx]
 
+    def Compute_U_FFT(self, Lx, Ly, Nx, Ny, r, z):
+        r""" Compute fluctuation spectra U using FFT
+        """
+        xpixel = Lx/Nx
+        ypixel = Ly/Ny
+        Nxgrid = Nx * 1j
+        Nygrid = Ny * 1j
+
+        # Place on a grid
+        grid_x, grid_y = np.mgrid[-Lx/2:Lx/2:Nxgrid, -Ly/2:Ly/2:Nygrid]
+        from scipy.interpolate import griddata
+        grid_z = griddata(r, z, (grid_x, grid_y), method = 'cubic', fill_value = np.mean(z))
+
+        # Compute FFT
+        u = np.fft.fft2(grid_z, norm = 'forward')
+        ushift = np.fft.fftshift(u)
+        freqx = np.fft.fftshift(np.fft.fftfreq(ushift.shape[1], xpixel))
+        freqy = np.fft.fftshift(np.fft.fftfreq(ushift.shape[0], ypixel))
+
+        # Return the information
+        qcutoff_fft = (freqx[1] - freqx[0])
+        return [ushift, qcutoff_fft]
+
+    def Compute_U_DirectSlow(self, Lx, Ly, ndirect, r, z):
+        r""" Compute fluctuation spectra U using a direct calculation that is slow
+        """
+        udirect = np.zeros((2*ndirect+1,2*ndirect+1), dtype=np.complex128)
+
+        for n in np.arange(-ndirect, ndirect+1, 1):
+            for m in np.arange(-ndirect, ndirect+1, 1):
+                idx = n + ndirect
+                kdx = m + ndirect
+
+                q = 2.0*np.pi*np.array([n/Lx, m/Ly])
+
+                for k,rk in enumerate(r):
+                    val = z[k] * np.exp(-1j*np.dot(q,rk))
+                    udirect[idx,kdx] += val
+
+        return udirect
+
+    def Compute_U_DirectFast(self, Lx, Ly, ndirect, r, z):
+        r""" Compute fluctuation spectra U using direct calculation that is fast
+        """
+        xvec = 2.0*np.pi/Lx*np.linspace(-ndirect, ndirect, 2*ndirect+1)
+        yvec = 2.0*np.pi/Ly*np.linspace(-ndirect, ndirect, 2*ndirect+1)
+        qmesh = np.array(np.meshgrid(xvec, yvec)).T.reshape(-1,2)
+        udirect_fast = (np.sum(z * np.exp(-1j*np.dot(qmesh, r.T)), axis=-1)).reshape(2*ndirect+1,2*ndirect+1)
+
+        return udirect_fast
+
+
     def MembraneModes(self, timestep, snap):
         r""" Membrane bending modes for both direct and fft measurements
         """
@@ -530,9 +582,7 @@ class SeptinSeed(SeedBase):
         qcutoffx = 2.0*np.pi/Lx
         qcutoffy = 2.0*np.pi/Ly
 
-        ################
-        # Interpolation method on a grid
-        ################
+        # Create the grid positions for the particles
         # Get the Z positions of the lipid heads and recenter
         positions = snap.particles.position
         z1 = positions[leaf1_h_idx, 2]
@@ -545,50 +595,27 @@ class SeptinSeed(SeedBase):
         r1 = positions[leaf1_h_idx, 0:2]
         r2 = positions[leaf2_h_idx, 0:2]
 
-        # Interpolation method to put on a grid
-        xpixel = Lx/Nx
-        ypixel = Ly/Ny
-        grid_x, grid_y = np.mgrid[-Lx/2:Lx/2:Nxgrid, -Ly/2:Ly/2:Nygrid]
-        from scipy.interpolate import griddata
-        grid_z1 = griddata(r1, z1, (grid_x, grid_y), method = 'cubic', fill_value = np.mean(z1))
-        grid_z2 = griddata(r2, z2, (grid_x, grid_y), method = 'cubic', fill_value = np.mean(z2))
+        ################
+        # Interpolation method on a grid
+        ################
+        [ushift1, qcutoff1] = self.Compute_U_FFT(Lx, Ly, Nx, Ny, r1, z1)
+        [ushift2, qcutoff2] = self.Compute_U_FFT(Lx, Ly, Nx, Ny, r2, z2)
+        uq_2d_fft = 0.5*(ushift1 + ushift2)
 
-        # Take the 2d fourier transform
-        u1 = np.fft.fft2(grid_z1, norm = 'forward')
-        u1shift = np.fft.fftshift(u1)
-        u2 = np.fft.fft2(grid_z2, norm = 'forward')
-        u2shift = np.fft.fftshift(u2)
-
-        # Get the sample frequencies
-        freqx = np.fft.fftshift(np.fft.fftfreq(u1shift.shape[1], xpixel))
-        freqy = np.fft.fftshift(np.fft.fftfreq(u2shift.shape[0], ypixel))
-
-        # Compute final variables
-        uq_2d_fft = 0.5*(u1shift + u2shift)
+        #################
+        ## Direct measurement of fourier coefficients
+        #################
+        ### Compute the final version
+        #udirectslow1 = self.Compute_U_DirectSlow(Lx, Ly, Ndirect, r1, z1)
+        #udirectslow2 = self.Compute_U_DirectSlow(Lx, Ly, Ndirect, r2, z2)
+        #uq_2d_direct_slow = 1.0/(2.0*self.lipids.nlipids_per_leaflet)*(udirectslow1 + udirectslow2)
 
         ################
-        # Direct measurement of fourier coefficients
+        # Direct measurement of fourier coefficients (Fast method)
         ################
-        u1direct = np.zeros((2*Ndirect+1,2*Ndirect+1), dtype=np.complex128)
-        u2direct = np.zeros((2*Ndirect+1,2*Ndirect+1), dtype=np.complex128)
-
-        # XXX: Speed up with np.vectorize?
-        for n in np.arange(-Ndirect,Ndirect+1,1):
-            for m in np.arange(-Ndirect,Ndirect+1,1):
-                idx = n + Ndirect
-                kdx = m + Ndirect
-
-                q = 2.0*np.pi*np.array([n/Lx, m/Ly])
-
-                for k,r1k in enumerate(r1):
-                    val = z1[k] * np.exp(-1j*np.dot(q,r1k))
-                    u1direct[idx,kdx] += val
-                for k,r2k in enumerate(r2):
-                    val = z2[k] * np.exp(-1j*np.dot(q,r2k))
-                    u2direct[idx,kdx] += val
-
-        # Compute the final version
-        uq_2d_direct = 1.0/(2.0*self.lipids.nlipids_per_leaflet)*(u1direct + u2direct)
+        udirectfast1 = self.Compute_U_DirectFast(Lx, Ly, Ndirect, r1, z1)
+        udirectfast2 = self.Compute_U_DirectFast(Lx, Ly, Ndirect, r2, z2)
+        uq_2d_direct_fast = 1.0/(2.0*self.lipids.nlipids_per_leaflet)*(udirectfast1 + udirectfast2)
 
         # Save the information we need later
         if 'membranemodes_fft' not in self.modedata:
@@ -602,9 +629,9 @@ class SeptinSeed(SeedBase):
 
         # For the FFT, make sure to convert to q-space (has the 2pi in the numerator)
         self.modedata['membranemodes_fft'][timestep] = uq_2d_fft
-        self.modedata['qcutoff_fft'][timestep] = (freqx[1] - freqx[0])*2.0*np.pi
+        self.modedata['qcutoff_fft'][timestep] = qcutoff1*2.0*np.pi
         
-        self.modedata['membranemodes_direct'][timestep] = uq_2d_direct
+        self.modedata['membranemodes_direct'][timestep] = uq_2d_direct_fast
         self.modedata['qcutoff_direct'][timestep] = qcutoffx
 
     def AHDomainKon(self, timestep, snap):
