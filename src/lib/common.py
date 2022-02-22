@@ -1,5 +1,6 @@
 # Common helper functions for membranes and AH domains
 
+import os
 import random
 import numpy as np
 
@@ -54,3 +55,20 @@ def radial_average(uq, bin_size, pixel_size):
         intensity[ibin] = np.mean(values)
 
     return [bin_mids, intensity]
+
+def create_datadir(path, datadir_name = 'data'):
+    r""" Create a directory to put graphs and run/simulation data files
+    """
+    try: abs_path = os.path.abspath(path)
+    except:
+        print("ERROR: Could not find the absolute path of {} directory".format(path))
+        raise
+
+    data_path = os.path.join(path, datadir_name)
+
+    # Try to make the data directory but if one exists, skip it
+    try: os.mkdir(data_path)
+    except OSError as error:
+        print("WARNING: Data directory {} already exists. Continuing.".format(data_path))
+
+    return data_path

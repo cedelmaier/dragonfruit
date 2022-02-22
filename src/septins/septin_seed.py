@@ -719,9 +719,9 @@ class SeptinSeed(SeedBase):
     def GraphDynamic(self, axarr, color = 'b'):
         r"""Default graphing call for single seeds dynamic information
         """
-        graph_seed_scatter(self.label, self.df["timestep"], self.df["T"], axarr[0], mtitle = "Temperature", xtitle = "Timestep", ytitle = "Temperature (kT)")
-        graph_seed_scatter(self.label, self.df["timestep"], self.df["P"], axarr[1], mtitle = "Pressure", xtitle = "Timestep", ytitle = "Presure (kT/$\sigma^{3}$)")
-        graph_seed_scatter(self.label, self.df["timestep"], self.df["membrane_area"], axarr[2], mtitle = "Membrane Area", xtitle = "Timestep", ytitle = "Membrane area ($\sigma^{2}$)")
+        graph_seed_temperature(self, axarr[0], color = color)
+        graph_seed_pressure(self, axarr[1], color = color)
+        graph_seed_area(self, axarr[2], color = color)
 
     def GraphDistributions(self, axarr, color = 'b'):
         r"""Default graphing call for single seed distribution information
@@ -735,7 +735,7 @@ class SeptinSeed(SeedBase):
         """
         if not self.lipids:
             return
-        graph_seed_membranemodes(self.label, self.df[['x_fft', 'su_fft', 'x_direct', 'su_direct', 'qcutoff_fft', 'membrane_area']], self.lipids.nlipids_per_leaflet, ax, mtitle = "Membrane Modes", xtitle = r'q ($\sigma^{-1}$)', ytitle = r'$ \langle | u(q) |^{2} \rangle $ ($\sigma^{2}$)')
+        graph_seed_membranemodes(self, ax, color = color)
 
     def GraphSimpleMSD(self, ax, color = 'b'):
         r""" Default graphing call for single particle MSD tests

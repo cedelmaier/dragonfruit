@@ -2,57 +2,99 @@
 
 """Base class for single simulation object"""
 
+import ast
 import os
 import re
 import yaml
 
 import numpy as np
 
+from seed_base import SeedBase
+
 class SimulationBase(object):
-    def __init__(self, opts = None):
-        print(f"SimulationBase::init")
+    def __init__(self, sim_path, opts, seedType = SeedBase):
+        print(f"SimulationBase::__init__")
+        
+        self.sim_path = os.path.abspath(sim_path)
+        self.name = self.sim_path.split('/')[-1]
+        self.title = self.MakeSimTitle(self, sim_path)
+        self.params = self.MakeSimParamDict(self, sim_path)
         self.opts = opts
 
-        # Set up the current working directory properly
-        self.cwd = os.getcwd()
-        self.ReadOpts()
+        self.seedType = seedType
+        self.seeds = []
 
-        self.path = os.path.abspath(self.opts.workdir)
-        
-        self.yaml_filename = self.opts.yaml
-        self.default_yaml = self.GetYamlDict(self.yaml_filename)
+        self.CollectSeeds(seedType)
 
-        self.ReadData()
-        print(f"SimulationBase::init return")
+        print(f"SimulationBase::__init__ return")
 
-    def ReadOpts(self):
-        if not self.opts.workdir:
-            self.opts.workdir = os.path.abspath(self.cwd)
-        elif not os.path.exists(self.opts.workdir):
-            raise IOError("Working directory {} does not exist.".format(
-                self.opts.workdir) )
-        else:
-            self.opts.workdir = os.path.abspath(self.opts.workdir)
+    @staticmethod
+    def MakeSimTitle(self, sim_path, uc = ''):
+        r""" Create a simulation title based on the parameters
+        """
+        name = sim_path.split('/')[-1]
+        # Check for an MD5 hash to make sure we don't bomb
+        is_hash = re.findall(r"([a-fA-F\d]{32})", name) 
+        if len(is_hash) > 0:
+            label = r"hash {}".format(is_hash)
+            return label
+        param = re.findall("[a-zA-Z]+", name)
+        p_value = re.findall("\d*\.?\d+", name)
 
-    def ReadData(self):
-        print(f"SimulationBase::ReadData")
-        # Simulation parameters
-        self.kT                 = np.float64(self.default_yaml['simulation']['kT'])
-        self.bead_size          = np.float64(self.default_yaml['simulation']['bead_size'])
-        self.deltatau           = np.float64(self.default_yaml['simulation']['deltatau'])
-        self.nsteps             = np.int32(np.float64(self.default_yaml['simulation']['nsteps']))
-        self.nwrite             = np.int32(np.float64(self.default_yaml['simulation']['nwrite']))
-        self.lbox               = np.float64(self.default_yaml['simulation']['lbox'])
-        self.nseed              = np.int32(np.float64(self.default_yaml['simulation']['seed']))
-        self.compute_mode       = self.default_yaml['simulation']['mode']
-        self.trajectory_file    = self.default_yaml['simulation']['trajectory_file']
-        self.init_type          = self.default_yaml['simulation']['init_type']
-        self.integrator         = self.default_yaml['simulation']['integrator']
+        # Specific check for scientific notation
+        while 'e' in param:
+            param.remove('e')
 
-        print(f"SimulationBase::ReadData return")
+        match_number = re.compile('-?\ *[0-9]+\.?[0-9]*(?:[Ee]\ *-?\ *[0-9]+)?')
+        p_value2 = re.findall(match_number, name)
 
-    def GetYamlDict(self, file_name):
-        file_path = os.path.join(self.path, file_name)
-        file_dict = ''
-        with open(file_path, 'r') as stream: file_dict = yaml.safe_load(stream)
-        return file_dict
+        label = r''
+        slabel = r'{} $=$ {}{}, '
+        for p, v in zip(param, p_value2):
+            if uc:
+                label += slabel.format(p,
+                        str(ast.literal_eval(v)*uc[p][1]), uc[p][0])
+            else:
+                label += slabel.format(p,
+                        str(ast.literal_eval(v)), '')
+        return label[:-2]
+
+    @staticmethod
+    def MakeSimParamDict(self, sim_path, uc=''):
+        r""" Create the parameter list that this simulation uses
+        """
+        params = {}
+        sim_name = sim_path.split('/')[-1]
+        # Check for an MD5 hash to make sure we don't bomb
+        is_hash = re.findall(r"([a-fA-F\d]{32})", sim_name)
+        if len(is_hash) > 0:
+            return params
+        p_name = re.findall("[a-zA-Z]+", sim_name)
+        p_value = re.findall("\d*\.?\d+", sim_name)
+
+        # Check for hash values as well
+        while 'e' in p_name:
+            p_name.remove('e')
+        match_number = re.compile('-?\ *[0-9]+\.?[0-9]*(?:[Ee]\ *-?\ *[0-9]+)?')
+        p_value2 = re.findall(match_number, sim_name)
+
+        for p, v in zip(p_name, p_value2):
+            if uc:
+                params[p] = ast.literal_eval(v)*uc[p][1]
+            else:
+                params[p] = ast.literal_eval(v)
+
+        return params
+
+    def CollectSeeds(self, seedType):
+        r""" Collect the underlying seeds for this simulation
+        """
+        seed_pattern = re.compile("s\d+")
+
+        # Make list of seeds of type seedType
+        self.seeds = [seedType(os.path.join(self.sim_path,sd), self.opts)
+                for sd in next(os.walk(self.sim_path))[1] if seed_pattern.match(sd)]
+        self.seeds.sort(key=lambda sd: sd.seed_num)
+
+    def GraphSimulation(self):
+        raise NotImplementedError()

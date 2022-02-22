@@ -15,8 +15,10 @@ import pandas as pd
 # Magic to get the proper library directories
 sys.path.append(os.path.join(os.path.dirname(__file__), 'lib'))
 sys.path.append(os.path.join(os.path.dirname(__file__), 'septins'))
+from common import create_datadir
 from stylelib.common_styles import septin_runs_stl
 from septin_seed import SeptinSeed
+from septin_sim import SeptinSim
 
 def parse_args():
     parser = argparse.ArgumentParser(prog='SeptinAnalysis.py')
@@ -24,6 +26,9 @@ def parse_args():
     # General options
     parser.add_argument('-sd', '--seed', action = 'store_true',
             help = 'Run analysis on a single seed')
+
+    parser.add_argument('-sim', '--simulation', action = 'store_true',
+            help = 'Run analysis on a single simulation (collection of seeds)')
 
     parser.add_argument('-d', '--workdir', action = 'store_true',
             help = 'Working directory')
@@ -40,6 +45,9 @@ def parse_args():
 
     parser.add_argument('-G', '--graph', action = 'store_true',
             help = 'Graph data after analysis has been performed.')
+
+    parser.add_argument('-W', '--write', action = 'store_true',
+            help = 'Write analyzed data to HD5 files')
 
     opts = parser.parse_args()
     return opts
@@ -64,12 +72,20 @@ class SeptinAnalysis(object):
         else:
             self.opts.workdir = os.path.abspath(self.opts.workdir)
 
+        # If there is a central amount of data to be made, create the directory
+        if (self.opts.write):
+            self.opts.datadir = create_datadir(self.opts.workdir)
+
     def ProgOpts(self):
         r"""Run selected commands
         """
 
         if self.opts.seed:
             self.AnalyzeSeed()
+        elif self.opts.simulation:
+            self.AnalyzeSim()
+        else:
+            self.AnalyzeRun()
 
     def AnalyzeSeed(self):
         r"""Analyze a single simulation seed
@@ -103,6 +119,20 @@ class SeptinAnalysis(object):
             sd.GraphMembraneModes(axarr)
             fig.tight_layout()
             fig.savefig('septin_membranemodes.pdf', dpi=fig.dpi)
+
+    def AnalyzeSim(self):
+        r""" Analyze a simulation (collection of seeds)
+        """
+        sim = SeptinSim(self.opts.workdir, opts)
+        sim.Analyze()
+        if self.opts.graph:
+            plt.style.use(septin_runs_stl)
+            sim.GraphSimulation()
+
+    def AnalyzeRun(self):
+        r""" Analyze a run (collection of simulations)
+        """
+        run = SeptinRun(self.opts)
         
 
 
