@@ -1,6 +1,6 @@
 # XXX: Put a license here
 
-"""Class for a single septin seed"""
+"""Class for a single septin simulation"""
 
 import gc
 import os

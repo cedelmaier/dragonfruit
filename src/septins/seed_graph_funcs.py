@@ -113,7 +113,7 @@ def graph_seed_membranemodes(sd,
     ax.scatter(x_direct[1:], su_direct[1:], color = color, marker = 'o', s = 80, facecolors = 'none')
 
     # Figure out where cutoff etc are
-    qcutoff_mean = np.nanmean(sd.df['qcutoff_fft'].to_numpy())
+    qcutoff_mean = np.nanmean(sd.df['uq_2d_fft_qcutoff'].to_numpy())
     area_mean = np.nanmean(sd.df['membrane_area'].to_numpy())
 
     # Figure out where the lower cutoff is

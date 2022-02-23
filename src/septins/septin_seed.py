@@ -347,10 +347,10 @@ class SeptinSeed(SeedBase):
         if self.lipids:
             dfs.append(self.df_x_fft)
             dfs.append(self.df_su_fft)
-            dfs.append(self.df_qcutoff_fft)
+            dfs.append(self.df_uq_2d_fft_qcutoff)
             dfs.append(self.df_x_direct)
             dfs.append(self.df_su_direct)
-            dfs.append(self.df_qcutoff_direct)
+            dfs.append(self.df_uq_2d_direct_qcutoff)
 
         self.df = pd.concat(dfs, axis=1)
         print(self.df)
@@ -430,28 +430,28 @@ class SeptinSeed(SeedBase):
         # Loop over the timesteps
         timestep = np.array(self.timedata['timestep'], dtype=np.int64)
 
-        membranemodes_fft = self.modedata['membranemodes_fft']
-        membranemodes_fft_arr = np.array([membranemodes_fft[ts] for ts in timestep], dtype = np.complex128)
-        qcutoff_fft = self.modedata['qcutoff_fft']
-        qcutoff_fft_arr = np.array([qcutoff_fft[ts] for ts in timestep], dtype = np.float64)
-        membranemodes_direct = self.modedata['membranemodes_direct']
-        membranemodes_direct_arr = np.array([membranemodes_direct[ts] for ts in timestep], dtype = np.complex128)
-        qcutoff_direct = self.modedata['qcutoff_direct']
-        qcutoff_direct_arr = np.array([qcutoff_direct[ts] for ts in timestep], dtype = np.float64)
+        uq_2d_fft_modes             = self.modedata['uq_2d_fft_modes']
+        uq_2d_fft_modes_arr         = np.array([uq_2d_fft_modes[ts] for ts in timestep], dtype = np.complex128)
+        uq_2d_fft_qcutoff           = self.modedata['uq_2d_fft_qcutoff']
+        uq_2d_fft_qcutoff_arr       = np.array([uq_2d_fft_qcutoff[ts] for ts in timestep], dtype = np.float64)
+        uq_2d_direct_modes          = self.modedata['uq_2d_direct_modes']
+        uq_2d_direct_modes_arr      = np.array([uq_2d_direct_modes[ts] for ts in timestep], dtype = np.complex128)
+        uq_2d_direct_qcutoff        = self.modedata['uq_2d_direct_qcutoff']
+        uq_2d_direct_qcutoff_arr    = np.array([uq_2d_direct_qcutoff[ts] for ts in timestep], dtype = np.float64)
 
         # Loop over the membrane modes
         intensity_fft_list = []
         intensity_direct_list = []
-        qcutoff_fft_list = []
-        qcutoff_direct_list = []
-        for itx in np.arange(membranemodes_fft_arr.shape[0]):
-            [radii_fft, intensity_fft] = radial_average(membranemodes_fft_arr[itx,:,:], deltaq, qcutoff_fft_arr[itx])
+        uq_2d_fft_qcutoff_list = []
+        uq_2d_direct_qcutoff_list = []
+        for itx in np.arange(uq_2d_fft_modes_arr.shape[0]):
+            [radii_fft, intensity_fft] = radial_average(uq_2d_fft_modes_arr[itx,:,:], deltaq, uq_2d_fft_qcutoff_arr[itx])
             intensity_fft_list.append(intensity_fft)
-            qcutoff_fft_list.append(qcutoff_fft_arr[itx])
+            uq_2d_fft_qcutoff_list.append(uq_2d_fft_qcutoff_arr[itx])
             
-            [radii_direct, intensity_direct] = radial_average(membranemodes_direct_arr[itx,:,:], deltaq, qcutoff_direct_arr[itx])
+            [radii_direct, intensity_direct] = radial_average(uq_2d_direct_modes_arr[itx,:,:], deltaq, uq_2d_direct_qcutoff_arr[itx])
             intensity_direct_list.append(intensity_direct)
-            qcutoff_direct_list.append(qcutoff_direct_arr[itx])
+            uq_2d_direct_qcutoff_list.append(uq_2d_direct_qcutoff_arr[itx])
 
         uq_fft_arr      = np.array(intensity_fft_list)
         uq_direct_arr   = np.array(intensity_direct_list)
@@ -462,12 +462,12 @@ class SeptinSeed(SeedBase):
         su_fft          = np.square(uq_fft_mean)*self.lipids.nlipids_per_leaflet
         su_direct       = np.square(uq_direct_mean)*self.lipids.nlipids_per_leaflet
 
-        self.df_x_fft           = pd.DataFrame(radii_fft, columns=['x_fft'])
-        self.df_su_fft          = pd.DataFrame(su_fft, columns=['su_fft'])
-        self.df_qcutoff_fft     = pd.DataFrame(qcutoff_fft_list, columns=['qcutoff_fft'])
-        self.df_x_direct        = pd.DataFrame(radii_direct, columns=['x_direct'])
-        self.df_su_direct       = pd.DataFrame(su_direct, columns=['su_direct'])
-        self.df_qcutoff_direct  = pd.DataFrame(qcutoff_direct_list, columns=['qcutoff_direct'])
+        self.df_x_fft                   = pd.DataFrame(radii_fft, columns=['x_fft'])
+        self.df_su_fft                  = pd.DataFrame(su_fft, columns=['su_fft'])
+        self.df_uq_2d_fft_qcutoff       = pd.DataFrame(uq_2d_fft_qcutoff_list, columns=['uq_2d_fft_qcutoff'])
+        self.df_x_direct                = pd.DataFrame(radii_direct, columns=['x_direct'])
+        self.df_su_direct               = pd.DataFrame(su_direct, columns=['su_direct'])
+        self.df_uq_2d_direct_qcutoff    = pd.DataFrame(uq_2d_direct_qcutoff_list, columns=['uq_2d_direct_qcutoff'])
 
     def Temperature(self, timestep, snap):
         r""" Simulation kinetic temperature
@@ -518,7 +518,10 @@ class SeptinSeed(SeedBase):
         # Place on a grid
         grid_x, grid_y = np.mgrid[-Lx/2:Lx/2:Nxgrid, -Ly/2:Ly/2:Nygrid]
         from scipy.interpolate import griddata
-        grid_z = griddata(r, z, (grid_x, grid_y), method = 'cubic', fill_value = np.mean(z))
+        # Replace NaN at the edges (or where we don't have data) with the nearest neighbor interpolation
+        grid_z = griddata(r, z, (grid_x, grid_y), method = 'cubic')
+        grid_z_nearest = griddata(r, z, (grid_x, grid_y), method = 'nearest')
+        grid_z[np.isnan(grid_z)] = grid_z_nearest[np.isnan(grid_z)]
 
         # Compute FFT
         u = np.fft.fft2(grid_z, norm = 'forward')
@@ -527,8 +530,8 @@ class SeptinSeed(SeedBase):
         freqy = np.fft.fftshift(np.fft.fftfreq(ushift.shape[0], ypixel))
 
         # Return the information
-        qcutoff_fft = (freqx[1] - freqx[0])
-        return [ushift, qcutoff_fft]
+        uq_2d_fft_qcutoff = (freqx[1] - freqx[0])
+        return [ushift, uq_2d_fft_qcutoff]
 
     def Compute_U_DirectSlow(self, Lx, Ly, ndirect, r, z):
         r""" Compute fluctuation spectra U using a direct calculation that is slow
@@ -557,7 +560,6 @@ class SeptinSeed(SeedBase):
         udirect_fast = (np.sum(z * np.exp(-1j*np.dot(qmesh, r.T)), axis=-1)).reshape(2*ndirect+1,2*ndirect+1)
 
         return udirect_fast
-
 
     def MembraneModes(self, timestep, snap):
         r""" Membrane bending modes for both direct and fft measurements
@@ -595,12 +597,19 @@ class SeptinSeed(SeedBase):
         r1 = positions[leaf1_h_idx, 0:2]
         r2 = positions[leaf2_h_idx, 0:2]
 
+        ## Save the latest version of this for CSV file to check in other media formats
+        #np.savetxt("membrane_r1.csv", r1, delimiter = ',')
+        #np.savetxt("membrane_r2.csv", r2, delimiter = ',')
+        #np.savetxt("membrane_z1.csv", z1, delimiter = ',')
+        #np.savetxt("membrane_z2.csv", z2, delimiter = ',')
+
         ################
         # Interpolation method on a grid
         ################
         [ushift1, qcutoff1] = self.Compute_U_FFT(Lx, Ly, Nx, Ny, r1, z1)
         [ushift2, qcutoff2] = self.Compute_U_FFT(Lx, Ly, Nx, Ny, r2, z2)
         uq_2d_fft = 0.5*(ushift1 + ushift2)
+        hq_2d_fft = 0.5*(ushift1 - ushift2)
 
         #################
         ## Direct measurement of fourier coefficients
@@ -616,23 +625,24 @@ class SeptinSeed(SeedBase):
         udirectfast1 = self.Compute_U_DirectFast(Lx, Ly, Ndirect, r1, z1)
         udirectfast2 = self.Compute_U_DirectFast(Lx, Ly, Ndirect, r2, z2)
         uq_2d_direct_fast = 1.0/(2.0*self.lipids.nlipids_per_leaflet)*(udirectfast1 + udirectfast2)
+        hq_2d_direct_fast = 1.0/(2.0*self.lipids.nlipids_per_leaflet)*(udirectfast1 - udirectfast2)
 
         # Save the information we need later
-        if 'membranemodes_fft' not in self.modedata:
-            self.modedata['membranemodes_fft'] = {}
-        if 'qcutoff_fft' not in self.modedata:
-            self.modedata['qcutoff_fft'] = {}
-        if 'membranemodes_direct' not in self.modedata:
-            self.modedata['membranemodes_direct'] = {}
-        if 'qcutoff_direct' not in self.modedata:
-            self.modedata['qcutoff_direct'] = {}
+        if 'uq_2d_fft_modes' not in self.modedata:
+            self.modedata['uq_2d_fft_modes'] = {}
+        if 'uq_2d_fft_qcutoff' not in self.modedata:
+            self.modedata['uq_2d_fft_qcutoff'] = {}
+        if 'uq_2d_direct_modes' not in self.modedata:
+            self.modedata['uq_2d_direct_modes'] = {}
+        if 'uq_2d_direct_qcutoff' not in self.modedata:
+            self.modedata['uq_2d_direct_qcutoff'] = {}
 
         # For the FFT, make sure to convert to q-space (has the 2pi in the numerator)
-        self.modedata['membranemodes_fft'][timestep] = uq_2d_fft
-        self.modedata['qcutoff_fft'][timestep] = qcutoff1*2.0*np.pi
+        self.modedata['uq_2d_fft_modes'][timestep] = uq_2d_fft
+        self.modedata['uq_2d_fft_qcutoff'][timestep] = qcutoff1*2.0*np.pi
         
-        self.modedata['membranemodes_direct'][timestep] = uq_2d_direct_fast
-        self.modedata['qcutoff_direct'][timestep] = qcutoffx
+        self.modedata['uq_2d_direct_modes'][timestep] = uq_2d_direct_fast
+        self.modedata['uq_2d_direct_qcutoff'][timestep] = qcutoffx
 
     def AHDomainKon(self, timestep, snap):
         r""" k_on measurements for ah domains
