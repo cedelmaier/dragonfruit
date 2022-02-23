@@ -1,0 +1,12 @@
+# XXX: Decide what units to use
+# XXX: For now, these are in real world units for Argon in an LJ potential
+simulation:
+  natoms: 108     # How many argon atoms?
+  mass: 39.948    # Mass in amu
+  epsilon: 0.2379 # epsilon for LJ in kcal/mol
+  sigma: 3.405    # sigma for LJ in anstroms
+  rcut: 8.5       # rcut in angstroms
+  lbox: 17.1580   # box length in angstroms
+  nsteps: 10000   # Number of timesteps in the simulation
+  deltatau: 5.0   # timestep in fs
+  nwrite: 100     # How many timesteps between writing trajcetories
