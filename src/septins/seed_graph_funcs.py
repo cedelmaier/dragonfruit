@@ -104,13 +104,14 @@ def graph_seed_membranemodes(sd,
     x_fft   = x_fft[~np.isnan(x_fft)]
     su_fft  = su_fft[~np.isnan(su_fft)]
 
-    x_direct    = sd.df['x_direct'].to_numpy()
-    su_direct   = sd.df['su_direct'].to_numpy()
-    x_direct    = x_direct[~np.isnan(x_direct)]
-    su_direct   = su_direct[~np.isnan(su_direct)]
+    # XXX: Remove the direct calculation as it is hard to perform on a non-uniform grid
+    #x_direct    = sd.df['x_direct'].to_numpy()
+    #su_direct   = sd.df['su_direct'].to_numpy()
+    #x_direct    = x_direct[~np.isnan(x_direct)]
+    #su_direct   = su_direct[~np.isnan(su_direct)]
 
     ax.scatter(x_fft[1:], su_fft[1:], color = color, marker = '+', linewidth = 1)
-    ax.scatter(x_direct[1:], su_direct[1:], color = color, marker = 'o', s = 80, facecolors = 'none')
+    #ax.scatter(x_direct[1:], su_direct[1:], color = color, marker = 'o', s = 80, facecolors = 'none')
 
     # Figure out where cutoff etc are
     qcutoff_mean = np.nanmean(sd.df['uq_2d_fft_qcutoff'].to_numpy())

@@ -202,6 +202,9 @@ if __name__ == "__main__":
     # Create some random points
     rng = np.random.default_rng()
     points = (rng.random((npoints, 2)) - 0.5)*(Lx)
+    # Put on a uniform grid
+    #points[:,0] = np.arange(-Lx/2, Lx/2, 1)
+    #points[:,1] = np.arange(-Ly/2, Ly/2, 1)
     values = func(points[:,0], points[:,1])
     values = np.array([values])
     
@@ -247,8 +250,8 @@ if __name__ == "__main__":
     idx_fast    = np.unravel_index(np.argmax(udirect_fast, axis=None), udirect_fast.shape)
 
 
-    print(f"Bailing early to figure out scaling argument")
-    sys.exit(1)
+    #print(f"Bailing early to figure out scaling argument")
+    #sys.exit(1)
 
     # Save everything to compare radial averaging
     uq_2d_fft = u_fft
