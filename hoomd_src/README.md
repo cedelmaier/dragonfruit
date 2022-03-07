@@ -75,3 +75,9 @@ Here is an example of how to transfer entire directories between longleaf and a 
     scp -r edelmaie@longleaf.unc.edu:/pine/scr/e/d/edelmaie/supra_cg/dragonfruit/data/20220204 .
     scp -r <uname>@longleaf.unc.edu:<pine location>/<directory> .
 
+In order to get stuff off of longleaf that doesn't contain the .gsd files (as they are huge), one
+can use the following command to download everything else.
+
+    rsync -avh -e ssh --exclude='*.gsd' edelmaie@longleaf.unc.edu:/pine/scr/e/d/edelmaie/dragonfruit/20220227 .
+
+

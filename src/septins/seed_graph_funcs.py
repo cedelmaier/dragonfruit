@@ -105,13 +105,13 @@ def graph_seed_membranemodes(sd,
     su_fft  = su_fft[~np.isnan(su_fft)]
 
     # XXX: Remove the direct calculation as it is hard to perform on a non-uniform grid
-    #x_direct    = sd.df['x_direct'].to_numpy()
-    #su_direct   = sd.df['su_direct'].to_numpy()
-    #x_direct    = x_direct[~np.isnan(x_direct)]
-    #su_direct   = su_direct[~np.isnan(su_direct)]
+    x_direct    = sd.df['x_direct'].to_numpy()
+    su_direct   = sd.df['su_direct'].to_numpy()
+    x_direct    = x_direct[~np.isnan(x_direct)]
+    su_direct   = su_direct[~np.isnan(su_direct)]
 
     ax.scatter(x_fft[1:], su_fft[1:], color = color, marker = '+', linewidth = 1)
-    #ax.scatter(x_direct[1:], su_direct[1:], color = color, marker = 'o', s = 80, facecolors = 'none')
+    ax.scatter(x_direct[1:], su_direct[1:], color = color, marker = 'o', s = 80, facecolors = 'none')
 
     # Figure out where cutoff etc are
     qcutoff_mean = np.nanmean(sd.df['uq_2d_fft_qcutoff'].to_numpy())
@@ -125,18 +125,21 @@ def graph_seed_membranemodes(sd,
 
     # Generate some guesses for the fit
     nlipids_per_leaflet = sd.lipids.nlipids_per_leaflet
-    kcguess1 = nlipids_per_leaflet / area_mean / su_fft[idx] / (x_fft[idx]**4)
+    kcguess1 = sd.kT * nlipids_per_leaflet / area_mean / su_fft[idx] / (x_fft[idx]**4)
 
     # Try to do 2 fits, with and without the surface tension term
     from scipy.optimize import curve_fit
     popt_kc, pcov_kc = curve_fit(lambda q, kc: suq_curve(q, nlipids_per_leaflet, area_mean, kc, 0.0), x_fft[idx:jdx], su_fft[idx:jdx], bounds = ([0.0, np.inf]), p0 = [kcguess1])
     popt_ga, pcov_ga = curve_fit(lambda q, kc, gamma: suq_curve(q, nlipids_per_leaflet, area_mean, kc, gamma), x_fft[idx:jdx], su_fft[idx:jdx], bounds = ([0.0, -np.inf], [np.inf, np.inf]), p0 = [kcguess1, 0.0])
 
+    popt_direct_kc, pcov_direct_kc = curve_fit(lambda q, kc: suq_curve(q, nlipids_per_leaflet, area_mean, kc, 0.0), x_fft[idx:jdx], su_fft[idx:jdx], bounds = ([0.0, np.inf]), p0 = [kcguess1])
+
     print(f"Simuation fit values:")
     print(f"  kc(guess):    {kcguess1}")
-    print(f"  kc only:      {popt_kc[0]}")
-    print(f"  kc (both):    {popt_ga[0]}")
-    print(f"  gamma (both): {popt_ga[1]}")
+    print(f"  FFT kc only:      {popt_kc[0]}")
+    print(f"  FFT kc (both):    {popt_ga[0]}")
+    print(f"  FFT gamma (both): {popt_ga[1]}")
+    print(f"  Direct kc:        {popt_direct_kc[0]}")
     ax.plot(x_fft[idx:jdx], suq_curve(x_fft[idx:jdx], N = nlipids_per_leaflet, A = area_mean, kc = popt_kc[0], gamma = 0.0), color = color, linestyle = '--')
     ax.plot(x_fft[idx:jdx], suq_curve(x_fft[idx:jdx], N = nlipids_per_leaflet, A = area_mean, kc = popt_ga[0], gamma = popt_ga[1]), color = color, linestyle = ':')
 
@@ -147,7 +150,7 @@ def graph_seed_membranemodes(sd,
     ax.set_xscale('log')
     ax.set_title("Membrane Modes")
     if xlabel: ax.set_xlabel(r'q ($\sigma^{-1}$)')
-    ax.set_ylabel(r'$ \langle | u(q) |^{2} \rangle $ ($\sigma^{2}$)')
+    ax.set_ylabel(r'$ N \langle | u(q) |^{2} \rangle $ ($\sigma^{2}$)')
 
 def msd_fit(t, n, D):
     return 2*n*D*t

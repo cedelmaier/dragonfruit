@@ -22,7 +22,6 @@ def graph_sim_membranemodes(sim,
     """
     # Prepare some variables from the first seed
     min_size_fft    = 0
-    #min_size_direct = 0
     qcutoff_mean = []
     area_mean = []
     for sd in sim.seeds:
@@ -30,11 +29,6 @@ def graph_sim_membranemodes(sim,
         fft_length = fft_length[~np.isnan(fft_length)]
         fft_length = len(fft_length)
         if fft_length > min_size_fft: min_size_fft = fft_length
-
-        #direct_length = sd.df['x_direct'].to_numpy()
-        #direct_length = direct_length[~np.isnan(direct_length)]
-        #direct_length = len(direct_length)
-        #if direct_length > min_size_direct: min_size_direct = direct_length
 
         qcutoff_mean.append(np.nanmean(sd.df['uq_2d_fft_qcutoff'].to_numpy()))
         area_mean.append(np.nanmean(sd.df['membrane_area'].to_numpy()))
@@ -44,8 +38,6 @@ def graph_sim_membranemodes(sim,
 
     x_fft_arr = None
     su_fft_arr = None
-    #x_direct_arr = None
-    #su_direct_arr = None
 
     for sd in sim.seeds:
         # Get the data for each seed and add it to an average
@@ -56,22 +48,13 @@ def graph_sim_membranemodes(sim,
         x_fft   = x_fft[~np.isnan(x_fft)]
         su_fft  = su_fft[~np.isnan(su_fft)]
 
-        #x_direct    = sd.df['x_direct'].to_numpy()
-        #su_direct   = sd.df['su_direct'].to_numpy()
-        #x_direct    = x_direct[~np.isnan(x_direct)]
-        #su_direct   = su_direct[~np.isnan(su_direct)]
-
         # Cheap trick to assign the right size of array the first time around
         if type(x_fft_arr) != type(x_fft):
             x_fft_arr       = x_fft
             su_fft_arr      = su_fft
-            #x_direct_arr    = x_direct
-            #su_direct_arr   = su_direct
         else:
             x_fft_arr       = np.column_stack((x_fft_arr, x_fft))
             su_fft_arr      = np.column_stack((su_fft_arr, su_fft))
-            #x_direct_arr    = np.column_stack((x_direct_arr, x_direct))
-            #su_direct_arr   = np.column_stack((su_direct_arr, su_direct))
 
     # Create the average/mean/std variables
     if type(x_fft_arr) == None:
@@ -82,12 +65,7 @@ def graph_sim_membranemodes(sim,
         su_fft_mean = np.mean(su_fft_arr, axis = 1)
         su_fft_std = np.std(su_fft_arr, axis = 1)
 
-        #x_direct_mean = np.mean(x_direct_arr, axis = 1)
-        #su_direct_mean = np.mean(su_direct_arr, axis = 1)
-        #su_direct_std = np.std(su_direct_arr, axis = 1)
-
-    ax.errorbar(x_fft_mean, su_fft_mean, yerr = su_fft_std, label = 'FFT', color = color, marker = '+', linestyle = 'none')
-    #ax.errorbar(x_direct_mean, su_direct_mean, yerr = su_direct_std, label = 'Direct', color = color, marker = 'o', linestyle = 'none')
+    ax.errorbar(x_fft_mean, su_fft_mean, yerr = su_fft_std, label = 'FFT', color = color, marker = 's', linestyle = 'none', markerfacecolor = 'none', capsize = 5)
 
     # Try to fit the FFT data with the appropriate curves
 

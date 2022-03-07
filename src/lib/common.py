@@ -1,7 +1,10 @@
 # Common helper functions for membranes and AH domains
 
+import itertools
 import os
 import random
+import sys
+
 import numpy as np
 
 # Generate a random unit vector
@@ -72,3 +75,18 @@ def create_datadir(path, datadir_name = 'data'):
         print("WARNING: Data directory {} already exists. Continuing.".format(data_path))
 
     return data_path
+
+def ragged_mean(x):
+    r""" Compute the 'ragged' mean of the list of np.array values in x
+    Note: The ragged array will compute the mean and std in every column, for example,
+    the array
+        [1, 2, 3]
+        [1, 3, 6, 9]
+    will return
+        mean = [1, 2.5, 4.5, 9]
+        std  = [0, 0.707, 2.12, nan]
+    """
+    mean = np.nanmean(np.array(list(itertools.zip_longest(*x)), dtype=np.float64), axis=1)
+    stdd = np.nanstd(np.array(list(itertools.zip_longest(*x)), dtype=np.float64), axis=1, ddof=1)
+
+    return [mean, stdd]
