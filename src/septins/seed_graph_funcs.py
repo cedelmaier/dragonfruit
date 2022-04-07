@@ -104,11 +104,11 @@ def graph_seed_membranemodes(sd,
     x_fft   = x_fft[~np.isnan(x_fft)]
     su_fft  = su_fft[~np.isnan(su_fft)]
 
-    # XXX: Remove the direct calculation as it is hard to perform on a non-uniform grid
-    x_direct    = sd.df['x_direct'].to_numpy()
-    su_direct   = sd.df['su_direct'].to_numpy()
-    x_direct    = x_direct[~np.isnan(x_direct)]
-    su_direct   = su_direct[~np.isnan(su_direct)]
+    ## XXX: Remove the direct calculation as it is hard to perform on a non-uniform grid
+    #x_direct    = sd.df['x_direct'].to_numpy()
+    #su_direct   = sd.df['su_direct'].to_numpy()
+    #x_direct    = x_direct[~np.isnan(x_direct)]
+    #su_direct   = su_direct[~np.isnan(su_direct)]
 
     ax.scatter(x_fft[1:], su_fft[1:], color = 'b', marker = '+', linewidth = 1)
     #ax.scatter(x_direct[1:], su_direct[1:], color = 'r', marker = 'o', s = 80, facecolors = 'none')
@@ -132,17 +132,17 @@ def graph_seed_membranemodes(sd,
     popt_fft_kc, pcov_fft_kc = curve_fit(lambda q, kc: suq_curve(q, nlipids_per_leaflet, area_mean, kc, 0.0), x_fft[idx:jdx], su_fft[idx:jdx], bounds = ([0.0, np.inf]), p0 = [kcguess1])
     popt_fft_ga, pcov_ga = curve_fit(lambda q, kc, gamma: suq_curve(q, nlipids_per_leaflet, area_mean, kc, gamma), x_fft[idx:jdx], su_fft[idx:jdx], bounds = ([0.0, -np.inf], [np.inf, np.inf]), p0 = [kcguess1, 0.0])
 
-    popt_direct_kc, pcov_direct_kc = curve_fit(lambda q, kc: suq_curve(q, nlipids_per_leaflet, area_mean, kc, 0.0), x_direct[idx:jdx], su_direct[idx:jdx], bounds = ([0.0, np.inf]), p0 = [kcguess1])
-    popt_direct_ga, pcov_direct_ga = curve_fit(lambda q, kc, gamma: suq_curve(q, nlipids_per_leaflet, area_mean, kc, gamma), x_direct[idx:jdx], su_direct[idx:jdx], bounds = ([0.0, -np.inf], [np.inf, np.inf]), p0 = [kcguess1, 0.0])
+    #popt_direct_kc, pcov_direct_kc = curve_fit(lambda q, kc: suq_curve(q, nlipids_per_leaflet, area_mean, kc, 0.0), x_direct[idx:jdx], su_direct[idx:jdx], bounds = ([0.0, np.inf]), p0 = [kcguess1])
+    #popt_direct_ga, pcov_direct_ga = curve_fit(lambda q, kc, gamma: suq_curve(q, nlipids_per_leaflet, area_mean, kc, gamma), x_direct[idx:jdx], su_direct[idx:jdx], bounds = ([0.0, -np.inf], [np.inf, np.inf]), p0 = [kcguess1, 0.0])
 
     print(f"Simuation fit values:")
     print(f"  kc(guess):    {kcguess1}")
     print(f"  ----No gamma----")
     print(f"  FFT kc            = {popt_fft_kc[0]}")
-    print(f"  Direct kc         = {popt_direct_kc[0]}")
+    #print(f"  Direct kc         = {popt_direct_kc[0]}")
     print(f"  ----With gamma----")
     print(f"  FFT kc, gamma     = {popt_fft_ga[0]}, {popt_fft_ga[1]}")
-    print(f"  Direct kc, gamma  = {popt_direct_ga[0]}, {popt_direct_ga[1]}")
+    #print(f"  Direct kc, gamma  = {popt_direct_ga[0]}, {popt_direct_ga[1]}")
     ax.plot(x_fft[idx:jdx], suq_curve(x_fft[idx:jdx], N = nlipids_per_leaflet, A = area_mean, kc = popt_fft_kc[0], gamma = 0.0), color = 'b', linestyle = '--')
     ax.plot(x_fft[idx:jdx], suq_curve(x_fft[idx:jdx], N = nlipids_per_leaflet, A = area_mean, kc = popt_fft_ga[0], gamma = popt_fft_ga[1]), color = 'b', linestyle = ':')
     #ax.plot(x_direct[idx:jdx], suq_curve(x_direct[idx:jdx], N = nlipids_per_leaflet, A = area_mean, kc = popt_direct_kc[0], gamma = 0.0), color = 'r', linestyle = '--')
@@ -153,7 +153,7 @@ def graph_seed_membranemodes(sd,
     # Plot the vertical line for qcutoff
     ax.axvline(x = qcutoff_mean, ymin = 0, ymax = 1.0, color = 'k', linestyle = '-')
 
-    ax.set_ylim(1e-1, 1e5)
+    ax.set_ylim(1e-1, 1e6)
     ax.set_yscale('log')
     ax.set_xscale('log')
     ax.set_title("Membrane Modes")
@@ -165,7 +165,8 @@ def graph_seed_membranemodes(sd,
     with open('dumpfile_hoomd.csv', 'w') as stream:
         dfs = []
         leafletareadf = pd.DataFrame([area_mean, nlipids_per_leaflet], columns=['other'])
-        valuesdf = sd.df[['x_fft', 'su_fft', 'x_direct', 'su_direct']]
+        #valuesdf = sd.df[['x_fft', 'su_fft', 'x_direct', 'su_direct']]
+        valuesdf = sd.df[['x_fft', 'su_fft']]
         dfs.append(leafletareadf)
         dfs.append(valuesdf)
         mdf = pd.concat(dfs, axis=1)

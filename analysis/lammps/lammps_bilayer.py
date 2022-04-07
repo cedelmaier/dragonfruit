@@ -68,9 +68,9 @@ min_frame = 404
 max_frame = 504
 
 timesteps = []
-Nx = 100
+Nx = 200
 Nxgrid = Nx * 1j
-Ndirect = 31
+Ndirect = 1
 
 with open(datafile, "r") as stream:
     for index, line in enumerate(stream):
@@ -157,28 +157,28 @@ with open(datafile, "r") as stream:
             [ushift2, qcutoff2] = Compute_U_FFT(Lx, Nx, r2, z2)
             uq_2d_fft = 0.5*(ushift1 + ushift2)
 
-            # Direct fast measurement
-            udirectfast1 = Compute_U_DirectFast(Lx, Ndirect, r1, z1)
-            udirectfast2 = Compute_U_DirectFast(Lx, Ndirect, r2, z1)
-            uq_2d_direct_fast = 1.0/(2.0*nlipids_per_leaflet)*(udirectfast1 + udirectfast2)
+            ## Direct fast measurement
+            #udirectfast1 = Compute_U_DirectFast(Lx, Ndirect, r1, z1)
+            #udirectfast2 = Compute_U_DirectFast(Lx, Ndirect, r2, z1)
+            #uq_2d_direct_fast = 1.0/(2.0*nlipids_per_leaflet)*(udirectfast1 + udirectfast2)
 
             # Save off information for later!
             if 'uq_2d_fft_modes' not in modedata:
                 modedata['uq_2d_fft_modes'] = {}
             if 'uq_2d_fft_qcutoff' not in modedata:
                 modedata['uq_2d_fft_qcutoff'] = {}
-            if 'uq_2d_direct_modes' not in modedata:
-                modedata['uq_2d_direct_modes'] = {}
-            if 'uq_2d_direct_qcutoff' not in modedata:
-                modedata['uq_2d_direct_qcutoff'] = {}
+            #if 'uq_2d_direct_modes' not in modedata:
+            #    modedata['uq_2d_direct_modes'] = {}
+            #if 'uq_2d_direct_qcutoff' not in modedata:
+            #    modedata['uq_2d_direct_qcutoff'] = {}
             if 'area' not in modedata:
                 modedata['area'] = {}
 
             modedata['uq_2d_fft_modes'][timestep] = uq_2d_fft
             modedata['uq_2d_fft_qcutoff'][timestep] = qcutoff1*2.0*np.pi
 
-            modedata['uq_2d_direct_modes'][timestep] = uq_2d_direct_fast
-            modedata['uq_2d_direct_qcutoff'][timestep] = qcutoffx
+            #modedata['uq_2d_direct_modes'][timestep] = uq_2d_direct_fast
+            #modedata['uq_2d_direct_qcutoff'][timestep] = qcutoffx
 
             modedata['area'][timestep] = Lx*Ly
 
@@ -200,11 +200,11 @@ uq_2d_fft_modes         = modedata['uq_2d_fft_modes']
 uq_2d_fft_modes_arr     = np.array([uq_2d_fft_modes[ts] for ts in timestep], dtype=np.complex128)
 uq_2d_fft_qcutoff       = modedata['uq_2d_fft_qcutoff']
 uq_2d_fft_qcutoff_arr   = np.array([uq_2d_fft_qcutoff[ts] for ts in timestep], dtype=np.float64)
-# Direct modes?
-uq_2d_direct_modes          = modedata['uq_2d_direct_modes']
-uq_2d_direct_modes_arr      = np.array([uq_2d_direct_modes[ts] for ts in timestep], dtype = np.complex128)
-uq_2d_direct_qcutoff        = modedata['uq_2d_direct_qcutoff']
-uq_2d_direct_qcutoff_arr    = np.array([uq_2d_direct_qcutoff[ts] for ts in timestep], dtype = np.float64)
+## Direct modes?
+#uq_2d_direct_modes          = modedata['uq_2d_direct_modes']
+#uq_2d_direct_modes_arr      = np.array([uq_2d_direct_modes[ts] for ts in timestep], dtype = np.complex128)
+#uq_2d_direct_qcutoff        = modedata['uq_2d_direct_qcutoff']
+#uq_2d_direct_qcutoff_arr    = np.array([uq_2d_direct_qcutoff[ts] for ts in timestep], dtype = np.float64)
 
 # Loop over membrane modesl to calculate the max size of arrays
 max_len = 0
@@ -214,11 +214,11 @@ for itx in np.arange(uq_2d_fft_modes_arr.shape[0]):
         max_len = len(intensity_fft)
 # Compute just like the real version
 radii_fft_list = []
-radii_direct_list = []
+#radii_direct_list = []
 intensity_fft_list = []
-intensity_direct_list = []
+#intensity_direct_list = []
 uq_2d_fft_qcutoff_list = []
-uq_2d_direct_qcutoff_list = []
+#uq_2d_direct_qcutoff_list = []
 area_list = []
 for itx in np.arange(uq_2d_fft_modes_arr.shape[0]):
     [radii_fft, intensity_fft] = radial_average(uq_2d_fft_modes_arr[itx,:,:], deltaq, uq_2d_fft_qcutoff_arr[itx])
@@ -226,10 +226,10 @@ for itx in np.arange(uq_2d_fft_modes_arr.shape[0]):
     radii_fft_list.append(radii_fft)
     uq_2d_fft_qcutoff_list.append(uq_2d_fft_qcutoff_arr[itx])
     
-    [radii_direct, intensity_direct] = radial_average(uq_2d_direct_modes_arr[itx,:,:], deltaq, uq_2d_direct_qcutoff_arr[itx])
-    intensity_direct_list.append(intensity_direct)
-    radii_direct_list.append(radii_direct)
-    uq_2d_direct_qcutoff_list.append(uq_2d_direct_qcutoff_arr[itx])
+    #[radii_direct, intensity_direct] = radial_average(uq_2d_direct_modes_arr[itx,:,:], deltaq, uq_2d_direct_qcutoff_arr[itx])
+    #intensity_direct_list.append(intensity_direct)
+    #radii_direct_list.append(radii_direct)
+    #uq_2d_direct_qcutoff_list.append(uq_2d_direct_qcutoff_arr[itx])
 
     area_list.append(area_arr[itx])
 
@@ -237,9 +237,9 @@ for itx in np.arange(uq_2d_fft_modes_arr.shape[0]):
 [intensity_fft_mean, intensity_fft_std] = ragged_mean(intensity_fft_list)
 su_fft = np.square(intensity_fft_mean)*nlipids_per_leaflet
 
-[radii_direct_mean, radii_direct_std] = ragged_mean(radii_direct_list)
-[intensity_direct_mean, intensity_direct_std] = ragged_mean(intensity_direct_list)
-su_direct = np.square(intensity_direct_mean)*nlipids_per_leaflet
+#[radii_direct_mean, radii_direct_std] = ragged_mean(radii_direct_list)
+#[intensity_direct_mean, intensity_direct_std] = ragged_mean(intensity_direct_list)
+#su_direct = np.square(intensity_direct_mean)*nlipids_per_leaflet
 
 area_mean = np.mean(area_list)
 
@@ -266,17 +266,17 @@ kcguess1 = 1.0*nlipids_per_leaflet / area_mean / su_fft[idx] / (radii_fft_mean[i
 from scipy.optimize import curve_fit
 popt_fft_kc, pcov_fft_kc = curve_fit(lambda q, kc: suq_curve(q, nlipids_per_leaflet, area_mean, kc, 0.0), radii_fft_mean[idx:jdx], su_fft[idx:jdx], bounds = ([0.0, np.inf]), p0 = [kcguess1])
 popt_fft_ga, pcov_direct_gc = curve_fit(lambda q, kc, gamma: suq_curve(q, nlipids_per_leaflet, area_mean, kc, gamma), radii_fft_mean[idx:jdx], su_fft[idx:jdx], bounds = ([0.0, -np.inf], [np.inf, np.inf]), p0 = [kcguess1, 0.0])
-popt_direct_kc, pcov_direct_kcA = curve_fit(lambda q, kc: suq_curve(q, nlipids_per_leaflet, area_mean, kc, 0.0), radii_direct_mean[idx:jdx], su_direct[idx:jdx], bounds = ([0.0, np.inf]), p0 = [kcguess1])
-popt_direct_ga, pcov_direct_ga = curve_fit(lambda q, kc, gamma: suq_curve(q, nlipids_per_leaflet, area_mean, kc, gamma), radii_direct_mean[idx:jdx], su_direct[idx:jdx], bounds = ([0.0, -np.inf], [np.inf, np.inf]), p0 = [kcguess1, 0.0])
+#popt_direct_kc, pcov_direct_kcA = curve_fit(lambda q, kc: suq_curve(q, nlipids_per_leaflet, area_mean, kc, 0.0), radii_direct_mean[idx:jdx], su_direct[idx:jdx], bounds = ([0.0, np.inf]), p0 = [kcguess1])
+#popt_direct_ga, pcov_direct_ga = curve_fit(lambda q, kc, gamma: suq_curve(q, nlipids_per_leaflet, area_mean, kc, gamma), radii_direct_mean[idx:jdx], su_direct[idx:jdx], bounds = ([0.0, -np.inf], [np.inf, np.inf]), p0 = [kcguess1, 0.0])
 
 print(f"Simulation fit values:")
 print(f"  kc(guess)         = {kcguess1}")
 print(f"----No gamma----")
 print(f"  FFT kc                = {popt_fft_kc[0]}")
-print(f"  Direct kc             = {popt_direct_kc[0]}")
+#print(f"  Direct kc             = {popt_direct_kc[0]}")
 print(f"---With gamma----")
 print(f"  FFT kc, gamma         = {popt_fft_ga[0]}, {popt_fft_ga[1]}")
-print(f"  Direct kc, gamma      = {popt_direct_ga[0]}, {popt_direct_ga[1]}")
+#print(f"  Direct kc, gamma      = {popt_direct_ga[0]}, {popt_direct_ga[1]}")
 
 ax.plot(radii_fft_mean[idx:jdx], suq_curve(radii_fft_mean[idx:jdx], N = nlipids_per_leaflet, A = area_mean, kc = popt_fft_kc[0], gamma = 0.0), color = 'b', linestyle = '--')
 ax.plot(radii_fft_mean[idx:jdx], suq_curve(radii_fft_mean[idx:jdx], N = nlipids_per_leaflet, A = area_mean, kc = popt_fft_ga[0], gamma = popt_fft_ga[1]), color = 'b', linestyle = ':')
@@ -288,7 +288,7 @@ ax.axvline(x = qcutoff_mean, ymin = 0, ymax = 1.0, color = 'k', linestyle = '-')
 
 
 # Set the log scale stuff
-ax.set_ylim(1e-1,1e5)
+ax.set_ylim(1e-1,1e6)
 ax.set_yscale('log')
 ax.set_xscale('log')
 ax.set_title('Membrane Modes')
@@ -302,13 +302,13 @@ fig.savefig('lammps_membranemodes.pdf', dpi = fig.dpi)
 dfs = []
 df_x_fft        = pd.DataFrame(radii_fft_mean, columns = ['x_fft'])
 df_su_fft       = pd.DataFrame(su_fft, columns = ['su_fft'])
-df_x_direct     = pd.DataFrame(radii_direct_mean, columns = ['x_direct'])
-df_su_direct    = pd.DataFrame(su_direct, columns = ['su_direct'])
+#df_x_direct     = pd.DataFrame(radii_direct_mean, columns = ['x_direct'])
+#df_su_direct    = pd.DataFrame(su_direct, columns = ['su_direct'])
 df_other        = pd.DataFrame([area_mean, nlipids_per_leaflet], columns = ['other'])
 dfs.append(df_x_fft)
 dfs.append(df_su_fft)
-dfs.append(df_x_direct)
-dfs.append(df_su_direct)
+#dfs.append(df_x_direct)
+#dfs.append(df_su_direct)
 dfs.append(df_other)
 
 # Combine all together

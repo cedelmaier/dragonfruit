@@ -91,7 +91,9 @@ if __name__ == "__main__":
 unset OMP_NUM_THREADS
 
 module purge
-module load gromacs/2020.3-gpu
+module load gcc/9.1.0
+module load cuda/9.2
+source /nas/longleaf/apps/gromacs/2020.3/root-cuda9.2/bin/GMXRC.bash
 
 # This is an attempt at getting the GROMACS equilibration of the membrane right
 
@@ -101,9 +103,6 @@ mini_prefix=step6.0_minimization
 equi_prefix=step6.%d_equilibration
 prod_prefix=step7_production
 prod_step=step7
-
-# Have to set the number of MPI threads to 1 so that it doesn't blow up
-#ntmpi=1
 
 lscpu
 

@@ -52,7 +52,7 @@ qcutoff = 2.0*np.pi/np.sqrt(hoomd_area_mean)
 cutoff_line     = ax.axvline(x = qcutoff, ymin = 0, ymax = 1.0, color = 'k', linestyle = '-', label = 'Frequency cutoff')
 
 # Set up the graphing options
-ax.set_ylim(1e0,1e5)
+ax.set_ylim(1e0,1e6)
 ax.set_yscale('log')
 ax.set_xscale('log')
 ax.set_xlabel(r'q ($\sigma^{-1}$)')
