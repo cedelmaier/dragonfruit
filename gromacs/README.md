@@ -71,3 +71,52 @@ you have something to show to people as a movie!
 
 ## Center a protein in the simulation box after simulation
 
+# PyMOL tip and tricks (also groan)
+Well, if you don't want to use VMD, this is another option. Not necessarily a better one, but it is different.
+
+## Centering and ripping a protein out of a trajectory for visualization
+PyMOL has some eccentricities, so let's deal with those first. First step is to recenter the protein in the box, and
+then we can dump the information without the waters included, which significantly reduces the size. One probably wants 
+to create a new index map that just has the lipid and protein members, which
+you need to generate a new index file for (in this case Protein, PLPI, DOPC lipids)
+    
+    gmx make_ndx -f step7_1.gro -o extra_groups.ndx
+    1 | 13 | 14
+    q
+
+    gmx trjconv -s step7_1.gro -f traj_continuous_v1_200.xtc -o traj_nopbc.xtc -boxcenter rect -pbc mol -center -n extra_groups.ndx
+
+    Select 1 for the centering, then 18 (or whatever) for what to actually write out
+
+Either way, then you need the first frame of the trajectory as a topology file.
+
+    gmx trjconv -s step7_1.gro -f traj_continuous_v1_200.xtc -o cfg_0.gro -boxcenter rect -pbc mol -center -dump 0 -n extra_groups.ndx 
+
+    Select 1 for the centering, then 18 (or whatever) for what we actually write out
+
+So really, just run these to get the trajectories and the initial setup
+
+    gmx trjconv -s step7_1.gro -f traj_continuous_v1_200.xtc -o traj_nopbc.xtc -boxcenter rect -pbc mol -center -n extra_groups.ndx
+    gmx trjconv -s step7_1.gro -f traj_continuous_v1_200.xtc -o xyz.pdb -boxcenter rect -pbc mol -center -n extra_groups.ndx -dump 0
+
+Now you should have two files, and then we can rename them so that PyMOL doesn't throw a hissy fit when we load them (hopefully). Note, these
+have to have the exact same name
+
+    mv traj_nopbc.xtc ahpymol.xtc
+    mv cfg_0.gro ahpymol.gro
+    mv xyz.pdb ahpymol.pdb
+
+# Analysis
+
+## CD measurements
+We can make predicted CD measurements of our structures with the online tool pdbmd2cd. This allows us to take a bunch of pdb files, submit
+then to the server, and then have an analysis of the helix nature of the simulated samples. One can generate a list of the PDB files
+via the following commands from GROMACS.
+
+    gmx trjconv -s step7_1.tpr -f traj_continuous_v1_600.xtc -o xyz.pdb -boxcenter rect -pbc mol -center -dt 10000 -sep
+    tar -czvf xyz.tar.gz xyz*.pdb
+
+This allows multiple structure files to be submitted at once to the online tool. Notice that there is a separation and a dt in ters of (ps)
+that is used to control how many structures we submit to the server. To dump the last frame, you can also do something like the following.
+
+    gmx trjconv -s step7_1.tpr -f traj_continuous_v1_600.xtc -o frame_6000.pdb -boxcenter rect -pbc mol -center -dump 600000
