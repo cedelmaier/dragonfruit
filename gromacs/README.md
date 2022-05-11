@@ -55,6 +55,24 @@ Then build the system out of the relevant components.
 To run equilibration, use the run_equilibration.sh script provided. This should
 properly setup the environment and run equilibration steps 1-6
 
+## Additional programs/feelings about GROMACS
+Using just gromacs doesn't get you everything. For instance, you probably want to install the xmgrace
+tool so that you can visualize the XVG files that it sometimes spits out (ugh). To do this, the one
+packaged with brew seems okay.
+
+    brew install grace
+
+which you can then use for things like viewing these stupid XVG files
+
+    xmgrace scount.xvg
+
+To view the xpm files, you need to run them through something to convert to EPS format, like
+
+    gmx xpm2ps -f dssp_test.xpm -o dssp_test.eps
+
+which will give an eps file that can be converted into a plot for what kind of residues are turns/helices,
+for instance.
+
 # VMD tips and tricks (groan)
 
 ## Simple display
@@ -120,3 +138,20 @@ This allows multiple structure files to be submitted at once to the online tool.
 that is used to control how many structures we submit to the server. To dump the last frame, you can also do something like the following.
 
     gmx trjconv -s step7_1.tpr -f traj_continuous_v1_600.xtc -o frame_6000.pdb -boxcenter rect -pbc mol -center -dump 600000
+
+## DSSP
+This is a way to assign helix-like states to the different things in PDB files and structures. It's also super, super finnicky, so this
+is gonna suck. In order to install a version that works on OSX, I found that you can install it via anaconda in it's own environment
+
+    conda create --name dssp_osx
+    conda activate dssp_osx
+    conda install -c salilab dssp
+
+This will create the damn thing, as the online versions (hssp, xssp, whatever else) don't seem to work properly. You can run this in standalone mode
+on a single PDB file with somethig like
+
+    mkdssp -i final_frame.pdb
+
+And this will generate the records. To run through gromacs, you need to run something like
+
+    gmx do_dssp -s step7_1.tpr -f traj_continuous_v1_1000.xtc -n index.ndx -dt 100000 -o -ssdump -o dssp_out.xpm -a -aa -ta

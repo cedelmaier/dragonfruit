@@ -62,5 +62,8 @@ scale by 1.2
 scale by 1.2
 scale by 1.2
 
+# Set to orthographic
+display projection Orthographic
+
 # Rotate into new X position
 #rotate x by 270

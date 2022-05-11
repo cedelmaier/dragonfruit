@@ -20,27 +20,39 @@ import pandas as pd
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'src', 'lib'))
 from stylelib.common_styles import septin_runs_stl
 
-main_path = os.path.abspath('/Users/cedelmaier/Projects/Biophysics/septin_project/atomistic/')
+main_path = os.path.abspath('/Users/cedelmaier/Projects/Biophysics/septin_project/atomistic/simulations/')
+#simulation_names = [
+#                    #'ahcoil_00angstrom_v1',
+#                    #'ahcoil_10angstrom_v1',
+#                    #'ahcoil_20angstrom_v1',
+#                    #'ahcoil_30angstrom_v1',
+#                    'ahhelix_00angstrom_v1',
+#                    'ahhelix_10angstrom_v1',
+#                    'ahhelix_20angstrom_v1',
+#                    #'ahhelix_30angstrom_v1',
+#                    ]
 simulation_names = [
-                    #'ahcoil_00angstrom_v1',
-                    #'ahcoil_10angstrom_v1',
-                    #'ahcoil_20angstrom_v1',
-                    #'ahcoil_30angstrom_v1',
-                    'ahhelix_00angstrom_v1',
-                    'ahhelix_10angstrom_v1',
-                    'ahhelix_20angstrom_v1',
-                    #'ahhelix_30angstrom_v1',
+                    'coiled/zdepth_00angstroms/s1',
+                    'coiled/zdepth_10angstroms/s1',
+                    'coiled/zdepth_20angstroms/s1',
+                    'coiled/zdepth_30angstroms/s1',
+                    #'unfolded/zdepth_00angstroms/s1',
+                    #'unfolded/zdepth_10angstroms/s1',
+                    #'unfolded/zdepth_10angstroms/s2',
+                    #'unfolded/zdepth_10angstroms/s3',
+                    #'unfolded/zdepth_10angstroms/s4',
+                    #'unfolded/zdepth_20angstroms/s1',
+                    #'unfolded/zdepth_20angstroms/s2',
+                    #'unfolded/zdepth_20angstroms/s3',
+                    #'unfolded/zdepth_20angstroms/s4',
+                    #'unfolded/zdepth_30angstroms/s1',
                     ]
 
 # Set up an output name
-#outname = 'coil'
-#outname = 'inserted'
-#outname = 'unfolded'
-#outname = 'unfoldednojump'
-#outname = 'coilcorrected'
-#outname = 'coilcorrected_bound'
-#outname = 'unfodedcorrected'
-outname = 'unfoldedcorrected_bound'
+outname = 'coiled_all'
+#outname = 'unfolded_all'
+#outname = 'unfolded_10'
+#outname = 'unfolded_20'
 
 # Set up the plots beforehand
 plt.style.use(septin_runs_stl)
@@ -68,9 +80,10 @@ for sname in simulation_names:
     times = master_df.index
 
     # Generate the depth and name for the label
-    coilname = sname.split('_')[0]
+    coilname = sname.split('/')[0]
     depth = sname.split('_')[1][0:2]
-    labelname = coilname + ' +' + depth
+    seedname = sname.split('/')[-1]
+    labelname = coilname + ' +' + depth + ' ' + seedname
 
     # Compute zdist plot
     zdist = np.abs(master_df['helix_z'] - master_df['lipid_z'])
@@ -88,7 +101,7 @@ for sname in simulation_names:
 ax_zdist.set_xlabel('Time (ps)')
 ax_zdist.set_ylabel('Z distance (Angstroms)')
 ax_zdist.legend(loc = 'lower right')
-ax_zdist.set_ylim([0.0, 60.0])
+#ax_zdist.set_ylim([0.0, 60.0])
 fig_zdist.tight_layout()
 fig_zdist.savefig('gromacs_zdist_' + outname + '.pdf', dpi = fig_zdist.dpi)
 
