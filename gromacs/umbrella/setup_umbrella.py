@@ -125,6 +125,7 @@ class UmbrellaSampler(object):
         total_time_hr = np.int32(np.ceil(np.float32(12)*24.0/nsday*1.2))
 
         # Loop through all the possible files for this
+        fname_list = []
         for i in range(len(self.sampled_indices)):
             frame = self.distance_table[self.sampled_indices[i]][0]
             dist = self.distance_table[self.sampled_indices[i]][1]
@@ -137,6 +138,9 @@ class UmbrellaSampler(object):
             # Write to a bash script
             fname = 'run_umbrella_frame{}.sh'.format(frame)
             fname_next = 'run_umbrella_frame{}.sh'.format(next_frame)
+
+            # Setup to write to a single batch file and submit all at once, as they are independent
+            fname_list.append(fname)
 
             with open(fname, 'w') as rsh:
                 rsh.write('''\
@@ -159,7 +163,7 @@ unset OMP_NUM_THREADS
 module purge
 module load gcc/9.1.0
 module load cuda/11.4
-source /nas/longleaf/apps/gromacs/2021.5/avx2_256-cuda11.4/bin/GMXRC.bash
+source /nas/longleaf/apps/gromacs/2021.5/avx_512-cuda11.4/bin/GMXRC.bash
 
 # Get the number of cores and the linux version/name
 lscpu
@@ -167,19 +171,26 @@ uname -a
 
 # Setup for a single umbrella run
 # First, setup the NPT runs
-gmx_gpu grompp -f npt_umbrella_v1.mdp -c conf{} -p topol.top -r conf{}.gro -n index.ndx -o npt{}.tpr
+gmx_gpu grompp -f npt_umbrella_v1.mdp -c conf{} -p topol.top -r conf{}.gro -n index.ndx -o npt{}.tpr -maxwarn 1
 gmx_gpu mdrun -deffnm npt{} -ntmpi {} --ntomp {} -nb gpu -bonded gpu -pme gpu -npme 1
 
 # Now run the actual simulations
 gmx_gpu grompp -f md_umbrella_v1.mdp -c npt{}.gro -t npt{}.cpt -p topol.top -r npt{}.gro -n index.ndx -o umbrella{}.tpr
 gmx_gpu mdrun -deffnm umbrella{} -ntmpi {} --ntomp {} -nb gpu --bonded gpu -pme gpu -npme 1
-
-# Set up the daisy-chain to next run
-sbatch {}
-'''.format(ngpu, ntmpi, ntomp, total_time_hr, frame, frame, frame, frame, ntmpi, ntomp, frame, frame, frame, frame, frame, ntmpi, ntomp, fname_next))
+'''.format(ngpu, ntmpi, ntomp, total_time_hr, frame, frame, frame, frame, ntmpi, ntomp, frame, frame, frame, frame, frame, ntmpi, ntomp))
 
                 st = os.stat(fname)
                 os.chmod(fname, st.st_mode | stat.S_IEXEC)
+
+        # Now, put everything into a single submission script
+        with open('submit_all.sh', 'w') as rsh:
+            rsh.write('#!/bin/bash\n\n')
+            for iname in fname_list:
+                rsh.write('sbatch {}\n'.format(iname))
+            rsh.write('\n')
+
+        st = os.stat('submit_all.sh')
+        os.chmod('submit_all.sh', st.st_mode | stat.S_IEXEC)
 
 
 ###############
