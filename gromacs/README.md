@@ -73,6 +73,52 @@ To view the xpm files, you need to run them through something to convert to EPS 
 which will give an eps file that can be converted into a plot for what kind of residues are turns/helices,
 for instance.
 
+## Umbrella sampling
+**WARNING**: This is setup for pulling of COM between the AH domain and the membrane, without a reference
+coordinate other than the COM of the lipid bilayer and the AH-domain. This may or may not be correct. So, 
+make sure to think about what you are submitting!
+
+Umbrella sampling is done similar to what is done in the gromacs tutorial 3 online. This is based off of
+previous work that has also done umbrella sampling (see papers on Overleaf for more details). The basics of
+this are to run a simulation and then pull the AH domain out of the membrane, measuring it at different intervals.
+To do this, we need to run several commands in order, some of which do require GROMACS to run, and may not work
+dependong on the version synchornizations between computers.
+
+First, one must start from a simulation of the AH-domain and membrane. I've used the coiled AH inserted at 
++00 angstroms for this example. First, generate a configuration with the CHARMM-GUI, but include a *lot* of
+water on both sides (NOTE: This would be better if it were one-sided), in order to give enough room to pull
+the AH domain out of the membrane. Equilibration is done the same as the other types of simulations.
+
+    run_equilibration.sh
+
+This will generate the configuration to use going forward with the steered MD. This steered MD attempts to rip
+the AH domain out of the membrane at some rate using a potential to restrict where the AH domain wants to be. The
+equilibrated simulation can be fed into the steered MD via
+
+    vim step7_umbrella_v1.mdp
+    run_steered_md_v1.sh
+
+to edit and then configure the exact pulling parameters for the simulation. Once this is done, we need to do 
+some post-processing in order to get out the distances that we are going to use for our WHAM routine. This
+can be done with the script get_distances.sh, which generates a distance file and configuration for EVERY
+single frame in the previous trajectory.
+
+    get_distances.sh
+
+Once you have the summary distance file, you can generate the umbrella sampling MD scripts and submit them 
+en mass to the cluster. This can be done as they are all independent simulations, and so don't need to run
+one after the other. For example, for 0.1 nm spacing you can run
+
+    vim npt_umbrella_v1.mdp
+    vim md_umbrella_v1.mdp
+    python3 setup_umbrella.py -dfile summary_distances.dat -i 0.1 --ntmpi 3 --ntomp 8 --ngpu 3 --nsday 50.0
+
+this will also check the two setup files that you'll need for the umbrella sampling (always check these to make sure
+that everything is okay!). Then you can just submit the final script and wait for the answer.
+
+    ./submit_all.sh
+
+
 # VMD tips and tricks (groan)
 
 ## Simple display
