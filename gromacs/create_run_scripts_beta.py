@@ -8,9 +8,9 @@ import sys
 import numpy as np
 
 '''
-Name: create_run_scripts.py
+Name: create_run_scripts_beta.py
 Description: Create files for running membranes on longleaf
-Input: To view options type create_run_scripts.py
+Input: To view options type create_run_scripts_beta.py
 Output: Bash files for submission of scripts
 '''
 
@@ -32,6 +32,7 @@ def parse_args():
             help='Number of OMP threads per MPI task')
     parser.add_argument('--ngpu', type=int, default=4,
             help='Number of GPUs to use')
+
 
     # Input timing information for the number of ns/day possible
     parser.add_argument('--nsday', type=float, default=50.0,
@@ -78,15 +79,15 @@ if __name__ == "__main__":
 #!/bin/bash
 
 # Comments for running on the GPU cluster
-#SBATCH --job-name=membrane_perf
-#SBATCH --partition=volta-gpu
+#SBATCH --job-name=membrane_prod_beta
 #SBATCH --gres=gpu:{}
-#SBATCH --qos=gpu_access
 #SBATCH --ntasks={}
 #SBATCH --cpus-per-task={}
 #SBATCH --mem=8G
 #SBATCH --time={}:00:00
-#SBATCH --output=prod_run-%j.log
+#SBATCH --partition=beta-gpu
+#SBATCH --output=log.%x.%j
+#SBATCH --qos=gpu_access
 #SBATCH --constraint=rhel8
 
 unset OMP_NUM_THREADS
@@ -105,9 +106,7 @@ equi_prefix=step6.%d_equilibration
 prod_prefix=step7_production
 prod_step=step7
 
-# Get the number of cores and the linux version/name
 lscpu
-uname -a
 
 # Production, do another 10 ns
 let cnt={}
