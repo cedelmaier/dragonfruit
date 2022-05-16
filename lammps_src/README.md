@@ -42,3 +42,32 @@ Then you can build the setup
 You also need to add a line to the activate script for the python stuff. This can easily be accomplished by
 
     echo 'export LD_LIBRARY_PATH=$VIRTUAL_ENV/lib:$LD_LIBRARY_PATH' >> ~/virtual_envs/lammps_20220309/bin/activate
+
+# Compiling LAMMPS on dogwood
+Try to use the python implementation, but have issues for now. But can make the main thing.
+
+    python3 -m venv ~/virtual_envs/lammps_20220311
+    source ~/virtual_envs/lammps_20220311/bin/activate
+
+Then, make sure to copy over the lipid potential files, otherwise a lot of this is all for nothing.
+
+    cp <source_to_dragonfruit>/lammps_src/pair_grime.* mylammps/src/.
+
+Run the cmake command with the install prefix and everything, just in case we ever get python working.
+
+    cmake -C ~/mylammps/cmake/presets/most.cmake -D BUILD_OPENMP=yes -D BUILD_MPI=yes -D BUILD_SHARED_LIBS=yes -D CMAKE_INSTALL_PREFIX=$VIRTUAL_ENV ~/mylammps/cmake
+
+and like the other one, make sure to enable the Python and LAMMPS extentions.
+
+    Python
+    LAMMPS_Exceptions
+
+then build and install
+
+    cmake --build . -j8
+    cmake --install .
+
+the do the same export we did before
+
+    echo 'export LD_LIBRARY_PATH=$VIRTUAL_ENV/lib:$LD_LIBRARY_PATH' >> ~/virtual_envs/lammps_20220309/bin/activate
+

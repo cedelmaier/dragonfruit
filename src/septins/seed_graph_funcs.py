@@ -104,14 +104,14 @@ def graph_seed_membranemodes(sd,
     x_fft   = x_fft[~np.isnan(x_fft)]
     su_fft  = su_fft[~np.isnan(su_fft)]
 
-    # XXX: Remove the direct calculation as it is hard to perform on a non-uniform grid
-    x_direct    = sd.df['x_direct'].to_numpy()
-    su_direct   = sd.df['su_direct'].to_numpy()
-    x_direct    = x_direct[~np.isnan(x_direct)]
-    su_direct   = su_direct[~np.isnan(su_direct)]
+    ## XXX: Remove the direct calculation as it is hard to perform on a non-uniform grid
+    #x_direct    = sd.df['x_direct'].to_numpy()
+    #su_direct   = sd.df['su_direct'].to_numpy()
+    #x_direct    = x_direct[~np.isnan(x_direct)]
+    #su_direct   = su_direct[~np.isnan(su_direct)]
 
-    ax.scatter(x_fft[1:], su_fft[1:], color = color, marker = '+', linewidth = 1)
-    ax.scatter(x_direct[1:], su_direct[1:], color = color, marker = 'o', s = 80, facecolors = 'none')
+    ax.scatter(x_fft[1:], su_fft[1:], color = 'b', marker = '+', linewidth = 1)
+    #ax.scatter(x_direct[1:], su_direct[1:], color = 'r', marker = 'o', s = 80, facecolors = 'none')
 
     # Figure out where cutoff etc are
     qcutoff_mean = np.nanmean(sd.df['uq_2d_fft_qcutoff'].to_numpy())
@@ -129,28 +129,48 @@ def graph_seed_membranemodes(sd,
 
     # Try to do 2 fits, with and without the surface tension term
     from scipy.optimize import curve_fit
-    popt_kc, pcov_kc = curve_fit(lambda q, kc: suq_curve(q, nlipids_per_leaflet, area_mean, kc, 0.0), x_fft[idx:jdx], su_fft[idx:jdx], bounds = ([0.0, np.inf]), p0 = [kcguess1])
-    popt_ga, pcov_ga = curve_fit(lambda q, kc, gamma: suq_curve(q, nlipids_per_leaflet, area_mean, kc, gamma), x_fft[idx:jdx], su_fft[idx:jdx], bounds = ([0.0, -np.inf], [np.inf, np.inf]), p0 = [kcguess1, 0.0])
+    popt_fft_kc, pcov_fft_kc = curve_fit(lambda q, kc: suq_curve(q, nlipids_per_leaflet, area_mean, kc, 0.0), x_fft[idx:jdx], su_fft[idx:jdx], bounds = ([0.0, np.inf]), p0 = [kcguess1])
+    popt_fft_ga, pcov_ga = curve_fit(lambda q, kc, gamma: suq_curve(q, nlipids_per_leaflet, area_mean, kc, gamma), x_fft[idx:jdx], su_fft[idx:jdx], bounds = ([0.0, -np.inf], [np.inf, np.inf]), p0 = [kcguess1, 0.0])
 
-    popt_direct_kc, pcov_direct_kc = curve_fit(lambda q, kc: suq_curve(q, nlipids_per_leaflet, area_mean, kc, 0.0), x_fft[idx:jdx], su_fft[idx:jdx], bounds = ([0.0, np.inf]), p0 = [kcguess1])
+    #popt_direct_kc, pcov_direct_kc = curve_fit(lambda q, kc: suq_curve(q, nlipids_per_leaflet, area_mean, kc, 0.0), x_direct[idx:jdx], su_direct[idx:jdx], bounds = ([0.0, np.inf]), p0 = [kcguess1])
+    #popt_direct_ga, pcov_direct_ga = curve_fit(lambda q, kc, gamma: suq_curve(q, nlipids_per_leaflet, area_mean, kc, gamma), x_direct[idx:jdx], su_direct[idx:jdx], bounds = ([0.0, -np.inf], [np.inf, np.inf]), p0 = [kcguess1, 0.0])
 
     print(f"Simuation fit values:")
     print(f"  kc(guess):    {kcguess1}")
-    print(f"  FFT kc only:      {popt_kc[0]}")
-    print(f"  FFT kc (both):    {popt_ga[0]}")
-    print(f"  FFT gamma (both): {popt_ga[1]}")
-    print(f"  Direct kc:        {popt_direct_kc[0]}")
-    ax.plot(x_fft[idx:jdx], suq_curve(x_fft[idx:jdx], N = nlipids_per_leaflet, A = area_mean, kc = popt_kc[0], gamma = 0.0), color = color, linestyle = '--')
-    ax.plot(x_fft[idx:jdx], suq_curve(x_fft[idx:jdx], N = nlipids_per_leaflet, A = area_mean, kc = popt_ga[0], gamma = popt_ga[1]), color = color, linestyle = ':')
+    print(f"  ----No gamma----")
+    print(f"  FFT kc            = {popt_fft_kc[0]}")
+    #print(f"  Direct kc         = {popt_direct_kc[0]}")
+    print(f"  ----With gamma----")
+    print(f"  FFT kc, gamma     = {popt_fft_ga[0]}, {popt_fft_ga[1]}")
+    #print(f"  Direct kc, gamma  = {popt_direct_ga[0]}, {popt_direct_ga[1]}")
+    ax.plot(x_fft[idx:jdx], suq_curve(x_fft[idx:jdx], N = nlipids_per_leaflet, A = area_mean, kc = popt_fft_kc[0], gamma = 0.0), color = 'b', linestyle = '--')
+    ax.plot(x_fft[idx:jdx], suq_curve(x_fft[idx:jdx], N = nlipids_per_leaflet, A = area_mean, kc = popt_fft_ga[0], gamma = popt_fft_ga[1]), color = 'b', linestyle = ':')
+    #ax.plot(x_direct[idx:jdx], suq_curve(x_direct[idx:jdx], N = nlipids_per_leaflet, A = area_mean, kc = popt_direct_kc[0], gamma = 0.0), color = 'r', linestyle = '--')
+    #ax.plot(x_direct[idx:jdx], suq_curve(x_direct[idx:jdx], N = nlipids_per_leaflet, A = area_mean, kc = popt_direct_ga[0], gamma = popt_direct_ga[1]), color = 'r', linestyle = ':')
+
+    #ax.plot(x_fft[idx:jdx], suq_curve(x_fft[idx:jdx], N = nlipids_per_leaflet, A = area_mean, kc = 1.0, gamma = 0.0), color = 'm', linestyle = '--')
 
     # Plot the vertical line for qcutoff
     ax.axvline(x = qcutoff_mean, ymin = 0, ymax = 1.0, color = 'k', linestyle = '-')
 
+    ax.set_ylim(1e-1, 1e6)
     ax.set_yscale('log')
     ax.set_xscale('log')
     ax.set_title("Membrane Modes")
     if xlabel: ax.set_xlabel(r'q ($\sigma^{-1}$)')
     ax.set_ylabel(r'$ N \langle | u(q) |^{2} \rangle $ ($\sigma^{2}$)')
+
+    # XXX: Get out the data, remove this once LAMMPS is integrated into dragonfruit
+    print(f"WARNING: Dumping CSV file of membrane modes, please remove later!")
+    with open('dumpfile_hoomd.csv', 'w') as stream:
+        dfs = []
+        leafletareadf = pd.DataFrame([area_mean, nlipids_per_leaflet], columns=['other'])
+        #valuesdf = sd.df[['x_fft', 'su_fft', 'x_direct', 'su_direct']]
+        valuesdf = sd.df[['x_fft', 'su_fft']]
+        dfs.append(leafletareadf)
+        dfs.append(valuesdf)
+        mdf = pd.concat(dfs, axis=1)
+        mdf.to_csv(stream, index=False)
 
 def msd_fit(t, n, D):
     return 2*n*D*t
