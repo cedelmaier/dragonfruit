@@ -32,27 +32,27 @@ main_path = os.path.abspath('/Users/cedelmaier/Projects/Biophysics/septin_projec
 #                    #'ahhelix_30angstrom_v1',
 #                    ]
 simulation_names = [
-                    'coiled/zdepth_00angstroms/s1',
-                    'coiled/zdepth_10angstroms/s1',
-                    'coiled/zdepth_20angstroms/s1',
-                    'coiled/zdepth_30angstroms/s1',
+                    #'coiled/zdepth_00angstroms/s1',
+                    #'coiled/zdepth_10angstroms/s1',
+                    #'coiled/zdepth_20angstroms/s1',
+                    #'coiled/zdepth_30angstroms/s1',
                     #'unfolded/zdepth_00angstroms/s1',
                     #'unfolded/zdepth_10angstroms/s1',
                     #'unfolded/zdepth_10angstroms/s2',
                     #'unfolded/zdepth_10angstroms/s3',
                     #'unfolded/zdepth_10angstroms/s4',
-                    #'unfolded/zdepth_20angstroms/s1',
-                    #'unfolded/zdepth_20angstroms/s2',
-                    #'unfolded/zdepth_20angstroms/s3',
-                    #'unfolded/zdepth_20angstroms/s4',
+                    'unfolded/zdepth_20angstroms/s1',
+                    'unfolded/zdepth_20angstroms/s2',
+                    'unfolded/zdepth_20angstroms/s3',
+                    'unfolded/zdepth_20angstroms/s4',
                     #'unfolded/zdepth_30angstroms/s1',
                     ]
 
 # Set up an output name
-outname = 'coiled_all'
+#outname = 'coiled_all'
 #outname = 'unfolded_all'
 #outname = 'unfolded_10'
-#outname = 'unfolded_20'
+outname = 'unfolded_20'
 
 # Set up the plots beforehand
 plt.style.use(septin_runs_stl)

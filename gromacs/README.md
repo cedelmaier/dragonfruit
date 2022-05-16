@@ -154,4 +154,8 @@ on a single PDB file with somethig like
 
 And this will generate the records. To run through gromacs, you need to run something like
 
-    gmx do_dssp -s step7_1.tpr -f traj_continuous_v1_1000.xtc -n index.ndx -dt 100000 -o -ssdump -o dssp_out.xpm -a -aa -ta
+    gmx do_dssp -s step7_1.tpr -f traj_continuous_v1_1000.xtc -n index.ndx -dt 100000 -ssdump -o unfolded_zdepth30_s1_dssp.xpm -a -aa -ta
+
+One can then turn this into an image (or examine the different stuff in the files), you need to run something like
+
+    gmx xpm2ps -f dssp_test.xpm -o dssp_test.eps

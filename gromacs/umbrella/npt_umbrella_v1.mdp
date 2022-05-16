@@ -1,0 +1,60 @@
+; Based off of the umbrella sampling version from GROMACS online
+; Run parameters
+integrator              = md
+dt                      = 0.002
+nsteps                  = 50000     ; 100 ps
+nstcomm                 = 10
+; Output parameters
+nstxout                 = 5000      ; Write every 10 ps
+nstvout                 = 5000
+nstfout                 = 5000      ; Write every 10 ps
+nstxtcout               = 5000
+nstenergy               = 5000
+; Bond parameters
+constraints             = h-bonds
+constraint_algorithm    = LINCS
+continuation            = no        ; Setup a new simulation with new RNG
+; Cutoff scheme
+cutoff-scheme           = Verlet
+nstlist                 = 20
+rlist                   = 1.2
+vdwtype                 = Cut-off
+vdw-modifier            = Force-switch
+rvdw_switch             = 1.0
+rvdw                    = 1.2
+coulombtype             = PME
+rcoulomb                = 1.2
+;
+tcoupl                  = Nose-Hoover
+tc_grps                 = SOLU MEMB SOLV
+tau_t                   = 1.0 1.0 1.0
+ref_t                   = 300 300 300
+;
+pcoupl                  = Parrinello-Rahman
+pcoupltype              = semiisotropic
+tau_p                   = 5.0
+compressibility         = 4.5e-5  4.5e-5
+ref_p                   = 1.0     1.0
+;
+comm_mode               = linear
+comm_grps               = SOLU_MEMB SOLV
+; Generate new velocities
+gen_vel                 = yes
+gen_temp                = 300
+; Extra stuff from umbrella online
+; Long-range dispersion correcton
+DispCorr                = EnerPres
+; Pull code
+pull                    = yes
+pull_ncoords            = 1         ; Only one reaction coordiante
+pull_ngroups            = 2         ; Only pulling on the helix itself
+pull_group1_name        = SOLU      ; Only pull the protein itself
+pull_group2_name        = MEMB      ; Second group is the membrane
+pull_coord1_type        = umbrella  ; harmonic potential
+pull_coord1_geometry    = distance  ; Pull based on the distance
+pull_coord1_dim         = N N Y
+pull_coord1_groups      = 1 2
+pull_coord1_start       = yes
+pull_coord1_rate        = 0.0       ; 0.01 nm per ps = 10 nm per ns
+pull_coord1_k           = 1000      ; kJ mol^-1 nm^-2
+pull_group2_pbcatom     = -1        ; Use a weighted ensemble for the middle of the COM
