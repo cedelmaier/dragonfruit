@@ -146,6 +146,7 @@ you need to generate a new index file for (in this case Protein, PLPI, DOPC lipi
     
     gmx make_ndx -f step7_1.gro -o extra_groups.ndx
     1 | 13 | 14
+    13 | 14
     q
 
     gmx trjconv -s step7_1.gro -f traj_continuous_v1_200.xtc -o traj_nopbc.xtc -boxcenter rect -pbc mol -center -n extra_groups.ndx
@@ -169,6 +170,38 @@ have to have the exact same name
     mv traj_nopbc.xtc ahpymol.xtc
     mv cfg_0.gro ahpymol.gro
     mv xyz.pdb ahpymol.pdb
+
+20220520 Update: Just use the following. Center the box on the lipid layer, so that we can see the protein moving, and then run the
+analysis. You still have to make the new groups as before (see above).
+
+    gmx trjconv -s step7_umbrella_v1.tpr -f step7_umbrella_v1.xtc -o step7_umbrella_v1_reduced.pdb -n extra_groups.ndx -boxcenter rect -pbc mol -center -dump 0
+    gmx trjconv -s step7_umbrella_v1.tpr -f step7_umbrella_v1.xtc -o step7_umbrella_v1_reduced.xtc -n extra_groups.ndx -boxcenter rect -pbc mol -center
+
+## Some sort of workflow for GROMACS simulations
+This is done using version 1 of the umbrella sampling that I did. This is to visualize the entire sequence in some sort of rational form.
+First, preprocess this shit to make it easier in PyMOL.
+
+    gmx trjconv -s step7_umbrella_v1.tpr -f step7_umbrella_v1.xtc -o step7_umbrella_v1_reduced.pdb -n extra_groups.ndx -boxcenter rect -pbc mol -center -dump 0
+    gmx trjconv -s step7_umbrella_v1.tpr -f step7_umbrella_v1.xtc -o step7_umbrella_v1_reduced.xtc -n extra_groups.ndx -boxcenter rect -pbc mol -center
+
+In pyMol, found these to be somewhat effective commands
+
+    cd /Users/cedelmaier/Projects/Biophysics/septin_project/atomistic/simulations/coiled_umbrella/v1
+    load step7_umbrella_v1_reduced.pdb
+    load_traj step7_umbrella_v1_reduced.xtc
+    smooth all, 30, 3
+    select DOPC, resname DOPC
+    select PLPI, resname PLPI
+    select lipids, resname DOPC or resname PLPI
+    select protein, chain A
+    set sphere_transparency=0.9, lipids
+
+    hide all
+    show spheres, lipids
+    show cartoon, protein
+    select dopc_headgroups, resname DOPC and (name N or name C12 or name C13 or name C14 or name C15 or name C11 or name P or name O13 or name O12 or name O11)
+    select dopc_notheadgroups, (resname DOPC) and (not name N and not name C12 and not name C13 and not name C14 and not name C15 and not name P and not name O13 and not name O12 and not name O11)
+    
 
 # Analysis
 

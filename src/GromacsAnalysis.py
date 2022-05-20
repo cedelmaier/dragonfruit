@@ -9,9 +9,14 @@ import pickle
 import os
 import sys
 
+# MD Analysis is used for leaflet identification, transformations
 import MDAnalysis as mda
 import MDAnalysis.transformations as trans
 from MDAnalysis.analysis import helix_analysis as hel
+from MDAnalysis.analysis import leaflet as leaf
+
+# MDTraj has a native DSSP module
+import mdtraj as md
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -67,11 +72,14 @@ class GromacsAnalysis(object):
         self.path = os.path.abspath(self.opts.workdir)
         self.name = self.path.split('/')[-1]
 
+        # Create a .gro reader as well for MDtraj
         self.filename_structure = os.path.join(self.path, self.opts.structure)
         self.filename_trajectory = os.path.join(self.path, self.opts.trajectory)
+        self.filename_gromacs = os.path.basename(self.filename_structure).split('.')[0] + '.gro'
 
         self.AnalyzeTrajectory()
-        self.AnalyzeHelix()
+        #self.AnalyzeHelix()
+        self.AnalyzeDSSP()
 
         self.Graph()
         self.WriteData()
@@ -91,12 +99,22 @@ class GromacsAnalysis(object):
         not_solvent = traj_universe.select_atoms('resname DOPC or resname PLPI or protein')
         solvent = traj_universe.select_atoms('not (resname DOPC or resname PLPI or protein)')
 
+        # Try to get the head groups of the two leaflets for analysis too
+        # Has an implicit cutoff at 15.0
+        L = leaf.LeafletFinder(traj_universe, 'name P*')
+        leaflet0 = L.groups(0)
+        leaflet1 = L.groups(1)
+
+        # Unwrap/wrap the protein so that it doesn't have issues with the PBC
+        transforms = [trans.unwrap(helix_atoms)]
+        traj_universe.trajectory.add_transformations(*transforms)
+
         # Wrap everything into a periodic box
         #transforms = [trans.unwrap(not_solvent),
         #              trans.center_in_box(not_solvent, wrap=True),
         #              trans.wrap(solvent)]
-        transforms = [trans.unwrap(not_solvent)]
-        traj_universe.trajectory.add_transformations(*transforms)
+        #transforms = [trans.unwrap(not_solvent)]
+        #traj_universe.trajectory.add_transformations(*transforms)
         
         # Do the analysis on the trajectory
         times = []
@@ -104,12 +122,16 @@ class GromacsAnalysis(object):
         plpi_com = []
         lipid_com = []
         helix_com = []
+        leaflet0_com = []
+        leaflet1_com = []
         for ts in traj_universe.trajectory:
             times.append(traj_universe.trajectory.time)
             dopc_com.append(dopc_atoms.center_of_mass())
             plpi_com.append(plpi_atoms.center_of_mass())
             lipid_com.append(lipid_atoms.center_of_mass())
             helix_com.append(helix_atoms.center_of_mass())
+            leaflet0_com.append(leaflet0.center_of_mass())
+            leaflet1_com.append(leaflet1.center_of_mass())
 
         # Split up into a pandas dataframe for viewing
         dopc_com_df = pd.DataFrame(dopc_com, columns = ['dopc_x', 'dopc_y', 'dopc_z'], index=times)
@@ -120,12 +142,18 @@ class GromacsAnalysis(object):
         lipid_com_df.index.name = 'Time(ps)'
         helix_com_df = pd.DataFrame(helix_com, columns = ['helix_x', 'helix_y', 'helix_z'], index=times)
         helix_com_df.index.name = 'Time(ps)'
+        leaflet0_com_df = pd.DataFrame(leaflet0_com, columns = ['leaflet0_x', 'leaflet0_y', 'leaflet0_z'], index=times)
+        leaflet0_com_df.index.name = 'Time(ps)'
+        leaflet1_com_df = pd.DataFrame(leaflet1_com, columns = ['leaflet1_x', 'leaflet1_y', 'leaflet1_z'], index=times)
+        leaflet1_com_df.index.name = 'Time(ps)'
         
         dfs = []
         dfs.append(dopc_com_df)
         dfs.append(plpi_com_df)
         dfs.append(lipid_com_df)
         dfs.append(helix_com_df)
+        dfs.append(leaflet0_com_df)
+        dfs.append(leaflet1_com_df)
         
         self.master_df = pd.concat(dfs, axis=1)
 
@@ -150,6 +178,51 @@ class GromacsAnalysis(object):
         # Run the helix analysis
         self.helix_analysis = hel.HELANAL(traj_universe_helix, select='name CA and resid 1-18').run()
 
+    def AnalyzeDSSP(self):
+        r""" Analyze DSSP parameters for secondary structure
+        """
+        print(f"GromacsAnalysis::AnalyzeDSSP")
+        # Iteratively load as otherwise this takes forever!
+        current_chunk = 0
+        # Create an array to store the helicity results
+        helicity_results = []
+        for chunk in md.iterload(self.filename_trajectory, top=self.filename_gromacs):
+            ## Easy exit to not process the whole thing
+            #if current_chunk >=1:
+            #    break
+
+            topology = chunk.topology
+            helix_selection = topology.select('protein')
+            helix_traj = chunk.atom_slice(helix_selection)
+
+            dssp_results = md.compute_dssp(helix_traj)
+
+            # Define a helicity for every frame based on this
+            for iframe in dssp_results:
+                helicity_results.append(iframe)
+
+            current_chunk += 1
+
+        helicity_results = np.array(helicity_results)
+
+        self.helicity = np.zeros(helicity_results.shape[0])
+        times = []
+        for iframe,val in enumerate(helicity_results):
+            # FIXME: Hardcoded conversion to time, which is probably unsafe
+            times.append(iframe)
+            # Get the helicity of the combined states
+            h_count = (val == 'H').sum() + (val == 'G').sum() + (val == 'I').sum()
+            h_total = val.shape
+
+            current_helicity = h_count / h_total
+            self.helicity[iframe] = current_helicity[0]
+
+        # Add the helicity to the master DF
+        helicity_df = pd.DataFrame(self.helicity, columns = ['helicity'], index=times)
+        helicity_df.index.name = 'Time(ps)'
+
+        self.master_df = pd.concat([self.master_df, helicity_df], axis=1)
+
     def Graph(self):
         r""" Graph results
         """
@@ -162,11 +235,23 @@ class GromacsAnalysis(object):
         fig.tight_layout()
         fig.savefig('gromacs_zdist.pdf', dpi=fig.dpi)
 
-        # Plot helix information
-        fig, axarr = plt.subplots(2, 1, figsize = (15, 10))
-        self.graph_helix_analysis(axarr)
+        # Try doing a plot with the lipid head groups included
+        fig, axarr = plt.subplots(1, 1, figsize=(15,10))
+        self.graph_zpos_com(axarr)
         fig.tight_layout()
-        fig.savefig('gromacs_helix_analysis.pdf', dpi=fig.dpi)
+        fig.savefig('gromacs_zpos.pdf', dpi=fig.dpi)
+
+        # Plot the helicity of the protein
+        fig, axarr = plt.subplots(1, 1, figsize = (15, 20))
+        self.graph_helicity(axarr)
+        fig.tight_layout()
+        fig.savefig('gromacs_helicity.pdf', dpi=fig.dpi)
+
+        ## Plot helix information
+        #fig, axarr = plt.subplots(2, 1, figsize = (15, 10))
+        #self.graph_helix_analysis(axarr)
+        #fig.tight_layout()
+        #fig.savefig('gromacs_helix_analysis.pdf', dpi=fig.dpi)
 
     def WriteData(self):
         r""" Write the data into either CSV files for pandas or pickles for internal objects
@@ -175,20 +260,40 @@ class GromacsAnalysis(object):
         hd5_filename = os.path.join(self.path, self.name + '.h5')
         self.master_df.to_hdf(hd5_filename, key='master_df', mode='w')
 
-        # Dump the pickle files
-        pkl_filename = os.path.join(self.path, self.name + '.pickle')
-        with open(pkl_filename, 'wb') as f:
-            pickle.dump(self.helix_analysis,f)
+        ## Dump the pickle files
+        #pkl_filename = os.path.join(self.path, self.name + '.pickle')
+        #with open(pkl_filename, 'wb') as f:
+        #    pickle.dump(self.helix_analysis,f)
 
 
     def graph_zdist_com(self, axarr):
         r""" Plot the Z distance between the lipid and helix COM
         """
         z = np.abs(self.master_df['helix_z'] - self.master_df['lipid_z'])
-        #z.plot()
         axarr.plot(z)
         axarr.set_xlabel('Frame')
         axarr.set_ylabel('Z distance (Angstroms)')
+
+    def graph_zpos_com(self, axarr):
+        r""" Plot the Z positino of the lipid head groups and the protein
+        """
+        z_protein = self.master_df['helix_z']
+        z_leaf0 = self.master_df['leaflet0_z']
+        z_leaf1 = self.master_df['leaflet1_z']
+        axarr.plot(z_protein, color = 'b')
+        axarr.plot(z_leaf0, color = 'k')
+        axarr.plot(z_leaf1, color = 'k')
+        axarr.set_xlabel('Frame')
+        axarr.set_ylabel('Z position (Angstroms)')
+
+    def graph_helicity(self, axarr):
+        r""" Plot the helicity (0 to 1) as a function of time
+        """
+        helicity = self.master_df['helicity']
+        axarr.plot(helicity, color = 'k')
+        axarr.set_xlabel('Frame')
+        axarr.set_ylabel('Helicity (AU)')
+        axarr.set_ylim([0.0, 1.05])
 
     def graph_helix_analysis(self, axarr):
         r""" Plot results of the helix analysis
