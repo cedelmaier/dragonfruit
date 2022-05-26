@@ -8,6 +8,7 @@ import argparse
 import pickle
 import os
 import sys
+import time
 
 # MD Analysis is used for leaflet identification, transformations
 import MDAnalysis as mda
@@ -30,13 +31,12 @@ def parse_args():
     parser = argparse.ArgumentParser(prog='GromacsAnalysis.py')
 
     # General options
-    parser.add_argument('-tpr', '--structure', required=True, type=str,
-            help = 'Gromacs TPR topology/structure file')
+    parser.add_argument('-top', '--structure', required=True, type=str,
+            help = 'Gromacs topology/structure file')
     parser.add_argument('-xtc', '--trajectory', required=True, type=str,
             help = 'Gromacs TPR trajectory file')
     parser.add_argument('-d', '--workdir', action = 'store_true',
             help = 'Working directory')
-
 
     opts = parser.parse_args()
     return opts
@@ -45,12 +45,15 @@ class GromacsAnalysis(object):
     r""" Gromacs analysis
     """
     def __init__(self, opts):
+        self.start_time = time.time()
         self.opts = opts
         self.cwd = os.getcwd()
 
         self.ReadOpts()
 
         self.ProgOpts()
+
+        print("--- %s seconds ---" % (time.time() - self.start_time))
 
     def ReadOpts(self):
         if not self.opts.workdir:
@@ -72,7 +75,7 @@ class GromacsAnalysis(object):
         self.path = os.path.abspath(self.opts.workdir)
         self.name = self.path.split('/')[-1]
 
-        # Create a .gro reader as well for MDtraj
+        # Create a reader depending on what we are reading in
         self.filename_structure = os.path.join(self.path, self.opts.structure)
         self.filename_trajectory = os.path.join(self.path, self.opts.trajectory)
         self.filename_gromacs = os.path.basename(self.filename_structure).split('.')[0] + '.gro'
@@ -106,7 +109,12 @@ class GromacsAnalysis(object):
         leaflet1 = L.groups(1)
 
         # Unwrap/wrap the protein so that it doesn't have issues with the PBC
-        transforms = [trans.unwrap(helix_atoms)]
+        #transforms = [trans.unwrap(helix_atoms)]
+        transforms = [trans.unwrap(helix_atoms),
+                      trans.unwrap(lipid_atoms),
+                      trans.center_in_box(lipid_atoms, wrap=True),
+                      trans.wrap(solvent),
+                      trans.wrap(lipid_atoms)]
         traj_universe.trajectory.add_transformations(*transforms)
 
         # Wrap everything into a periodic box
@@ -124,6 +132,7 @@ class GromacsAnalysis(object):
         helix_com = []
         leaflet0_com = []
         leaflet1_com = []
+        unit_cell = []
         for ts in traj_universe.trajectory:
             times.append(traj_universe.trajectory.time)
             dopc_com.append(dopc_atoms.center_of_mass())
@@ -132,6 +141,12 @@ class GromacsAnalysis(object):
             helix_com.append(helix_atoms.center_of_mass())
             leaflet0_com.append(leaflet0.center_of_mass())
             leaflet1_com.append(leaflet1.center_of_mass())
+
+            # Get the unit cell as well
+            unit_cell.append(traj_universe.dimensions)
+
+        # Save off the times for other uses!
+        self.times = times
 
         # Split up into a pandas dataframe for viewing
         dopc_com_df = pd.DataFrame(dopc_com, columns = ['dopc_x', 'dopc_y', 'dopc_z'], index=times)
@@ -146,7 +161,9 @@ class GromacsAnalysis(object):
         leaflet0_com_df.index.name = 'Time(ps)'
         leaflet1_com_df = pd.DataFrame(leaflet1_com, columns = ['leaflet1_x', 'leaflet1_y', 'leaflet1_z'], index=times)
         leaflet1_com_df.index.name = 'Time(ps)'
-        
+        unit_cell_df = pd.DataFrame(unit_cell, columns = ['unit_cell_x', 'unit_cell_y', 'unit_cell_z', 'unit_cell_alpha', 'unit_cell_beta', 'unit_cell_gamma'], index = times)
+        unit_cell_df.index.name = 'Time(ps)'
+
         dfs = []
         dfs.append(dopc_com_df)
         dfs.append(plpi_com_df)
@@ -154,6 +171,7 @@ class GromacsAnalysis(object):
         dfs.append(helix_com_df)
         dfs.append(leaflet0_com_df)
         dfs.append(leaflet1_com_df)
+        dfs.append(unit_cell_df)
         
         self.master_df = pd.concat(dfs, axis=1)
 
@@ -206,10 +224,7 @@ class GromacsAnalysis(object):
         helicity_results = np.array(helicity_results)
 
         self.helicity = np.zeros(helicity_results.shape[0])
-        times = []
         for iframe,val in enumerate(helicity_results):
-            # FIXME: Hardcoded conversion to time, which is probably unsafe
-            times.append(iframe)
             # Get the helicity of the combined states
             h_count = (val == 'H').sum() + (val == 'G').sum() + (val == 'I').sum()
             h_total = val.shape
@@ -218,7 +233,7 @@ class GromacsAnalysis(object):
             self.helicity[iframe] = current_helicity[0]
 
         # Add the helicity to the master DF
-        helicity_df = pd.DataFrame(self.helicity, columns = ['helicity'], index=times)
+        helicity_df = pd.DataFrame(self.helicity, columns = ['helicity'], index=self.times)
         helicity_df.index.name = 'Time(ps)'
 
         self.master_df = pd.concat([self.master_df, helicity_df], axis=1)
@@ -280,6 +295,11 @@ class GromacsAnalysis(object):
         z_protein = self.master_df['helix_z']
         z_leaf0 = self.master_df['leaflet0_z']
         z_leaf1 = self.master_df['leaflet1_z']
+        z_lipid = self.master_df['lipid_z']
+        # Subtract off the position of the lipid COM from everybody else
+        z_protein = z_protein - z_lipid
+        z_leaf0 = z_leaf0 - z_lipid
+        z_leaf1 = z_leaf1 - z_lipid
         axarr.plot(z_protein, color = 'b')
         axarr.plot(z_leaf0, color = 'k')
         axarr.plot(z_leaf1, color = 'k')
