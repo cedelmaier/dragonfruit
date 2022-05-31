@@ -17,7 +17,8 @@ unset OMP_NUM_THREADS
 module purge
 module load gcc/9.1.0
 module load cuda/11.4
-source /nas/longleaf/apps/gromacs/2021.5/avx2_256-cuda11.4/bin/GMXRC.bash
+#source /nas/longleaf/apps/gromacs/2021.5/avx2_256-cuda11.4/bin/GMXRC.bash
+source /nas/longleaf/apps/gromacs/2021.5/avx_512-cuda11.4/bin/GMXRC.bash
 
 # This is an attempt at getting the GROMACS equilibration of the membrane right
 

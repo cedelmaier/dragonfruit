@@ -144,6 +144,8 @@ class GromacsAnalysis(object):
 
             # Get the unit cell as well
             unit_cell.append(traj_universe.dimensions)
+            print(traj_universe.dimensions)
+            sys.exit(1)
 
         # Save off the times for other uses!
         self.times = times

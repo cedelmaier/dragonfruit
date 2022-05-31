@@ -55,6 +55,21 @@ Then build the system out of the relevant components.
 To run equilibration, use the run_equilibration.sh script provided. This should
 properly setup the environment and run equilibration steps 1-6
 
+## CHARMM GUI preparing asymmetric water box
+In the case of PMF calculations we need to prepare an asymmetric water box, in order to have the
+correct amount of space in the direction we are pulling the protein. In this case, we can
+start with the same process as the membrane builder above. However, at the step where the amount
+of water on top/below the bilayer is chosen, choose something large. The bilayer will still be
+centered, but we will fix that in a moment.
+
+Try this type of thing first. This should use the native GROMACS magic to translate the
+entire system, and then create the input files.
+
+    gmx editconf -f step5_input.gro -o step5_pbcshift.gro -translate 0 0 -3
+    gmx trjconv -f step5_pbcshift.gro -o step5_pbcshift_res.gro -pbc res -s step5_input.gro
+
+However, it has issues with splitting up residues. Maybe use pymol instead?
+
 ## Additional programs/feelings about GROMACS
 Using just gromacs doesn't get you everything. For instance, you probably want to install the xmgrace
 tool so that you can visualize the XVG files that it sometimes spits out (ugh). To do this, the one
@@ -118,6 +133,23 @@ that everything is okay!). Then you can just submit the final script and wait fo
 
     ./submit_all.sh
 
+## Umbrella sampling, cyilinder method
+This is the same as the previous umbrella sampling method, except that in theory we are going to use a more
+numerically stable pulling geometry (cylinder), and also update all of the steps to use an asymmetric water
+box and geometry to cut down on computation time. This method does not have restraint forces applied to the 
+membrane.
+
+First, create the asymmetric (in Z) water box as prescribed above. Then, run the normal equilibration steps
+using the correct script:
+
+    run_equilibration.sh
+
+There is a mixup on the terms used online for the pull cylinder geometry, as the *second* group is the one
+that is pulled, and group 1 should be the lipids. This is backwards from what one would expect, so make
+sure that you view the resulting gromacs file for if it worked correctly. You need the file step7_smd_cylinder.mdp.
+Then, you can use the following to run some amount of pulling simulations.
+
+    run_steered_md_v1.sh
 
 # VMD tips and tricks (groan)
 
@@ -184,24 +216,10 @@ First, preprocess this shit to make it easier in PyMOL.
     gmx trjconv -s step7_umbrella_v1.tpr -f step7_umbrella_v1.xtc -o step7_umbrella_v1_reduced.pdb -n extra_groups.ndx -boxcenter rect -pbc mol -center -dump 0
     gmx trjconv -s step7_umbrella_v1.tpr -f step7_umbrella_v1.xtc -o step7_umbrella_v1_reduced.xtc -n extra_groups.ndx -boxcenter rect -pbc mol -center
 
-In pyMol, found these to be somewhat effective commands
+Then, you can run the pymol script that we have here, and it will generate the correct viewing of the AH-domain and membrane simulations! You should
+set it to load into the correct directory, and load the correct trajectory.
 
-    cd /Users/cedelmaier/Projects/Biophysics/septin_project/atomistic/simulations/coiled_umbrella/v1
-    load step7_umbrella_v1_reduced.pdb
-    load_traj step7_umbrella_v1_reduced.xtc
-    smooth all, 30, 3
-    select DOPC, resname DOPC
-    select PLPI, resname PLPI
-    select lipids, resname DOPC or resname PLPI
-    select protein, chain A
-    set sphere_transparency=0.9, lipids
-
-    hide all
-    show spheres, lipids
-    show cartoon, protein
-    select dopc_headgroups, resname DOPC and (name N or name C12 or name C13 or name C14 or name C15 or name C11 or name P or name O13 or name O12 or name O11)
-    select dopc_notheadgroups, (resname DOPC) and (not name N and not name C12 and not name C13 and not name C14 and not name C15 and not name P and not name O13 and not name O12 and not name O11)
-    
+    pymol setup_graphics_pymol.pml
 
 # Analysis
 

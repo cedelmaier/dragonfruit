@@ -5,9 +5,9 @@
 #load "step7_umbrella_v1_reduced.pdb"
 #load_traj "step7_umbrella_v1_reduced.xtc"
 
-cd /Users/cedelmaier/Projects/Biophysics/septin_project/atomistic/simulations/coiled/zdepth_00angstroms/s1
-load "traj_continuous_v1_1000_reduced.pdb"
-load_traj "traj_continuous_v1_1000_reduced.xtc", start=9500, stop=10000
+#cd /Users/cedelmaier/Projects/Biophysics/septin_project/atomistic/simulations/coiled/zdepth_00angstroms/s1
+#load "traj_continuous_v1_1000_reduced.pdb"
+#load_traj "traj_continuous_v1_1000_reduced.xtc", start=9500, stop=10000
 
 #cd /Users/cedelmaier/Projects/Biophysics/septin_project/atomistic/simulations/coiled/zdepth_30angstroms/s1
 #load "traj_continuous_v1_1000_reduced.pdb"
@@ -20,6 +20,16 @@ load_traj "traj_continuous_v1_1000_reduced.xtc", start=9500, stop=10000
 #cd /Users/cedelmaier/Projects/Biophysics/septin_project/atomistic/simulations/unfolded/zdepth_10angstroms/s1
 #load "traj_continuous_v1_1000_reduced.pdb"
 #load_traj "traj_continuous_v1_1000_reduced.xtc", start=1000, stop=1500
+
+# Cosine weighting for the bilyaer
+cd /Users/cedelmaier/Projects/Biophysics/septin_project/atomistic/simulations/coiled_umbrella/20220531/wcosine800ps
+load "step7_smd_wcosine_reduced.pdb"
+load_traj "step7_smd_wcosine_reduced.xtc"
+
+## Cylinder pull method
+#cd /Users/cedelmaier/Projects/Biophysics/septin_project/atomistic/simulations/coiled_umbrella/20220531/cylinder800ps
+#load "step7_smd_cylinder_reduced.pdb"
+#load_traj "step7_smd_cylinder_reduced.xtc"
 
 # Smooth the trajectory and set up options
 smooth all, 30, 3
@@ -69,4 +79,7 @@ rotate x, angle=270, state=0
 #intra_fit name ca, 1
 set ray_trace_frames=1
 set cache_frames=0
+
+# This is what actually djmps a bunch of PNG files for a movie
+#mpng frame_
 
