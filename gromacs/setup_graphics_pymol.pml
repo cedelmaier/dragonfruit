@@ -16,20 +16,30 @@
 #cd /Users/cedelmaier/Projects/Biophysics/septin_project/atomistic/simulations/unfolded/zdepth_00angstroms/s1
 #load "traj_continuous_v1_1000_reduced.pdb"
 #load_traj "traj_continuous_v1_1000_reduced.xtc", start=9500, stop=10000
+#load_traj "traj_continuous_v1001_2000_reduced.xtc", start=9500, stop=10000
 
 #cd /Users/cedelmaier/Projects/Biophysics/septin_project/atomistic/simulations/unfolded/zdepth_10angstroms/s1
 #load "traj_continuous_v1_1000_reduced.pdb"
 #load_traj "traj_continuous_v1_1000_reduced.xtc", start=1000, stop=1500
 
-# Cosine weighting for the bilyaer
-cd /Users/cedelmaier/Projects/Biophysics/septin_project/atomistic/simulations/coiled_umbrella/20220531/wcosine800ps
-load "step7_smd_wcosine_reduced.pdb"
-load_traj "step7_smd_wcosine_reduced.xtc"
+## Cosine weighting for the bilyaer
+#cd /Users/cedelmaier/Projects/Biophysics/septin_project/atomistic/simulations/coiled_umbrella/20220531/wcosine800ps
+#load "step7_smd_wcosine_reduced.pdb"
+#load_traj "step7_smd_wcosine_reduced.xtc"
+
+#cd /Users/cedelmaier/Projects/Biophysics/septin_project/atomistic/simulations/coiled_umbrella/cosine_weights/wcosine400ps_20pull_1000harm
+#load "step7_smd_wcosine_reduced.pdb"
+#load_traj "step7_smd_wcosine_reduced.xtc"
 
 ## Cylinder pull method
 #cd /Users/cedelmaier/Projects/Biophysics/septin_project/atomistic/simulations/coiled_umbrella/20220531/cylinder800ps
 #load "step7_smd_cylinder_reduced.pdb"
 #load_traj "step7_smd_cylinder_reduced.xtc"
+
+# Plumed output files
+cd /Users/cedelmaier/Projects/Biophysics/septin_project/atomistic/simulations/plumed/plumed_rome
+load "step7_plumed_smd_reduced.pdb"
+load_traj "step7_plumed_smd_reduced.xtc"
 
 # Smooth the trajectory and set up options
 smooth all, 30, 3
@@ -75,11 +85,11 @@ disable hydrophobes
 # Change view options
 rotate x, angle=270, state=0
 
-# Set up movie code
-#intra_fit name ca, 1
-set ray_trace_frames=1
-set cache_frames=0
-
-# This is what actually djmps a bunch of PNG files for a movie
+## Set up movie code
+##intra_fit name ca, 1
+#set ray_trace_frames=1
+#set cache_frames=0
+#
+## This is what actually djmps a bunch of PNG files for a movie
 #mpng frame_
 

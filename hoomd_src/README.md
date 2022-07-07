@@ -5,6 +5,20 @@ branch/fork working correctly.
 # Compiling HOOMD
 Here are the commands (somewhat up to date) for compiling HOOMD in different environments.
 
+## OSX
+Here, we can setup an anaconda environment to take care of everything, which makes stuff a lot easier. For
+example, for build 3.2.0, we can use the following to generate a new conda environment.
+
+    conda create -c conda-forge --name hoomd_320 python=3.9.7
+
+and then load the environment with the proper stuff
+
+    conda install -c conda-forge gsd freud fresnel jupyter notebook pytest pybind11 matplotlib pytables cereal pandas scipy
+
+then things get more complicated. Because of the ever-evolving nature of HOOMD, including the special potentials requires
+going in and setting them up by hand, as the way in which files are defined keeps changing. The EvalulatorPairGrimeLipid.h
+file should be roughly in the right shape, and this can be used as a prototype for everything else.
+
 ## longleaf (UNC)
 I like to login to a compile node (you can use one without graphics for compilation) for these steps, although
 you can also login to a GPU node. I put these commands in my .bashrc so that I have easy access to different

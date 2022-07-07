@@ -5,6 +5,40 @@ Here are the tips and tricks for running GROMACS itself. These include the
 ability to concatenate and process the trajectory files after a certain amount
 of running gromacs.
 
+## UNC: Longleaf: Loading GROMACS
+Longleaf has problems with the modules correctly working with gromacs. To get around this, load
+the modules needed, and then directly source the correct setup script in the gromacs directory
+that you want to use.
+
+For CUDA-based gromacs, use the following commands.
+	
+	module load gcc/9.1.0
+	module load cuda/11.4
+	source /nas/longleaf/apps/gromacs/2021.5/avx_512-cuda11.4/bin/GMXRC
+	
+For CUDA-based-PLUMED gromacs, use the following commands.
+
+	module load gcc/9.1.0
+	module load cuda/9.2
+	source /nas/longleaf/apps/gromacs/???
+	
+## Flatiron Institute: Skylake: Loading GROMACS
+For the Flatiron computers, to load gromacs with the plumed compilation, this seems
+to work the best.
+
+	module load modules/2.0-20220630
+	module load openmpi/4.0.7
+	module load gromacs/skylake-mpi-plumed-2021.4
+	module load plumed/mpi-2.8.0
+	
+Make sure that we have a conda environment loaded with the proper MDAnalysis/MDTraj dependencies. At the moment, this doesn't work. Figure out why another time.
+
+	
+NOTE: This is a test to make sure that things work at the moment. Performance testing is ongoing to figure out how to optimize the ns/day of this calculation, and what I can reasonably use in terms of resources. For now, go with the recommended 
+
+	mpirun gmx_mpi grompp -f step7_plumed_v1.mdp -o step7_plumed_v1.tpr -c step6.6_equilibration.gro -p topol.top -n index.ndx
+
+
 ## Running GROMACS
 I have created run scripts for the membrane simulations that can be generated with
 the create_run_scripts.py python script. This script is invoked in the following way,
@@ -133,23 +167,15 @@ that everything is okay!). Then you can just submit the final script and wait fo
 
     ./submit_all.sh
 
-## Umbrella sampling, cyilinder method
-This is the same as the previous umbrella sampling method, except that in theory we are going to use a more
-numerically stable pulling geometry (cylinder), and also update all of the steps to use an asymmetric water
-box and geometry to cut down on computation time. This method does not have restraint forces applied to the 
-membrane.
+Then, after they have all run, you can combine them together into data files for the gmx WHAM routine to 
+combine them together. Note, this requires some maniuplation of the files to get them in the correct
+order, but that's fine.
 
-First, create the asymmetric (in Z) water box as prescribed above. Then, run the normal equilibration steps
-using the correct script:
+    ls -1 umbrella*.tpr >> tpr_files.dat
+    ls -1 umbrella*_pullf* >> pull_files.dat
+    gmx wham -it tpr_files.dat -if pull_files.dat -o -hist -unit kCal
 
-    run_equilibration.sh
-
-There is a mixup on the terms used online for the pull cylinder geometry, as the *second* group is the one
-that is pulled, and group 1 should be the lipids. This is backwards from what one would expect, so make
-sure that you view the resulting gromacs file for if it worked correctly. You need the file step7_smd_cylinder.mdp.
-Then, you can use the following to run some amount of pulling simulations.
-
-    run_steered_md_v1.sh
+This generates some files that you can then look into for the binding energy!
 
 # VMD tips and tricks (groan)
 
@@ -220,6 +246,10 @@ Then, you can run the pymol script that we have here, and it will generate the c
 set it to load into the correct directory, and load the correct trajectory.
 
     pymol setup_graphics_pymol.pml
+
+If you generate a movie, you can combine it togther with the following command.
+
+    ffmpeg -y -f image2 -i frame_%4d.png -vcodec libx264 -profile baseline -pix_fmt yuv420p -r 15 -qscale -0.8 test.mov
 
 # Analysis
 
