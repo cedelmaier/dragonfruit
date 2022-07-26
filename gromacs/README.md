@@ -22,7 +22,7 @@ For CUDA-based-PLUMED gromacs, use the following commands.
 	module load cuda/9.2
 	source /nas/longleaf/apps/gromacs/???
 	
-## Flatiron Institute: Skylake: Loading GROMACS
+## Flatiron Institute: Rome: Loading GROMACS
 For the Flatiron computers, to load gromacs with the plumed compilation, this seems
 to work the best.
 
@@ -32,11 +32,8 @@ to work the best.
 	module load plumed/mpi-2.8.0
 	
 Make sure that we have a conda environment loaded with the proper MDAnalysis/MDTraj dependencies. At the moment, this doesn't work. Figure out why another time.
-
 	
-NOTE: This is a test to make sure that things work at the moment. Performance testing is ongoing to figure out how to optimize the ns/day of this calculation, and what I can reasonably use in terms of resources. For now, go with the recommended 
-
-	mpirun gmx_mpi grompp -f step7_plumed_v1.mdp -o step7_plumed_v1.tpr -c step6.6_equilibration.gro -p topol.top -n index.ndx
+At the moment, have a special create_runscripts_gromacsplumed.py that generates the plumed input data file for measuring the CVs of the system. This requires a separate plumed file for each run, so keep track of this here! Try to merge the create_run_scripts.py files in the future to work for UNC and FI, gromacs, gromacs+plumed, and whatever else I can come up with.
 
 
 ## Running GROMACS
@@ -69,6 +66,11 @@ energy file (EDR). These files contain all of the information on the system, whi
 water molecules. For many visualization purposes, this isn't ideal, as it includes lots of extra
 information that isn't needed!
 
+## GROMACS performance
+Here is an easy awk script ot get the performance of a bunch of gromacs simulations in the same directory.
+
+	grep -ir '^Performance' step7_*.log | awk '{sum+=$2; n++}; END {printf "%.3f\n", sum/n}'
+
 ## CHARMM GUI membrane builder
 Here is the recipe that I have for building the proper AH domain plus
 bilayer online. You have to orient the proper AH dimensions for yourself
@@ -84,10 +86,14 @@ that I built using Chimera, then you can just align the Y axis by 270 deg.
     Y rotate by 270 deg
     Z displace by <N> angstroms
 
-Then build the system out of the relevant components.
+Then build the system out of the relevant components. To generate an asymmetric (or at least big enough) water box, use something like 50 angstroms of space above and below the bilayer.
+
+	50.0 angstroms water
 
 To run equilibration, use the run_equilibration.sh script provided. This should
-properly setup the environment and run equilibration steps 1-6
+properly setup the environment and run equilibration steps 1-6,
+
+A dual AH domain simulation is prepared by aligning the ILE4 residues so that the proteins are oriented the proper way, and displacing the second AH-domain by some number of angstroms in pymol using the translate command.
 
 ## CHARMM GUI preparing asymmetric water box
 In the case of PMF calculations we need to prepare an asymmetric water box, in order to have the
@@ -184,7 +190,8 @@ If you want a really easy quick and dirty way to display the molecules in VMD, y
 use the following command to load a gromacs topology and trajectory into VMD from the
 command line (OSX) like
 
-    /Applications/VMD\ 1.9.4a51-x86_64-Rev9.app/Contents/MacOS/startup.command step7_1.gro traj_continuous_v1_100.xtc
+	alias vmd=/Applications/VMD\ 1.9.4a51-x86_64-Rev9.app/Contents/MacOS/startup.command
+	vmd step7_1.gro traj_continuous_v1_100.xtc
 
 as this will load the topology and the frames from the continuous trajectory. Then, go into the graphical
 representation of the molecules, and set one to protein (NewRibbons works well for me), then the following
@@ -211,39 +218,19 @@ you need to generate a new index file for (in this case Protein, PLPI, DOPC lipi
 
     Select 1 for the centering, then 18 (or whatever) for what to actually write out
 
-Either way, then you need the first frame of the trajectory as a topology file.
-
-    gmx trjconv -s step7_1.gro -f traj_continuous_v1_200.xtc -o cfg_0.gro -boxcenter rect -pbc mol -center -dump 0 -n extra_groups.ndx 
-
-    Select 1 for the centering, then 18 (or whatever) for what we actually write out
-
-So really, just run these to get the trajectories and the initial setup
-
-    gmx trjconv -s step7_1.gro -f traj_continuous_v1_200.xtc -o traj_nopbc.xtc -boxcenter rect -pbc mol -center -n extra_groups.ndx
-    gmx trjconv -s step7_1.gro -f traj_continuous_v1_200.xtc -o xyz.pdb -boxcenter rect -pbc mol -center -n extra_groups.ndx -dump 0
-
-Now you should have two files, and then we can rename them so that PyMOL doesn't throw a hissy fit when we load them (hopefully). Note, these
-have to have the exact same name
-
-    mv traj_nopbc.xtc ahpymol.xtc
-    mv cfg_0.gro ahpymol.gro
-    mv xyz.pdb ahpymol.pdb
-
-20220520 Update: Just use the following. Center the box on the lipid layer, so that we can see the protein moving, and then run the
+Just use the following. Center the box on the lipid layer, so that we can see the protein moving, and then run the
 analysis. You still have to make the new groups as before (see above).
 
     gmx trjconv -s step7_umbrella_v1.tpr -f step7_umbrella_v1.xtc -o step7_umbrella_v1_reduced.pdb -n extra_groups.ndx -boxcenter rect -pbc mol -center -dump 0
     gmx trjconv -s step7_umbrella_v1.tpr -f step7_umbrella_v1.xtc -o step7_umbrella_v1_reduced.xtc -n extra_groups.ndx -boxcenter rect -pbc mol -center
 
 ## Some sort of workflow for GROMACS simulations
-This is done using version 1 of the umbrella sampling that I did. This is to visualize the entire sequence in some sort of rational form.
-First, preprocess this shit to make it easier in PyMOL.
+This is done using version 1 of the umbrella sampling that I did. This is to visualize the entire sequence in some sort of rational form. First, preprocess this shit to make it easier in PyMOL. I like to use group 19 (DOPC + PLPI) for centering, and then write out all of the lipid and helix coordinates (usually group protein + DOPC + PLPI). This centers the box around the bilayer, but keeps the protein coordinates as well in the end.
 
     gmx trjconv -s step7_umbrella_v1.tpr -f step7_umbrella_v1.xtc -o step7_umbrella_v1_reduced.pdb -n extra_groups.ndx -boxcenter rect -pbc mol -center -dump 0
     gmx trjconv -s step7_umbrella_v1.tpr -f step7_umbrella_v1.xtc -o step7_umbrella_v1_reduced.xtc -n extra_groups.ndx -boxcenter rect -pbc mol -center
 
-Then, you can run the pymol script that we have here, and it will generate the correct viewing of the AH-domain and membrane simulations! You should
-set it to load into the correct directory, and load the correct trajectory.
+Then, you can run the pymol script that we have here, and it will generate the correct viewing of the AH-domain and membrane simulations! You should set it to load into the correct directory, and load the correct trajectory.
 
     pymol setup_graphics_pymol.pml
 
