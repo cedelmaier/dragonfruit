@@ -146,6 +146,32 @@ module purge
 
     return outstr
 
+def write_plumed_files_block(start_idx, end_idx, pfile_strip):
+    r"""Write plumed data files
+    """
+    for idx in range(start_idx, end_idx+1):
+        fname_plumed = '{}_v{}.dat'.format(pfile_strip, idx)
+        with open(fname_plumed, 'w') as stream:
+            stream.write('''\
+# vim:ft=plumed
+MOLINFO STRUCTURE=reference.pdb
+
+# Figure out the lipid and helix COM coordinates
+lipid_com: COM ATOMS=312-49021
+helix_com: COM ATOMS=1-311
+
+# Get the Z distance
+z_dist: DISTANCE ATOMS=lipid_com,helix_com COMPONENTS
+
+# Get the alpha value
+alpha: ALPHARMSD RESIDUES=1-18
+
+# Print to a file
+PRINT ARG=* FILE=colvar_measure_{}.dat STRIDE=100
+'''.format(idx))
+
+    return
+
 ###############################
 if __name__ == "__main__":
     opts = parse_args()
@@ -259,6 +285,7 @@ prod_step={}
 # Production, do another 10 ns
 let cnt={}
 let cntmax={}
+
 '''.format(start_idx, end_idx)
 
         # If we need plumed, include it
@@ -266,6 +293,7 @@ let cntmax={}
             final_rsh = final_rsh + '''\
 # Do the plumed file as well
 pfile={}
+
 '''.format(pfile_strip)
 
         # Create the internal loop
@@ -300,10 +328,14 @@ sbatch {}
 '''.format(gmx_grompp, gmx_grompp, gmx_exec, plumed_str, gmx_options, fname_next)
 
         if opts.verbose:
-            print("Next file:")
+            print("-------- Next file --------")
             print(final_rsh)
 
         with open(fname, 'w') as stream:
             stream.write(final_rsh)
         st = os.stat(fname)
         os.chmod(fname, st.st_mode | stat.S_IEXEC)
+
+        # Now, if we need to, write out the plumed files
+        if do_plumed:
+            write_plumed_files_block(start_idx, end_idx, pfile_strip)
