@@ -26,10 +26,10 @@ def parse_args():
     parser.add_argument('--runtype', type=str, required=True, choices=['cpu', 'gpu', 'cpuplumed', 'gpuplumed'],
             help='Run type')
     # What is the partition that we are using?
-    parser.add_argument('--partition', type=str, required=True, choices=['volta-gpu', 'beta-gpu', 'rome,ib'],
+    parser.add_argument('--partition', type=str, required=True, choices=['volta-gpu', 'beta-gpu', 'rome,ib', 'icelake,ib'],
             help='Partition to use (unique), constraint on FI computers')
     # What is the location we are running?
-    parser.add_argument('--cluster', type=str, required=True, choices=['rusty', 'longleaf'],
+    parser.add_argument('--cluster', type=str, required=True, choices=['rusty', 'popeye', 'longleaf'],
             help='Cluster name')
 
     # How much runtime to create
@@ -105,8 +105,22 @@ def configure_cluster(mcluster, mruntype, mpartition, ntmpi, ntomp):
             print(f"Simple CPU run not enabled, exiting")
             sys.exit(1)
         elif mruntype == "cpuplumed":
-            gmx_exec = "gmx_mpi"
+            gmx_exec = "mpirun gmx_mpi"
             gmx_grompp = "mpirun -np 1 gmx_mpi"
+            module_list.append('module load modules/2.0-20220630')
+            module_list.append('module load openmpi/4.0.7')
+            module_list.append('module load gromacs/mpi-plumed-2021.4')
+            module_list.append('module load plumed/mpi-2.8.0')
+
+    elif mcluster == 'popeye':
+        if mruntype == "cpu":
+            print(f"Simple CPU run not enabled, exiting")
+            sys.exit(1)
+        elif mruntype == "cpuplumed":
+            # Popeye command has the mpi number specified overall, so use a multiple
+            gmx_exec = "mpirun --map-by socket:pe=$OMP_NUM_THREADS -np {} gmx_mpi".format(ntmpi*nnodes)
+            gmx_grompp = "mpirun -np 1 gmx_mpi"
+            gmx_options = "-ntomp $OMP_NUM_THREADS"
             module_list.append('module load modules/2.0-20220630')
             module_list.append('module load openmpi/4.0.7')
             module_list.append('module load gromacs/mpi-plumed-2021.4')
@@ -114,6 +128,7 @@ def configure_cluster(mcluster, mruntype, mpartition, ntmpi, ntomp):
 
     return [gmx_exec, gmx_grompp, gmx_src, gmx_options, module_list]
 
+# Create a header for UNC longleaf cluster
 def create_header_longleaf(mpartition, ntmpi, ntomp, ngpu, total_time_hr, module_list, gmx_src):
     r"""Create a header for UNC longleaf cluster
     """
@@ -146,6 +161,58 @@ module purge
 
     return outstr
 
+# Create a header for FI rusty cluster
+def create_header_rusty(mpartition, nnodes, ntmpi, module_list, gmx_src):
+    r"""Create a header for FI rusty cluster
+    """
+    # Slurm control parameters
+    outstr = '''\
+#!/bin/bash
+
+# Comments for running on the FI rusty cluster
+#SBATCH --job-name=grun
+#SBATCH --partition=ccb
+#SBATCH -N {}
+#SBATCH --ntasks-per-node={}
+#SBATCH --constraint={}
+
+module purge
+'''.format(nnodes, ntmpi, mpartition)
+
+    # Module information
+    for module in module_list:
+        outstr = outstr + "{}\n".format(module)
+
+    return outstr
+
+# Create a header for FI popeye cluster
+def create_header_popeye(mpartition, nnodes, ntomp, module_list, gmx_src):
+    r"""Create a header for FI popeye cluster
+    """
+    # Slurm control parameters
+    outstr = '''\
+#!/bin/bash
+
+# Comments for running on the FI popeye cluster
+#SBATCH --job-name=grun
+#SBATCH --partition=ccb
+#SBATCH --nodes={}
+#SBATCH --cpus-per-task={}
+#SBATCH --constraint={}
+
+export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
+
+module purge
+'''.format(nnodes, ntomp, mpartition)
+
+    # Module information
+    for module in module_list:
+        outstr = outstr + "{}\n".format(module)
+
+    return outstr
+
+# Write a block of plumed data files
+# XXX: Note, this is specific to an analysis from CJE on 7/27/2022, probably need to modify for self
 def write_plumed_files_block(start_idx, end_idx, pfile_strip):
     r"""Write plumed data files
     """
@@ -254,8 +321,9 @@ if __name__ == "__main__":
     if mcluster == "longleaf":
         rsh = create_header_longleaf(mpartition, ntmpi, ntomp, ngpu, total_time_hr, module_list, gmx_src)
     elif mcluster == "rusty":
-        print("not implemented yet, exiting!")
-        sys.exit(1)
+        rsh = create_header_rusty(mpartition, nnodes, ntmpi, module_list, gmx_src)
+    elif mcluster == "popeye":
+        rsh = create_header_popeye(mpartition, nnodes, ntomp, module_list, gmx_src)
 
     # The middle of the script isn't different
     rsh = rsh + '''\
