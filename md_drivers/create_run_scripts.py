@@ -114,8 +114,14 @@ def configure_cluster(mcluster, mruntype, mpartition, ntmpi, ntomp):
 
     elif mcluster == 'popeye':
         if mruntype == "cpu":
-            print(f"Simple CPU run not enabled, exiting")
-            sys.exit(1)
+            # Popeye command has the mpi number specified overall, so use a multiple
+            gmx_exec = "mpirun --map-by socket:pe=$OMP_NUM_THREADS -np {} gmx_mpi".format(ntmpi*nnodes)
+            gmx_grompp = "mpirun -np 1 gmx_mpi"
+            gmx_options = "-ntomp $OMP_NUM_THREADS"
+            module_list.append('module load modules/2.0-20220630')
+            module_list.append('module load openmpi/4.0.7')
+            module_list.append('module load gromacs/mpi-plumed-2021.4')
+            module_list.append('module load plumed/mpi-2.8.0')
         elif mruntype == "cpuplumed":
             # Popeye command has the mpi number specified overall, so use a multiple
             gmx_exec = "mpirun --map-by socket:pe=$OMP_NUM_THREADS -np {} gmx_mpi".format(ntmpi*nnodes)
@@ -172,6 +178,7 @@ def create_header_rusty(mpartition, nnodes, ntmpi, module_list, gmx_src):
 # Comments for running on the FI rusty cluster
 #SBATCH --job-name=grun
 #SBATCH --partition=ccb
+#SBATCH --reservation=rocky8
 #SBATCH -N {}
 #SBATCH --ntasks-per-node={}
 #SBATCH --constraint={}
@@ -224,8 +231,8 @@ def write_plumed_files_block(start_idx, end_idx, pfile_strip):
 MOLINFO STRUCTURE=reference.pdb
 
 # Figure out the lipid and helix COM coordinates
-lipid_com: COM ATOMS=312-49021
-helix_com: COM ATOMS=1-311
+lipid_com: COM ATOMS=313-99999
+helix_com: COM ATOMS=1-312
 
 # Get the Z distance
 z_dist: DISTANCE ATOMS=lipid_com,helix_com COMPONENTS

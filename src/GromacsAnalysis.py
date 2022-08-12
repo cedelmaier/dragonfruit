@@ -5,6 +5,7 @@
 """Main analysis script for membranes with AH domains"""
 
 import argparse
+import logging
 import pickle
 import os
 import sys
@@ -15,6 +16,7 @@ import MDAnalysis as mda
 import MDAnalysis.transformations as trans
 from MDAnalysis.analysis import helix_analysis as hel
 from MDAnalysis.analysis import leaflet as leaf
+from MDAnalysis.lib.log import ProgressBar
 
 # MDTraj has a native DSSP module
 import mdtraj as md
@@ -39,7 +41,6 @@ def plot_contour_special(results, com, unit_cell, nbins, levels_, lmin, lmax, la
 
     fig, ax = plt.subplots(1, 1, figsize=(4, 3.5), dpi=200)
     max_ = np.max(results)
-    print("Max_: {}".format(max_))
     rs = ndimage.zoom(results, zoom_factor, mode='wrap', order=1)
     levs = np.linspace(int(lmin), round(lmax), levels_)
     im = ax.contourf(rs, cmap=cm, origin='lower', levels=levs, alpha = 0.95, vmin=int(lmin), vmax=round(lmax))
@@ -98,16 +99,16 @@ def plot_contours_com(results, com, unit_cell, nbins, label, levels_, cm, savena
             im = ax.contourf(rs, cmap=cm, origin='lower', levels=levs, alpha=0.95,  vmin=int(np.min(rs)), vmax=round(np.max(rs)))
             tcs = [int(np.min(rs)), round(np.max(rs))]
 
-        # Get the location of the protein too
-        # Also, need to reverse X-Y because of image conventions
-        print("Xlim:               : {}".format(ax1.get_xlim()))
-        print("Ylim:               : {}".format(ax1.get_ylim()))
-        #scaled_coord = com / nbins * zoom_factor
-        scaled_coord = com / unit_cell[0:3] * nbins * zoom_factor
-        print("Center of mass (raw): {}".format(com))
-        print("Unit cell           : {}".format(unit_cell[0:3]))
-        print("Nbins:              : {}".format(nbins))
-        print("Scaled coord (zoom) : {}".format(scaled_coord))
+        ## Get the location of the protein too
+        ## Also, need to reverse X-Y because of image conventions
+        #print("Xlim:               : {}".format(ax1.get_xlim()))
+        #print("Ylim:               : {}".format(ax1.get_ylim()))
+        ##scaled_coord = com / nbins * zoom_factor
+        #scaled_coord = com / unit_cell[0:3] * nbins * zoom_factor
+        #print("Center of mass (raw): {}".format(com))
+        #print("Unit cell           : {}".format(unit_cell[0:3]))
+        #print("Nbins:              : {}".format(nbins))
+        #print("Scaled coord (zoom) : {}".format(scaled_coord))
         ax.scatter(scaled_coord[1], scaled_coord[0], s=5, c='k', alpha=0.5)
 
         ax.set_aspect('equal')
@@ -123,16 +124,52 @@ def plot_contours_com(results, com, unit_cell, nbins, label, levels_, cm, savena
 
     return
 
+def unpack_curvature(df, leaflet, measurement):
+    r""" Unpack the curvature dataframe back into an array structure
+    """
+    # Unpack the curvature dataframe
+    nframes = len(df.index)
+    # Look for the average z surface (to get the bins)
+    # XXX: This is kinda hacky for now, but it works....
+    target_name = leaflet + '_' + measurement
+    bin_result = list(filter(lambda x: x.startswith(target_name), df.columns))
+    nbins_string = bin_result[-1]
+    nbins = np.int32(nbins_string.split('_')[-1]) + 1
+
+    # Get the filtered columns from the dataframe
+    filtered_df = df.filter(regex = target_name + '*')
+
+    # Get the reshaped version of the array
+    curvature_measurement = filtered_df.to_numpy().reshape(nframes, nbins, nbins)
+
+    return curvature_measurement
+
 def parse_args():
     parser = argparse.ArgumentParser(prog='GromacsAnalysis.py')
 
     # General options
     parser.add_argument('-top', '--structure', required=True, type=str,
-            help = 'Gromacs topology/structure file')
+            help = 'Gromacs .tpr file')
     parser.add_argument('-xtc', '--trajectory', required=True, type=str,
-            help = 'Gromacs TPR trajectory file')
+            help = 'Gromacs .xtc file')
+    parser.add_argument('-gro', '--gromacs', required=True, type=str,
+            help = 'Gromacs .gro file')
     parser.add_argument('-d', '--workdir', action = 'store_true',
             help = 'Working directory')
+
+    # Flow control options
+    parser.add_argument('-A', '--analysis', action = 'store_true',
+            help = 'Analyze data from MD simulation')
+    parser.add_argument('-G', '--graph', action = 'store_true',
+            help = 'Graph data from MD simulation')
+    parser.add_argument('-W', '--write', action = 'store_true',
+            help = 'Write data to HD5 and pickle files')
+    parser.add_argument('-F', '--force', action = 'store_true',
+            help = 'Force complete analysis of simulation(s)')
+
+    # Add verbosity control
+    parser.add_argument('-v', '--verbose', action="store_true",
+            help = 'Verbose output')
 
     opts = parser.parse_args()
     return opts
@@ -141,15 +178,30 @@ class GromacsAnalysis(object):
     r""" Gromacs analysis
     """
     def __init__(self, opts):
-        self.start_time = time.time()
+        # Try to set up the log facilities
+        mda_logger= logging.getLogger('MDAnalysis')
+        if mda_logger.hasHandlers():
+            mda_logger.handlers = []
+        mda.start_logging()
+        self.logger = logging.getLogger('MDAnalysis')
+
         self.opts = opts
         self.cwd = os.getcwd()
 
         self.ReadOpts()
 
-        self.ProgOpts()
+        # Setup internal variables
+        self.time_dfs = []
+        self.lipid_set = {"DOPC",
+                          "PLPI",
+                          "CHL1",
+                          "POPC",
+                          "DOPE",
+                          "DOPS",
+                          "SAPI24",
+                          "SAPI25"}
 
-        print("--- %s seconds ---" % (time.time() - self.start_time))
+        self.ProgOpts()
 
     def ReadOpts(self):
         if not self.opts.workdir:
@@ -159,45 +211,120 @@ class GromacsAnalysis(object):
         else:
             self.opts.workdir = os.path.abspath(self.opts.workdir)
 
+        self.verbose = False
+        if self.opts.verbose:
+            self.verbose = True
+
+        # Set up path information
+        self.path = os.path.abspath(self.opts.workdir)
+        self.name = self.path.split('/')[-1]
+        if self.verbose: print(f"  Name: {self.name}")
+
+        # Set up some common names
+        self.hd5_name = self.name + '.h5'
+        self.pickle_name = self.name + '.pickle'
+
     def ProgOpts(self):
         r""" Run selected commands
         """
 
-        self.Analyze()
+        if self.opts.analysis:
+            self.RunAnalysis()
+        if self.opts.graph:
+            self.Graph()
+        if self.opts.write:
+            self.WriteData()
+
+    def RunAnalysis(self):
+        r"""Run analysis
+        """
+        if self.verbose: print("GromacsAnalysis::RunAnalysis")
+        # Check if we want to checkloadanalyze
+        force_analyze = self.opts.force
+        if not self.CheckLoadAnalyze(os.path.join(self.path, self.hd5_name),
+                                     os.path.join(self.path, self.pickle_name),
+                                     force_analyze):
+            if self.verbose: print(f"  Loading previously analyzed data")
+        else:
+            if self.verbose: print(f"  Analyzing data")
+            self.start_time = time.time()
+            self.Analyze()
+            print("--- %s seconds ---" % (time.time() - self.start_time))
+        if self.verbose: print("GromacsAnalysis::RunAnalysis return")
+
+    def CheckLoadAnalyze(self, file_path_pandas, file_path_pickle, force_analyze = False):
+        r""" Check if the data can be loaded from HD5 and pickle files
+        """
+        if self.verbose: print("GromacsAnalysis::CheckLoadAnalyze")
+        if self.verbose: print(f"  Forcing analysis: {force_analyze}")
+        if os.path.isfile(file_path_pandas) and os.path.isfile(file_path_pickle) and not force_analyze:
+            if self.verbose: print(f"  Found file(s), attempting load")
+            # Skip analysis and load
+            try:
+                self.LoadData(file_path_pandas, file_path_pickle)
+                if self.verbose: print("GromacsAnalysis::CheckLoadAnalyze return")
+                return False
+            except EOFError: return False
+            except: raise
+        else:
+            if self.verbose: print("  Did not find file (or forcing load)")
+            if self.verbose: print("GromacsAnalysis::CheckLoadAnalyze return")
+            return True
 
     def Analyze(self):
         r""" Run analysis on a single simulation
         """
-        self.path = os.path.abspath(self.opts.workdir)
-        self.name = self.path.split('/')[-1]
+        if self.verbose: print("GromacsAnalysis::Analyze")
 
         # Create a reader depending on what we are reading in
         self.filename_structure = os.path.join(self.path, self.opts.structure)
         self.filename_trajectory = os.path.join(self.path, self.opts.trajectory)
-        #self.filename_gromacs = os.path.basename(self.filename_structure).split('.')[0] + '.gro'
+        self.filename_gromacs = os.path.join(self.path, self.opts.gromacs)
 
-        #self.AnalyzeTrajectory()
+        self.AnalyzeTrajectory()
         self.AnalyzeCurvature()
-        #self.AnalyzeHelix()
-        #self.AnalyzeDSSP()
+        self.AnalyzeDSSP()
 
-        self.Graph()
-        self.WriteData()
+        # Put the dataframes together
+        self.master_time_df = pd.concat(self.time_dfs, axis=1)
+
+        if self.verbose: print("GromacsAnalysis::Analyze return")
 
     def AnalyzeTrajectory(self):
         r""" Analyze trajectory information, unwrapped coordinates
+
+        `AnalyzeTrajectory` is for all time-dependent analyses carried out in MDAnalysis
         """
-        print("GromacsAnalysis::AnalyzeTrajectory")
+        if self.verbose: print("GromacsAnalysis::AnalyzeTrajectory")
         # Create the universe
         traj_universe = mda.Universe(self.filename_structure, self.filename_trajectory)
 
-        dopc_atoms = traj_universe.select_atoms('resname DOPC')
-        plpi_atoms = traj_universe.select_atoms('resname PLPI')
-        lipid_atoms = traj_universe.select_atoms('resname DOPC or resname PLPI')
-        helix_atoms = traj_universe.select_atoms('protein')
-        not_protein = traj_universe.select_atoms('not protein')
-        not_solvent = traj_universe.select_atoms('resname DOPC or resname PLPI or protein')
-        solvent = traj_universe.select_atoms('not (resname DOPC or resname PLPI or protein)')
+        # Get the residues that are in the lipids
+        resnames = set(np.unique(traj_universe.atoms.residues.resnames))
+        common_lipids = resnames & self.lipid_set
+
+        select_com_dict = {}
+        lipid_selection = ''
+        # Create selection logic for lipids
+        for rname in common_lipids:
+            select_com_dict[rname] = 'resname '+ rname
+            lipid_selection = lipid_selection + select_com_dict[rname] + ' or '
+
+        # Remove trailing or
+        lipid_selection = lipid_selection[:-3]
+        if self.verbose: print(f"  Lipid selection: {lipid_selection}")
+
+        # Now get all the atoms that we want to analyze, also, get the COM structure set up
+        atom_com_dict = {}
+        lipid_com_dict = {}
+        for key,val in select_com_dict.items():
+            atom_com_dict[key] = traj_universe.select_atoms(val)
+            lipid_com_dict[key] = []
+        lipid_atoms =   traj_universe.select_atoms(lipid_selection)
+        helix_atoms =   traj_universe.select_atoms('protein')
+        not_protein =   traj_universe.select_atoms('not protein')
+        not_solvent =   traj_universe.select_atoms(lipid_selection + ' or protein')
+        solvent =       traj_universe.select_atoms('not (' + lipid_selection + ' or protein)')
 
         # Try to get the head groups of the two leaflets for analysis too
         # Has an implicit cutoff at 15.0
@@ -206,7 +333,6 @@ class GromacsAnalysis(object):
         leaflet1 = L.groups(1)
 
         # Unwrap/wrap the protein so that it doesn't have issues with the PBC
-        #transforms = [trans.unwrap(helix_atoms)]
         transforms = [trans.unwrap(helix_atoms),
                       trans.unwrap(lipid_atoms),
                       trans.center_in_box(lipid_atoms, wrap=True),
@@ -214,26 +340,23 @@ class GromacsAnalysis(object):
                       trans.wrap(lipid_atoms)]
         traj_universe.trajectory.add_transformations(*transforms)
 
-        # Wrap everything into a periodic box
-        #transforms = [trans.unwrap(not_solvent),
-        #              trans.center_in_box(not_solvent, wrap=True),
-        #              trans.wrap(solvent)]
-        #transforms = [trans.unwrap(not_solvent)]
-        #traj_universe.trajectory.add_transformations(*transforms)
-        
         # Do the analysis on the trajectory
         times = []
-        dopc_com = []
-        plpi_com = []
         lipid_com = []
         helix_com = []
         leaflet0_com = []
         leaflet1_com = []
         unit_cell = []
-        for ts in traj_universe.trajectory:
+        # Wrap in a nice progress bar for ourselves, yay
+        for ts in ProgressBar(traj_universe.trajectory):
+            # Get the time of the snapshot
             times.append(traj_universe.trajectory.time)
-            dopc_com.append(dopc_atoms.center_of_mass())
-            plpi_com.append(plpi_atoms.center_of_mass())
+
+            # Get the center of mass and store it
+            for key,_ in lipid_com_dict.items():
+                lipid_com_dict[key].append(atom_com_dict[key].center_of_mass())
+
+            # Get the general center of mass as well
             lipid_com.append(lipid_atoms.center_of_mass())
             helix_com.append(helix_atoms.center_of_mass())
             leaflet0_com.append(leaflet0.center_of_mass())
@@ -245,11 +368,19 @@ class GromacsAnalysis(object):
         # Save off the times for other uses!
         self.times = times
 
+        # Run a helix analysis
+        self.helix_analysis = hel.HELANAL(traj_universe, select='name CA and resid 1-18').run()
+
         # Split up into a pandas dataframe for viewing
-        dopc_com_df = pd.DataFrame(dopc_com, columns = ['dopc_x', 'dopc_y', 'dopc_z'], index=times)
-        dopc_com_df.index.name = 'Time(ps)'
-        plpi_com_df = pd.DataFrame(plpi_com, columns = ['plpi_x', 'plpi_y', 'plpi_z'], index=times)
-        plpi_com_df.index.name = 'Time(ps)'
+        # Get all of the lipid center of mass to store in the dataframe
+        for key,val in lipid_com_dict.items():
+            xname = key + '_x'
+            yname = key + '_y'
+            zname = key + '_z'
+            df = pd.DataFrame(val, columns = [xname, yname, zname], index=times)
+            df.index.name = 'Time(ps)'
+            self.time_dfs.append(df)
+        # Get the aggregated information on the lipids/leaflets/protein
         lipid_com_df = pd.DataFrame(lipid_com, columns = ['lipid_x', 'lipid_y', 'lipid_z'], index=times)
         lipid_com_df.index.name = 'Time(ps)'
         helix_com_df = pd.DataFrame(helix_com, columns = ['helix_x', 'helix_y', 'helix_z'], index=times)
@@ -260,43 +391,23 @@ class GromacsAnalysis(object):
         leaflet1_com_df.index.name = 'Time(ps)'
         unit_cell_df = pd.DataFrame(unit_cell, columns = ['unit_cell_x', 'unit_cell_y', 'unit_cell_z', 'unit_cell_alpha', 'unit_cell_beta', 'unit_cell_gamma'], index = times)
         unit_cell_df.index.name = 'Time(ps)'
+        # Extract the helix parameters that we want from the helix_analysis
+        global_tilt_df = pd.DataFrame(self.helix_analysis.results.global_tilts, columns = ['global_tilt'], index=times)
+        global_tilt_df.index.name = 'Time(ps)'
 
-        dfs = []
-        dfs.append(dopc_com_df)
-        dfs.append(plpi_com_df)
-        dfs.append(lipid_com_df)
-        dfs.append(helix_com_df)
-        dfs.append(leaflet0_com_df)
-        dfs.append(leaflet1_com_df)
-        dfs.append(unit_cell_df)
+        self.time_dfs.append(lipid_com_df)
+        self.time_dfs.append(helix_com_df)
+        self.time_dfs.append(leaflet0_com_df)
+        self.time_dfs.append(leaflet1_com_df)
+        self.time_dfs.append(unit_cell_df)
+        self.time_dfs.append(global_tilt_df)
         
-        self.master_df = pd.concat(dfs, axis=1)
-
-    def AnalyzeHelix(self):
-        r""" Analyze helix parameters
-        """
-        print(f"GromacsAnalysis::AnalyzeHelix")
-        # Create a new universe for coordinate transfomrs
-        traj_universe_helix = mda.Universe(self.filename_structure, self.filename_trajectory)
-
-        # Do the transformation for the COM coordinates of the helix to stay in the box
-        all_protein = traj_universe_helix.select_atoms('protein')
-        not_protein = traj_universe_helix.select_atoms('not protein')
-
-        # Wrap everything into a periodic box
-        transforms = [trans.unwrap(all_protein),
-                      trans.center_in_box(all_protein, wrap=True),
-                      trans.wrap(not_protein)]
-
-        traj_universe_helix.trajectory.add_transformations(*transforms)
-
-        # Run the helix analysis
-        self.helix_analysis = hel.HELANAL(traj_universe_helix, select='name CA and resid 1-18').run()
+        if self.verbose: print("GromacsAnalysis::AnalyzeTrajectory return")
 
     def AnalyzeDSSP(self):
         r""" Analyze DSSP parameters for secondary structure
         """
-        print(f"GromacsAnalysis::AnalyzeDSSP")
+        if self.verbose: print(f"GromacsAnalysis::AnalyzeDSSP")
         # Iteratively load as otherwise this takes forever!
         current_chunk = 0
         # Create an array to store the helicity results
@@ -333,12 +444,15 @@ class GromacsAnalysis(object):
         helicity_df = pd.DataFrame(self.helicity, columns = ['helicity'], index=self.times)
         helicity_df.index.name = 'Time(ps)'
 
-        self.master_df = pd.concat([self.master_df, helicity_df], axis=1)
+        self.time_dfs.append(helicity_df)
+
+        if self.verbose: print(f"GromacsAnalysis::AnalyzeDSSP return")
 
     def AnalyzeCurvature(self):
         r""" Analyze the curvature of the membrane
         """
-        print("GromacsAnalysis::AnalyzeCurvature")
+        if self.verbose: print("GromacsAnalysis::AnalyzeCurvature")
+
         universe = mda.Universe(self.filename_structure, self.filename_trajectory)
 
         protein = universe.select_atoms("protein")
@@ -382,76 +496,137 @@ class GromacsAnalysis(object):
 
         # Do the curvature analysis
         nbins = 6
-        curvature_upper_leaflet = MembraneCurvature(universe,
-                                                    select = upper_string,
-                                                    n_x_bins = nbins,
-                                                    n_y_bins = nbins,
-                                                    x_range = x_dim,
-                                                    y_range = y_dim,
-                                                    wrap = True).run()
-        curvature_lower_leaflet = MembraneCurvature(universe,
-                                                    select = lower_string,
-                                                    n_x_bins = nbins,
-                                                    n_y_bins = nbins,
-                                                    x_range = x_dim,
-                                                    y_range = y_dim,
-                                                    wrap = True).run()
+        self.curvature_upper_leaflet = MembraneCurvature(universe,
+                                                         select = upper_string,
+                                                         n_x_bins = nbins,
+                                                         n_y_bins = nbins,
+                                                         x_range = x_dim,
+                                                         y_range = y_dim,
+                                                         wrap = True).run()
+        self.curvature_lower_leaflet = MembraneCurvature(universe,
+                                                         select = lower_string,
+                                                         n_x_bins = nbins,
+                                                         n_y_bins = nbins,
+                                                         x_range = x_dim,
+                                                         y_range = y_dim,
+                                                         wrap = True).run()
         helix_com = []
         for ts in universe.trajectory:
             helix_com.append(protein.center_of_mass())
 
         helix_com_new = np.stack(helix_com)
 
-        mean_helix_com = np.mean(helix_com_new, axis=0)
+        # We have to go to a lot of trouble to save this in a pandas dataframe, but might as well, as then we can read it back in
+        # in an easier setup. Basically, just iterate over the combinations of the columns, naming them as we go
+        # Generate column names
+        data_name       = ['z_surface', 'mean_curvature', 'gaussian_curvature']
+        data_name_avg   = ['avg_z_surface', 'avg_mean_curvature', 'avg_gaussian_curvature']
+        curvature_dict = {}
+        for lf in leaflets:
+            for dname in np.concatenate((data_name, data_name_avg), axis=0):
+                for idx in np.arange(nbins):
+                    for idy in np.arange(nbins):
+                        full_name = lf + '_' + dname + '_' + str(idx) + '_' + str(idy)
+                        curvature_dict[full_name] = []
+        curvature_dict['curvature_helix_x'] = []
+        curvature_dict['curvature_helix_y'] = []
+        curvature_dict['curvature_helix_z'] = []
 
-        # Do the plotting here until we can clean up this mess
-        avg_surface_upper_leaflet = curvature_upper_leaflet.results.average_z_surface
-        avg_surface_lower_leaflet = curvature_lower_leaflet.results.average_z_surface
+        # Generate the entries to the columns
+        nframes = self.curvature_upper_leaflet.results.z_surface.shape[0]
+        for idx in np.arange(nframes):
+            for lf in leaflets:
+                if lf == 'Upper':
+                    mresults = self.curvature_upper_leaflet.results
+                elif lf == 'Lower':
+                    mresults = self.curvature_lower_leaflet.results
 
-        avg_mean_upper_leaflet = curvature_upper_leaflet.results.average_mean
-        avg_mean_lower_leaflet = curvature_lower_leaflet.results.average_mean
+                for dname in data_name:
+                    if dname == 'z_surface':
+                        mresults_grid = mresults.z_surface
+                    elif dname == 'mean_curvature':
+                        mresults_grid = mresults.mean
+                    elif dname == 'gaussian_curvature':
+                        mresults_grid = mresults.gaussian
 
-        avg_gaussian_upper_leaflet = curvature_upper_leaflet.results.average_gaussian
-        avg_gaussian_lower_leaflet = curvature_lower_leaflet.results.average_gaussian
+                    for xx in np.arange(nbins):
+                        for yy in np.arange(nbins):
+                            full_name = lf + '_' + dname + '_' + str(xx) + '_' + str(yy)
+                            curvature_dict[full_name].append(mresults_grid[idx][xx][yy])
 
-        # Process everything different
-        plot_contour_special(avg_mean_lower_leaflet, mean_helix_com, mean_unit_cell, nbins, 30, -1.0, 1.0, "$H$ (Å$^{-1}$)", "bwr", 'avg_mean_lower.pdf')
-        plot_contour_special(avg_mean_upper_leaflet, mean_helix_com, mean_unit_cell, nbins, 30, -1.0, 1.0, "$H$ (Å$^{-1}$)", "bwr", 'avg_mean_upper.pdf')
-        plot_contour_special(avg_gaussian_lower_leaflet, mean_helix_com, mean_unit_cell, nbins, 35, -2.0, 2.0, "$K$ (Å$^{-2}$)", "PiYG", 'avg_gaussian_lower.pdf')
-        plot_contour_special(avg_gaussian_upper_leaflet, mean_helix_com, mean_unit_cell, nbins, 35, -2.0, 2.0, "$K$ (Å$^{-2}$)", "PiYG", 'avg_gaussian_upper.pdf')
+            curvature_dict['curvature_helix_x'].append(helix_com_new[idx][0])
+            curvature_dict['curvature_helix_y'].append(helix_com_new[idx][1])
+            curvature_dict['curvature_helix_z'].append(helix_com_new[idx][2])
 
-        print("Exiting here!")
-        sys.exit(1)
+        # Now just get the average values and store them too
+        for lf in leaflets:
+            if lf == 'Upper':
+                mresults = self.curvature_upper_leaflet.results
+            elif lf == 'Lower':
+                mresults = self.curvature_lower_leaflet.results
 
-        ## Try to calculate the principle curvatures from this
-        #from numpy.polynomial import Polynomial
-        #avg_K1_upper = avg_surface_upper_leaflet
-        #for idx, _ in np.ndenumerate(avg_surface_upper_leaflet):
-        #    array_vals = np.array([avg_gaussian_upper_leaflet[idx], -2.0*avg_mean_upper_leaflet[idx], 1.0])
-        #    print("array vals:      {}".format(array_vals))
-        #    pval = Polynomial(array_vals)
-        #    print("roots:           {}".format(pval.roots()))
+            for dname in data_name_avg:
+                if dname == 'avg_z_surface':
+                    mresults_grid = mresults.average_z_surface
+                elif dname == 'avg_mean_curvature':
+                    mresults_grid = mresults.average_mean
+                elif dname == 'avg_gaussian_curvature':
+                    mresults_grid = mresults.average_gaussian
 
-        #    sys.exit(1)
-        
+                for xx in np.arange(nbins):
+                    for yy in np.arange(nbins):
+                        full_name = lf + '_' + dname + '_' + str(xx) + '_' + str(yy)
+                        curvature_dict[full_name].append(mresults_grid[xx][yy])
 
-        plot_contours_com([avg_surface_lower_leaflet, avg_surface_upper_leaflet], mean_helix_com, mean_unit_cell, nbins, 'Surface', 35, 'YlGnBu_r', 'surface_height.pdf')
-        #plt.show()
+        # Save off the information as a dataframe
+        curvature_df = pd.DataFrame(curvature_dict, index = self.times) 
+        curvature_df.index.name = 'Time(ps)'
+        self.time_dfs.append(curvature_df)
 
-        plot_contours_com([avg_mean_lower_leaflet, avg_mean_upper_leaflet], mean_helix_com, mean_unit_cell, nbins, "$H$ (Å$^{-1}$)", 30, "bwr", 'mean_curvature.pdf')
-        #plt.show()
+        #mean_helix_com = np.mean(helix_com_new, axis=0)
 
-        plot_contours_com([avg_gaussian_lower_leaflet, avg_gaussian_upper_leaflet], mean_helix_com, mean_unit_cell, nbins, "$K$ (Å$^{-2}$)", 35, "PiYG", 'gaussian_curvature.pdf')
-        #plt.show()
+        ## Do the plotting here until we can clean up this mess
+        #avg_surface_upper_leaflet = curvature_upper_leaflet.results.average_z_surface
+        #avg_surface_lower_leaflet = curvature_lower_leaflet.results.average_z_surface
 
-        print("Premature exit")
-        sys.exit(1)
+        #avg_mean_upper_leaflet = curvature_upper_leaflet.results.average_mean
+        #avg_mean_lower_leaflet = curvature_lower_leaflet.results.average_mean
 
+        #avg_gaussian_upper_leaflet = curvature_upper_leaflet.results.average_gaussian
+        #avg_gaussian_lower_leaflet = curvature_lower_leaflet.results.average_gaussian
+
+        ## Process everything different
+        #plot_contour_special(avg_mean_lower_leaflet, mean_helix_com, mean_unit_cell, nbins, 30, -1.0, 1.0, "$H$ (Å$^{-1}$)", "bwr", 'avg_mean_lower.pdf')
+        #plot_contour_special(avg_mean_upper_leaflet, mean_helix_com, mean_unit_cell, nbins, 30, -1.0, 1.0, "$H$ (Å$^{-1}$)", "bwr", 'avg_mean_upper.pdf')
+        #plot_contour_special(avg_gaussian_lower_leaflet, mean_helix_com, mean_unit_cell, nbins, 35, -2.0, 2.0, "$K$ (Å$^{-2}$)", "PiYG", 'avg_gaussian_lower.pdf')
+        #plot_contour_special(avg_gaussian_upper_leaflet, mean_helix_com, mean_unit_cell, nbins, 35, -2.0, 2.0, "$K$ (Å$^{-2}$)", "PiYG", 'avg_gaussian_upper.pdf')
+
+        ### Try to calculate the principle curvatures from this
+        ##from numpy.polynomial import Polynomial
+        ##avg_K1_upper = avg_surface_upper_leaflet
+        ##for idx, _ in np.ndenumerate(avg_surface_upper_leaflet):
+        ##    array_vals = np.array([avg_gaussian_upper_leaflet[idx], -2.0*avg_mean_upper_leaflet[idx], 1.0])
+        ##    print("array vals:      {}".format(array_vals))
+        ##    pval = Polynomial(array_vals)
+        ##    print("roots:           {}".format(pval.roots()))
+
+        ##    sys.exit(1)
+        #
+
+        #plot_contours_com([avg_surface_lower_leaflet, avg_surface_upper_leaflet], mean_helix_com, mean_unit_cell, nbins, 'Surface', 35, 'YlGnBu_r', 'surface_height.pdf')
+        ##plt.show()
+
+        #plot_contours_com([avg_mean_lower_leaflet, avg_mean_upper_leaflet], mean_helix_com, mean_unit_cell, nbins, "$H$ (Å$^{-1}$)", 30, "bwr", 'mean_curvature.pdf')
+        ##plt.show()
+
+        #plot_contours_com([avg_gaussian_lower_leaflet, avg_gaussian_upper_leaflet], mean_helix_com, mean_unit_cell, nbins, "$K$ (Å$^{-2}$)", 35, "PiYG", 'gaussian_curvature.pdf')
+        ##plt.show()
 
     def Graph(self):
         r""" Graph results
         """
-        print(f"GromacsAnalysis::Graph")
+        if self.verbose: print(f"GromacsAnalysis::Graph")
+
         plt.style.use(septin_runs_stl)
 
         # Plot the Z distance versus time
@@ -466,35 +641,65 @@ class GromacsAnalysis(object):
         fig.tight_layout()
         fig.savefig('gromacs_zpos.pdf', dpi=fig.dpi)
 
-        ## Plot the helicity of the protein
-        #fig, axarr = plt.subplots(1, 1, figsize = (15, 20))
-        #self.graph_helicity(axarr)
-        #fig.tight_layout()
-        #fig.savefig('gromacs_helicity.pdf', dpi=fig.dpi)
+        # Plot the helicity of the protein
+        fig, axarr = plt.subplots(1, 1, figsize = (15, 10))
+        self.graph_helicity(axarr)
+        fig.tight_layout()
+        fig.savefig('gromacs_helicity.pdf', dpi=fig.dpi)
 
-        ## Plot helix information
-        #fig, axarr = plt.subplots(2, 1, figsize = (15, 10))
-        #self.graph_helix_analysis(axarr)
-        #fig.tight_layout()
-        #fig.savefig('gromacs_helix_analysis.pdf', dpi=fig.dpi)
+        # Plot helix information
+        fig, axarr = plt.subplots(2, 1, figsize = (15, 10))
+        self.graph_helix_analysis(axarr)
+        fig.tight_layout()
+        fig.savefig('gromacs_helix_analysis.pdf', dpi=fig.dpi)
+
+        # Plot the global tilts
+        fig, axarr = plt.subplots(1, 1, figsize = (15, 10))
+        self.graph_global_tilt(axarr)
+        fig.tight_layout()
+        fig.savefig('gromacs_global_tilt.pdf', dpi=fig.dpi)
+
+        # Plot the mean location of the upper leaflet
+        fig, axarr = plt.subplots(1, 2, figsize = (15, 10))
+        self.graph_mean_surface(axarr)
+        fig.tight_layout()
+        fig.savefig('gromacs_mean_zsurf.pdf', dpi=fig.dpi)
+
+        if self.verbose: print(f"GromacsAnalysis::Graph return")
 
     def WriteData(self):
         r""" Write the data into either CSV files for pandas or pickles for internal objects
         """
+        if self.verbose: print(f"GromacsAnalysis::WriteData")
         # Dump the CSV files
         hd5_filename = os.path.join(self.path, self.name + '.h5')
-        self.master_df.to_hdf(hd5_filename, key='master_df', mode='w')
+        self.master_time_df.to_hdf(hd5_filename, key='master_time_df', mode='w')
 
-        ## Dump the pickle files
-        #pkl_filename = os.path.join(self.path, self.name + '.pickle')
-        #with open(pkl_filename, 'wb') as f:
-        #    pickle.dump(self.helix_analysis,f)
+        if self.verbose:
+            print(self.master_time_df)
 
+        # Dump the pickle files
+        pkl_filename = os.path.join(self.path, self.name + '.pickle')
+        with open(pkl_filename, 'wb') as f:
+            pickle.dump(self.helix_analysis,f)
+
+        if self.verbose: print(f"GromacsAnalysis::WriteData return")
+
+    def LoadData(self, file_path_pandas, file_path_helixanalysis):
+        r""" Load the data for pandas and pickles
+        """
+        if self.verbose: print(f"GromacsAnalysis::LoadData")
+
+        self.master_time_df = pd.read_hdf(file_path_pandas)
+        with open(file_path_helixanalysis, 'rb') as f:
+            self.helix_analysis = pickle.load(f)
+
+        if self.verbose: print(f"GromacsAnalysis::LoadData return")
 
     def graph_zdist_com(self, axarr):
         r""" Plot the Z distance between the lipid and helix COM
         """
-        z = np.abs(self.master_df['helix_z'] - self.master_df['lipid_z'])
+        z = np.abs(self.master_time_df['helix_z'] - self.master_time_df['lipid_z'])
         axarr.plot(z)
         axarr.set_xlabel('Frame')
         axarr.set_ylabel('Z distance (Angstroms)')
@@ -502,10 +707,10 @@ class GromacsAnalysis(object):
     def graph_zpos_com(self, axarr):
         r""" Plot the Z positino of the lipid head groups and the protein
         """
-        z_protein = self.master_df['helix_z']
-        z_leaf0 = self.master_df['leaflet0_z']
-        z_leaf1 = self.master_df['leaflet1_z']
-        z_lipid = self.master_df['lipid_z']
+        z_protein = self.master_time_df['helix_z']
+        z_leaf0 = self.master_time_df['leaflet0_z']
+        z_leaf1 = self.master_time_df['leaflet1_z']
+        z_lipid = self.master_time_df['lipid_z']
         # Subtract off the position of the lipid COM from everybody else
         z_protein = z_protein - z_lipid
         z_leaf0 = z_leaf0 - z_lipid
@@ -519,7 +724,7 @@ class GromacsAnalysis(object):
     def graph_helicity(self, axarr):
         r""" Plot the helicity (0 to 1) as a function of time
         """
-        helicity = self.master_df['helicity']
+        helicity = self.master_time_df['helicity']
         axarr.plot(helicity, color = 'k')
         axarr.set_xlabel('Frame')
         axarr.set_ylabel('Helicity (AU)')
@@ -536,6 +741,34 @@ class GromacsAnalysis(object):
         axarr[1].set_xlabel('Frame')
         axarr[1].set_ylabel('Average residues per turn')
 
+    def graph_global_tilt(self, axarr):
+        r""" Plot the global tilt angle
+        """
+        global_tilt = self.master_time_df['global_tilt']
+        axarr.plot(global_tilt, color = 'k')
+        axarr.set_xlabel('Frame')
+        axarr.set_ylabel('Global Tilt (deg)')
+
+    def graph_mean_surface(self, axarr):
+        r""" Plot the surface location of the specified leaflet
+        """
+        # Unpack the curvature dataframe
+        lower_average_z_surface = unpack_curvature(self.master_time_df, 'Lower', 'avg_z_surface')
+        upper_average_z_surface = unpack_curvature(self.master_time_df, 'Upper', 'avg_z_surface')
+
+        surfaces = [lower_average_z_surface[0][:][:],
+                    upper_average_z_surface[0][:][:]]
+        #surfaces = [self.curvature_lower_leaflet.results.average_z_surface,
+        #            self.curvature_upper_leaflet.results.average_z_surface]
+        leaflets = ['Lower', 'Upper']
+        for ax, surfs, lf in zip(axarr, surfaces, leaflets):
+            im = ax.imshow(surfs, interpolation = 'gaussian', cmap = 'YlGnBu', origin = 'lower')
+            ax.set_aspect('equal')
+            ax.set_title('{} Leaflet'.format(lf))
+            cbar = plt.colorbar(im, ticks = [surfs.min(), surfs.max()], orientation='horizontal', ax=ax, shrink=0.7, aspect=10, pad=0.05)
+            cbar.set_ticklabels([int(surfs.min()), int(surfs.max())])
+            cbar.ax.tick_params(labelsize=5, width=0.5)
+            cbar.set_label("Height lipid headgroups (${\AA}$)", labelpad=2)
 
 
 

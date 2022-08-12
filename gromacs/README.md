@@ -55,6 +55,31 @@ which will start the process of running all of the script you created. Eventuall
 100 output trajectory files from gromacs, each worth 1 ns of data. Then, you have to combine
 them together in some meaningful way to see the full trajectory.
 
+## Preprocessing GROMACS
+In order to use the structure files from Ronit's lab, or really just as a sanity check, you need to make sure that you're properly patching the end termini of the protein under study. For instance, from Ronit's lab, we want to add NH2 onto both the Nterminal and Cterminal of the AH domain. To do this, several steps must occur.
+
+### Freeman lab instructions
+
+First, remove the hydrogens in the configuration file, as they will get in the way.
+
+	vmd
+	mol load pdb your.pdb
+	set sel [atomselect top "not hydrogen"]
+	$sel writepdb monomer_preprocessed.pdb
+	
+Then, go and edit this new file (whatever you named it) to remove the trailing nitrogen from the PDB file, like LEU18 has an N at N01 near the end. The peptide is now ready for the terminal patching as done by GROMACS. Temrinal patching is done in GROMACS.
+
+	gmx pdb2gmx -f monomer_preprocessed.pdb -o monomer_processed.gro -water tip3p -ignh -ter
+	
+Where you interactively choose the correct options. This will genereate a gromacs file for use. To use the same in the CHARMM gui, you need to do use the preprocessed monomer with the correct termianl patching, as done in the CHARMM gui. This corresponds to options NNEU and CT2 when importing your protein. In the end, you should wind up with PDB files
+
+	monomer_preprocessed.pdb
+	monomer_charmmgui.pdb
+	
+and gromacs file
+
+	monomer_processed.gro
+
 ## Postprocessing GROMACS
 We want to combine the trajectories together (usually) in a compressed data format. To do this, we
 can use another of the packaged scripts here
