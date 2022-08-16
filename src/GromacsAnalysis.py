@@ -583,45 +583,6 @@ class GromacsAnalysis(object):
         curvature_df.index.name = 'Time(ps)'
         self.time_dfs.append(curvature_df)
 
-        #mean_helix_com = np.mean(helix_com_new, axis=0)
-
-        ## Do the plotting here until we can clean up this mess
-        #avg_surface_upper_leaflet = curvature_upper_leaflet.results.average_z_surface
-        #avg_surface_lower_leaflet = curvature_lower_leaflet.results.average_z_surface
-
-        #avg_mean_upper_leaflet = curvature_upper_leaflet.results.average_mean
-        #avg_mean_lower_leaflet = curvature_lower_leaflet.results.average_mean
-
-        #avg_gaussian_upper_leaflet = curvature_upper_leaflet.results.average_gaussian
-        #avg_gaussian_lower_leaflet = curvature_lower_leaflet.results.average_gaussian
-
-        ## Process everything different
-        #plot_contour_special(avg_mean_lower_leaflet, mean_helix_com, mean_unit_cell, nbins, 30, -1.0, 1.0, "$H$ (Å$^{-1}$)", "bwr", 'avg_mean_lower.pdf')
-        #plot_contour_special(avg_mean_upper_leaflet, mean_helix_com, mean_unit_cell, nbins, 30, -1.0, 1.0, "$H$ (Å$^{-1}$)", "bwr", 'avg_mean_upper.pdf')
-        #plot_contour_special(avg_gaussian_lower_leaflet, mean_helix_com, mean_unit_cell, nbins, 35, -2.0, 2.0, "$K$ (Å$^{-2}$)", "PiYG", 'avg_gaussian_lower.pdf')
-        #plot_contour_special(avg_gaussian_upper_leaflet, mean_helix_com, mean_unit_cell, nbins, 35, -2.0, 2.0, "$K$ (Å$^{-2}$)", "PiYG", 'avg_gaussian_upper.pdf')
-
-        ### Try to calculate the principle curvatures from this
-        ##from numpy.polynomial import Polynomial
-        ##avg_K1_upper = avg_surface_upper_leaflet
-        ##for idx, _ in np.ndenumerate(avg_surface_upper_leaflet):
-        ##    array_vals = np.array([avg_gaussian_upper_leaflet[idx], -2.0*avg_mean_upper_leaflet[idx], 1.0])
-        ##    print("array vals:      {}".format(array_vals))
-        ##    pval = Polynomial(array_vals)
-        ##    print("roots:           {}".format(pval.roots()))
-
-        ##    sys.exit(1)
-        #
-
-        #plot_contours_com([avg_surface_lower_leaflet, avg_surface_upper_leaflet], mean_helix_com, mean_unit_cell, nbins, 'Surface', 35, 'YlGnBu_r', 'surface_height.pdf')
-        ##plt.show()
-
-        #plot_contours_com([avg_mean_lower_leaflet, avg_mean_upper_leaflet], mean_helix_com, mean_unit_cell, nbins, "$H$ (Å$^{-1}$)", 30, "bwr", 'mean_curvature.pdf')
-        ##plt.show()
-
-        #plot_contours_com([avg_gaussian_lower_leaflet, avg_gaussian_upper_leaflet], mean_helix_com, mean_unit_cell, nbins, "$K$ (Å$^{-2}$)", 35, "PiYG", 'gaussian_curvature.pdf')
-        ##plt.show()
-
     def Graph(self):
         r""" Graph results
         """
@@ -661,9 +622,21 @@ class GromacsAnalysis(object):
 
         # Plot the mean location of the upper leaflet
         fig, axarr = plt.subplots(1, 2, figsize = (15, 10))
-        self.graph_mean_surface(axarr)
+        self.graph_avg_z_surface(axarr)
         fig.tight_layout()
-        fig.savefig('gromacs_mean_zsurf.pdf', dpi=fig.dpi)
+        fig.savefig('gromacs_avg_zsurf.pdf', dpi=fig.dpi)
+
+        # Plot the average mean curvature
+        fig, axarr = plt.subplots(1, 2, figsize = (15, 10))
+        self.graph_avg_mean_curvature(axarr)
+        fig.tight_layout()
+        fig.savefig('gromacs_avg_meancurv.pdf', dpi = fig.dpi)
+
+        # Plot the average gaussian curvature
+        fig, axarr = plt.subplots(1, 2, figsize = (15, 10))
+        self.graph_avg_gaussian_curvature(axarr)
+        fig.tight_layout()
+        fig.savefig('gromacs_avg_gausscurv.pdf', dpi = fig.dpi)
 
         if self.verbose: print(f"GromacsAnalysis::Graph return")
 
@@ -749,8 +722,8 @@ class GromacsAnalysis(object):
         axarr.set_xlabel('Frame')
         axarr.set_ylabel('Global Tilt (deg)')
 
-    def graph_mean_surface(self, axarr):
-        r""" Plot the surface location of the specified leaflet
+    def graph_avg_z_surface(self, axarr):
+        r""" Plot the average z surface
         """
         # Unpack the curvature dataframe
         lower_average_z_surface = unpack_curvature(self.master_time_df, 'Lower', 'avg_z_surface')
@@ -758,8 +731,6 @@ class GromacsAnalysis(object):
 
         surfaces = [lower_average_z_surface[0][:][:],
                     upper_average_z_surface[0][:][:]]
-        #surfaces = [self.curvature_lower_leaflet.results.average_z_surface,
-        #            self.curvature_upper_leaflet.results.average_z_surface]
         leaflets = ['Lower', 'Upper']
         for ax, surfs, lf in zip(axarr, surfaces, leaflets):
             im = ax.imshow(surfs, interpolation = 'gaussian', cmap = 'YlGnBu', origin = 'lower')
@@ -767,8 +738,47 @@ class GromacsAnalysis(object):
             ax.set_title('{} Leaflet'.format(lf))
             cbar = plt.colorbar(im, ticks = [surfs.min(), surfs.max()], orientation='horizontal', ax=ax, shrink=0.7, aspect=10, pad=0.05)
             cbar.set_ticklabels([int(surfs.min()), int(surfs.max())])
-            cbar.ax.tick_params(labelsize=5, width=0.5)
+            cbar.ax.tick_params(width=0.5)
             cbar.set_label("Height lipid headgroups (${\AA}$)", labelpad=2)
+
+    def graph_avg_mean_curvature(self, axarr):
+        r""" Plot the average mean curvature
+        """
+        # Unpack the curvature dataframe
+        lower_average_mean_curvature = unpack_curvature(self.master_time_df, 'Lower', 'avg_mean_curvature')
+        upper_average_mean_curvature = unpack_curvature(self.master_time_df, 'Upper', 'avg_mean_curvature')
+
+        surfaces = [lower_average_mean_curvature[0][:][:],
+                    upper_average_mean_curvature[0][:][:]]
+        leaflets = ['Lower', 'Upper']
+        for ax, surfs, lf in zip(axarr, surfaces, leaflets):
+            im = ax.imshow(surfs, interpolation = 'gaussian', cmap = 'bwr', origin = 'lower')
+            ax.set_aspect('equal')
+            ax.set_title('{} Leaflet'.format(lf))
+            cbar = plt.colorbar(im, ticks = [surfs.min(), surfs.max()], orientation='horizontal', ax=ax, shrink=0.7, aspect=10, pad=0.05)
+            cbar.set_ticklabels([int(surfs.min()), int(surfs.max())])
+            cbar.ax.tick_params(width=0.5)
+            cbar.set_label("$H$ (${\AA}^{-1}$)", labelpad=2)
+
+    def graph_avg_gaussian_curvature(self, axarr):
+        r""" Plot the average mean curvature
+        """
+        # Unpack the curvature dataframe
+        lower_average_gaussian_curvature = unpack_curvature(self.master_time_df, 'Lower', 'avg_gaussian_curvature')
+        upper_average_gaussian_curvature = unpack_curvature(self.master_time_df, 'Upper', 'avg_gaussian_curvature')
+
+        surfaces = [lower_average_gaussian_curvature[0][:][:],
+                    upper_average_gaussian_curvature[0][:][:]]
+        leaflets = ['Lower', 'Upper']
+        for ax, surfs, lf in zip(axarr, surfaces, leaflets):
+            im = ax.imshow(surfs, interpolation = 'gaussian', cmap = 'PiYG', origin = 'lower')
+            ax.set_aspect('equal')
+            ax.set_title('{} Leaflet'.format(lf))
+            cbar = plt.colorbar(im, ticks = [surfs.min(), surfs.max()], orientation='horizontal', ax=ax, shrink=0.7, aspect=10, pad=0.05)
+            cbar.set_ticklabels([int(surfs.min()), int(surfs.max())])
+            cbar.ax.tick_params(width=0.5)
+            cbar.set_label("$K$ (${\AA}^{-2}$)", labelpad=2)
+
 
 
 
