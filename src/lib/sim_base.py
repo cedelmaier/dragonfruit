@@ -89,7 +89,8 @@ class SimulationBase(object):
     def CollectSeeds(self, seedType):
         r""" Collect the underlying seeds for this simulation
         """
-        seed_pattern = re.compile("s\d+")
+        # Add a check for the gromacs type numbering system
+        seed_pattern = re.compile("[s|N]\d+")
 
         # Make list of seeds of type seedType
         self.seeds = [seedType(os.path.join(self.sim_path,sd), self.opts)
