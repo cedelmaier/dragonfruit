@@ -461,13 +461,15 @@ class GromacsSeed(SeedBase):
         if self.verbose: print(f"GromacsSeed::WriteData")
 
         # Dump the HD5 files
-        self.master_time_df.to_hdf(self.hd5_name, key='master_time_df', mode='w')
+        hd5_filename = os.path.join(self.path, self.hd5_name)
+        self.master_time_df.to_hdf(hd5_filename, key='master_time_df', mode='w')
 
         if self.verbose:
             print(self.master_time_df)
 
         # Dump the pickle file(s)
-        with open(self.pickle_name, 'wb') as f:
+        pickle_filename = os.path.join(self.path, self.pickle_name)
+        with open(pickle_filename, 'wb') as f:
             pickle.dump(self.helix_analysis,f)
 
         if self.verbose: print(f"GromacsSeed::WriteData return")
