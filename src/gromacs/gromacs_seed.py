@@ -32,6 +32,7 @@ import pandas as pd
 sys.path.append(os.path.join(os.path.dirname(__file__), 'lib'))
 from stylelib.common_styles import septin_runs_stl
 from seed_base import SeedBase
+from seed_graph_funcs import *
 
 class GromacsSeed(SeedBase):
     def __init__(self, path, opts):
@@ -471,58 +472,36 @@ class GromacsSeed(SeedBase):
 
         if self.verbose: print(f"GromacsSeed::WriteData return")
 
-    def graph_zdist_com(self, axarr):
-        r""" Plot the Z distance between the lipid and helix COM
+    def GraphZdist(self, ax, color = 'b'):
+        r""" Plot the absolute Z position of the helix
         """
-        z = np.abs(self.master_time_df['helix_z'] - self.master_time_df['lipid_z'])
-        axarr.plot(z)
-        axarr.set_xlabel('Frame')
-        axarr.set_ylabel('Z distance (Angstroms)')
+        graph_seed_zdist(self, ax, color = color)
 
-    def graph_zpos_com(self, axarr):
-        r""" Plot the Z positino of the lipid head groups and the protein
+    def GraphZpos(self, ax, color = 'b'):
+        r""" Plot the Z position of the lipid headgroups and protein
         """
-        z_protein = self.master_time_df['helix_z']
-        z_leaf0 = self.master_time_df['leaflet0_z']
-        z_leaf1 = self.master_time_df['leaflet1_z']
-        z_lipid = self.master_time_df['lipid_z']
-        # Subtract off the position of the lipid COM from everybody else
-        z_protein = z_protein - z_lipid
-        z_leaf0 = z_leaf0 - z_lipid
-        z_leaf1 = z_leaf1 - z_lipid
-        axarr.plot(z_protein, color = 'b')
-        axarr.plot(z_leaf0, color = 'k')
-        axarr.plot(z_leaf1, color = 'k')
-        axarr.set_xlabel('Frame')
-        axarr.set_ylabel('Z position (Angstroms)')
+        graph_seed_zpos_wheads(self, ax, color = color)
 
-    def graph_helicity(self, axarr):
-        r""" Plot the helicity (0 to 1) as a function of time
+    def GraphHelicity(self, ax, color = 'b'):
+        r""" Plot the fractional helicity of the helix
         """
-        helicity = self.master_time_df['helicity']
-        axarr.plot(helicity, color = 'k')
-        axarr.set_xlabel('Frame')
-        axarr.set_ylabel('Helicity (AU)')
-        axarr.set_ylim([0.0, 1.05])
+        graph_seed_helicity(self, ax, color = 'b') 
 
-    def graph_helix_analysis(self, axarr):
-        r""" Plot results of the helix analysis
+    def GraphGlobalTilt(self, ax, color = 'b'):
+        r""" Plot the global tilt of the helix
         """
-        axarr[0].plot(self.helix_analysis.results.local_twists.mean(axis=1))
-        axarr[0].set_xlabel('Frame')
-        axarr[0].set_ylabel('Average twist (degrees)')
+        graph_seed_globaltilt(self, ax, color = 'b')
 
-        axarr[1].plot(self.helix_analysis.results.local_nres_per_turn.mean(axis=1))
-        axarr[1].set_xlabel('Frame')
-        axarr[1].set_ylabel('Average residues per turn')
-
-    def graph_global_tilt(self, axarr):
-        r""" Plot the global tilt angle
-        """
-        global_tilt = self.master_time_df['global_tilt']
-        axarr.plot(global_tilt, color = 'k')
-        axarr.set_xlabel('Frame')
-        axarr.set_ylabel('Global Tilt (deg)')
+#    def graph_helix_analysis(self, axarr):
+#        r""" Plot results of the helix analysis
+#        """
+#        axarr[0].plot(self.helix_analysis.results.local_twists.mean(axis=1))
+#        axarr[0].set_xlabel('Frame')
+#        axarr[0].set_ylabel('Average twist (degrees)')
+#
+#        axarr[1].plot(self.helix_analysis.results.local_nres_per_turn.mean(axis=1))
+#        axarr[1].set_xlabel('Frame')
+#        axarr[1].set_ylabel('Average residues per turn')
 
     def graph_avg_z_surface(self, axarr):
         r""" Plot the average z surface

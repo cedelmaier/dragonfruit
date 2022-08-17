@@ -103,31 +103,31 @@ class GromacsAnalysis(object):
 
             # Plot the Z distance versus time
             fig, axarr = plt.subplots(1, 1, figsize = (15, 10))
-            sd.graph_zdist_com(axarr)
+            sd.GraphZdist(axarr)
             fig.tight_layout()
             fig.savefig('gromacs_zdist.pdf', dpi=fig.dpi)
 
             # Try doing a plot with the lipid head groups included
             fig, axarr = plt.subplots(1, 1, figsize=(15,10))
-            sd.graph_zpos_com(axarr)
+            sd.GraphZpos(axarr)
             fig.tight_layout()
             fig.savefig('gromacs_zpos.pdf', dpi=fig.dpi)
 
             # Plot the helicity of the protein
             fig, axarr = plt.subplots(1, 1, figsize = (15, 10))
-            sd.graph_helicity(axarr)
+            sd.GraphHelicity(axarr)
             fig.tight_layout()
             fig.savefig('gromacs_helicity.pdf', dpi=fig.dpi)
 
-            # Plot helix information
-            fig, axarr = plt.subplots(2, 1, figsize = (15, 10))
-            sd.graph_helix_analysis(axarr)
-            fig.tight_layout()
-            fig.savefig('gromacs_helix_analysis.pdf', dpi=fig.dpi)
+            ## Plot helix information
+            #fig, axarr = plt.subplots(2, 1, figsize = (15, 10))
+            #sd.graph_helix_analysis(axarr)
+            #fig.tight_layout()
+            #fig.savefig('gromacs_helix_analysis.pdf', dpi=fig.dpi)
 
             # Plot the global tilts
             fig, axarr = plt.subplots(1, 1, figsize = (15, 10))
-            sd.graph_global_tilt(axarr)
+            sd.GraphGlobalTilt(axarr)
             fig.tight_layout()
             fig.savefig('gromacs_global_tilt.pdf', dpi=fig.dpi)
 

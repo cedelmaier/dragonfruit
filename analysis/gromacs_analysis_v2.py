@@ -27,16 +27,18 @@ CB_color_cycle = ['#377eb8', '#ff7f00', '#4daf4a',
 
 main_path = os.path.abspath('/Users/cedelmaier/Projects/Biophysics/septin_project/atomistic/simulations/data')
 simulation_names = [
-                    #'unbiased_zdepth00_rotx0_helix_50mMKCl',
-                    #'unbiased_zdepth00_rotx90_helix_50mMKCl',
-                    #'unbiased_zdepth00_rotx180_helix_50mMKCl',
+                    'unbiased_zdepth00_rotx0_helix_50mMKCl',
+                    'unbiased_zdepth00_rotx90_helix_50mMKCl',
+                    'unbiased_zdepth00_rotx180_helix_50mMKCl',
                     'unbiased_zdepth00_rotx270_helix_50mMKCl',
+                    'unbiased_zdepth00_trans_helix_50mMKCl',
                     ]
 simulation_legends = [
-                      #r'Rot 0 deg',
-                      #r'Rot 90 deg',
-                      #r'Rot 180 deg',
+                      r'Rot 0 deg',
+                      r'Rot 90 deg',
+                      r'Rot 180 deg',
                       r'Rot 270 deg',
+                      r'Trans',
                      ]
 
 
@@ -46,13 +48,15 @@ simulation_legends = [
 #outname = 'unfolded_10'
 #outname = 'unfolded_20'
 #outname = 'unbiased_zdepth00_rotxN_helix_50mMKCl' 
+outname = 'unbiased_zdepth00_rotxNtrans_helix_50mMKCl' 
 #outname = 'unbiased_zdepth00_rotx0_helix_50mMKCl'
 #outname = 'unbiased_zdepth00_rotx90_helix_50mMKCl'
 #outname = 'unbiased_zdepth00_rotx180_helix_50mMKCl'
-outname = 'unbiased_zdepth00_rotx270_helix_50mMKCl'
+#outname = 'unbiased_zdepth00_rotx270_helix_50mMKCl'
 
 # Set up the plots beforehand
-plt.style.use(septin_poster_stl)
+#plt.style.use(septin_poster_stl)
+plt.style.use(septin_runs_stl)
 fig_zdist, ax_zdist = plt.subplots(1, 1, figsize = (15, 10))
 fig_zpos , ax_zpos  = plt.subplots(1, 1, figsize = (15, 10))
 fig_twist, ax_twist = plt.subplots(1, 1, figsize = (15, 10))
@@ -117,26 +121,26 @@ for isim,sname in enumerate(simulation_names):
 
 ax_zdist.set_xlabel('Time (ps)')
 ax_zdist.set_ylabel(r'Z distance ($\AA$)')
-ax_zdist.legend(loc = 'lower right')
+#ax_zdist.legend(loc = 'lower right')
 fig_zdist.tight_layout()
 fig_zdist.savefig('gromacs_zdist_' + outname + '.pdf', dpi = fig_zdist.dpi)
 
 ax_zpos.set_xlabel('Time (ps)')
 ax_zpos.set_ylabel(r'z ($\AA$)')
-ax_zpos.legend(loc = 'lower right')
+#ax_zpos.legend(loc = 'lower right')
 fig_zpos.tight_layout()
 fig_zpos.savefig('gromacs_zpos_' + outname + '.pdf', dpi = fig_zpos.dpi)
 
 ax_helix.set_xlabel('Time (ps)')
 ax_helix.set_ylabel('Helical nature (AU)')
-ax_helix.legend(loc = 'lower right')
+#ax_helix.legend(loc = 'lower right')
 ax_helix.set_ylim([0.0, 1.1])
 fig_helix.tight_layout()
 fig_helix.savefig('gromacs_helicity_' + outname + '.pdf', dpi = fig_helix.dpi)
 
 ax_tilt.set_xlabel('Time (ps)')
 ax_tilt.set_ylabel('Global tilt (deg)')
-ax_tilt.legend(loc = 'lower right')
+#ax_tilt.legend(loc = 'lower right')
 ax_tilt.set_ylim([0.0, 180.0])
 fig_tilt.tight_layout()
 fig_tilt.savefig('gromacs_tilt_' + outname + '.pdf', dpi = fig_tilt.dpi)
