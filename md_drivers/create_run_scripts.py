@@ -14,6 +14,12 @@ Name: create_run_scripts.py
 Description: Create files for running membranes on different systems
 Input: To view options type create_run_scripts.py
 Output: Bash files for submission of scripts
+
+Example useage for rusty at FI:
+    python3 <create_run_scripts.py> --engine gromacs --runtype cpuplumed --partition rome,ib --cluster rusty --start 1 --end 20 --stride 1 --nnodes 10 --ntmpi 120 --ntomp 1 --gfile step7_production.mdp --pfile plumed.dat
+
+Example useage for popeye at FI:
+    python3 <create_run_scripts.py> --engine gromacs --runtype cpuplumed --partition icelake,ib --cluster popeye --start 1 --end 20 --stride 1 --nnodes 10 --ntmpi 60 --ntomp 1 --gfile step7_production.mdp --pfile plumed.dat
 '''
 
 def parse_args():
