@@ -48,8 +48,8 @@
 # unbiased, various mM KCl, zdepth 00, N1
 #cd /Users/cedelmaier/Projects/Biophysics/septin_project/atomistic/simulations/data/unbiased/N1
 #cd /Users/cedelmaier/Projects/Biophysics/septin_project/atomistic/simulations/data/unbiased_150mMKCl/N4
-#cd /Users/cedelmaier/Projects/Biophysics/septin_project/atomistic/simulations/data/unbiased/plumed/N1
-cd /Users/cedelmaier/Projects/Biophysics/septin_project/atomistic/simulations/data/unbiased_zdepth00_trans_helix_50mMKCl/N1
+cd /Users/cedelmaier/Projects/Biophysics/septin_project/atomistic/simulations/data/unbiased/plumed/N1
+#cd /Users/cedelmaier/Projects/Biophysics/septin_project/atomistic/simulations/data/unbiased_zdepth00_trans_helix_50mMKCl/N1
 load "traj_continuous_v1_20reduced.pdb"
 load_traj "traj_continuous_v1_20reduced.xtc"
 

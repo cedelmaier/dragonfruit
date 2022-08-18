@@ -27,18 +27,20 @@ CB_color_cycle = ['#377eb8', '#ff7f00', '#4daf4a',
 
 main_path = os.path.abspath('/Users/cedelmaier/Projects/Biophysics/septin_project/atomistic/simulations/data')
 simulation_names = [
-                    'unbiased_zdepth00_rotx0_helix_50mMKCl',
-                    'unbiased_zdepth00_rotx90_helix_50mMKCl',
-                    'unbiased_zdepth00_rotx180_helix_50mMKCl',
-                    'unbiased_zdepth00_rotx270_helix_50mMKCl',
-                    'unbiased_zdepth00_trans_helix_50mMKCl',
+                    #'unbiased_zdepth00_rotx0_helix_50mMKCl',
+                    #'unbiased_zdepth00_rotx90_helix_50mMKCl',
+                    #'unbiased_zdepth00_rotx180_helix_50mMKCl',
+                    #'unbiased_zdepth00_rotx270_helix_50mMKCl',
+                    #'unbiased_zdepth00_trans_helix_50mMKCl',
+                    'unbiased_150mMKCl',
                     ]
 simulation_legends = [
-                      r'Rot 0 deg',
-                      r'Rot 90 deg',
-                      r'Rot 180 deg',
-                      r'Rot 270 deg',
-                      r'Trans',
+                      #r'Rot 0 deg',
+                      #r'Rot 90 deg',
+                      #r'Rot 180 deg',
+                      #r'Rot 270 deg',
+                      #r'Trans',
+                      r'Rot 0 deg 150 mM KCl',
                      ]
 
 
@@ -48,7 +50,8 @@ simulation_legends = [
 #outname = 'unfolded_10'
 #outname = 'unfolded_20'
 #outname = 'unbiased_zdepth00_rotxN_helix_50mMKCl' 
-outname = 'unbiased_zdepth00_rotxNtrans_helix_50mMKCl' 
+#outname = 'unbiased_zdepth00_rotxNtrans_helix_50mMKCl' 
+outname = 'unbiased_zdepth00_rotx90_helix_150mMKCl'
 #outname = 'unbiased_zdepth00_rotx0_helix_50mMKCl'
 #outname = 'unbiased_zdepth00_rotx90_helix_50mMKCl'
 #outname = 'unbiased_zdepth00_rotx180_helix_50mMKCl'

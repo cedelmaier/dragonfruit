@@ -298,3 +298,132 @@ And this will generate the records. To run through gromacs, you need to run some
 One can then turn this into an image (or examine the different stuff in the files), you need to run something like
 
     gmx xpm2ps -f dssp_test.xpm -o dssp_test.eps
+
+## Density
+We also probably want the density of various systems. GROMACS provides a way to extract this information for us. We can create density groups for various portions of the lipids and the amphipathic helix, in theory. To create the density groups, we need to go into GROMACS and generate the information for each lipid in the system.
+
+	gmx make_ndx -f step7_20.tpr -o density_groups.ndx
+	
+The, create a density group for the following. The phosphate groups are the PO4- selection, the carbonyls are the C double bonded to O selection(s), and the terminal methyl groups are just the end of the two chains (neglect the hydrogens, just take the carbons as the position). You should also always make a combined lipid bilayer set of information. Following are the examples for a DOPC/PLPI bilayer with a helix, otherwise, the numbers will be off.
+
+### General densities
+	r DOPC PLPI
+	name 18 lipids
+	
+	1 | 18
+	name 19 helix_lipids
+
+### DOPC
+
+	13 & a P | a O11 | a O12 | a O13 | a O14
+	name 20 dopc_phosphates
+	
+	13 & a C21 | a O22 | a C31 | a O32
+	name 21 dopc_carbonyls
+	
+	13 & a C218 | a C318
+	name 22 dopc_terminalmethyls
+	
+### PLPI
+
+	14 & a P | a O11 | a O12 | a O13 | a O14
+	name 23 plpi_phosphates
+	
+	14 & a C21 | a O22 | a C31 | a O32
+	name 24 plpi_carbonyls
+	
+	14 & a C218 | a C316
+	name 25 plpi_terminalmethyls
+	
+### Combined densities
+
+	20 | 23
+	name 26 all_phosphates
+	
+	21 | 24
+	name 27 all_carbonyls
+	
+	22 | 25
+	name 28 all_terminalmethyls
+	
+### Cheat file
+This file allows us to cheat the make\_ndx interactive portion, as it sucks to do. Put this into create_density_map.txt.
+
+	r DOPC PLPI
+	name 18 lipids
+	1 | 18
+	name 19 helix_lipids
+	13 & a P | a O11 | a O12 | a O13 | a O14
+	name 20 dopc_phosphates
+	13 & a C21 | a O22 | a C31 | a O32
+	name 21 dopc_carbonyls
+	13 & a C218 | a C318
+	name 22 dopc_terminalmethyls
+	14 & a P | a O11 | a O12 | a O13 | a O14
+	name 23 plpi_phosphates
+	14 & a C21 | a O22 | a C31 | a O32
+	name 24 plpi_carbonyls
+	14 & a C218 | a C316
+	name 25 plpi_terminalmethyls
+	20 | 23
+	name 26 all_phosphates
+	21 | 24
+	name 27 all_carbonyls
+	22 | 25
+	name 28 all_terminalmethyls
+	q
+	
+Then you can run the command.
+
+	gmx make_ndx -f step7_20.tpr -o density_groups.ndx < create_density_map.txt
+
+### Cheat file 2
+This file is for the more complicated Ronit Freeman group monomer.
+
+	r CHL1 POPC DOPE DOPS SAPI24 SAPI25
+	name 22 lipids
+	1 | 22
+	name 23 helix_lipids
+	14 & a P | a O11 | a O12 | a O13 | a O14
+	name 24 popc_phosphates
+	14 & a C21 | a O22 | a C31 | a O32
+	name 25 popc_carbonyls
+	14 & a C218 | a C316
+	name 26 popc_terminalmethyls
+	15 & a P | a O11 | a O12 | a O13 | a O14
+	name 27 dope_phosphates
+	15 & a C21 | a O22 | a C31 | a O32
+	name 28 dope_carbonyls
+	15 & a C218 | a C318
+	name 29 dope_terminalmethyls
+	16 & a P | a O11 | a O12 | a O13 | a O14
+	name 30 dops_phosphates
+	16 & a C21 | a O22 | a C31 | a O32
+	name 31 dops_carbonyls
+	16 & a C218 | a C318
+	name 32 dops_terminalmethyls
+	17 & a P | a O11 | a O12 | a O13 | a O14
+	name 33 sapi25_phosphates
+	17 & a C21 | a O22 | a C31 | a O32
+	name 34 sapi25_carbonyls
+	17 & a C220 | a C318
+	name 35 sapi25_terminalmethyls
+	18 & a P | a O11 | a O12 | a O13 | a O14
+	name 36 sapi24_phosphates
+	18 & a C21 | a O22 | a C31 | a O32
+	name 37 sapi24_carbonyls
+	18 & a C220 | a C318
+	name 38 sapi24_terminalmethyls
+	24 | 27 | 30 | 33 | 36
+	name 39 all_phosphates
+	25 | 28 | 31 | 34 | 37
+	name 40 all_carbonyls
+	26 | 29 | 32 | 35 | 38
+	name 41 all_terminalmethyls
+	q
+
+	
+### Density calculation itself
+You need to figure out which group you are going to center around. For instance, in the above, I would center around group 18 (the lipids). Then, you can write out the density map for everybody else. In this case, I wrote out the density for 9 groups, which includes the ions. I also only do the density after 100,000 ps (halfway through our 200 ns simulations), as they should have equilibrated better by then. I also divide the box into 100 slices, rather than 50, to give finer details.
+
+	gmx density -s step7_20.tpr -f traj_continuous_v1_20.xtc -n density_groups.ndx -o density_map.xvg -d Z -center -ng 6 -b 100000 -sl 100
