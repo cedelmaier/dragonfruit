@@ -347,7 +347,7 @@ The, create a density group for the following. The phosphate groups are the PO4-
 	name 28 all_terminalmethyls
 	
 ### Cheat file
-This file allows us to cheat the make\_ndx interactive portion, as it sucks to do. Put this into create_density_map.txt.
+This file allows us to cheat the make\_ndx interactive portion, as it sucks to do. Put this into create\_density\_map.txt.
 
 	r DOPC PLPI
 	name 18 lipids
@@ -427,3 +427,10 @@ This file is for the more complicated Ronit Freeman group monomer.
 You need to figure out which group you are going to center around. For instance, in the above, I would center around group 18 (the lipids). Then, you can write out the density map for everybody else. In this case, I wrote out the density for 9 groups, which includes the ions. I also only do the density after 100,000 ps (halfway through our 200 ns simulations), as they should have equilibrated better by then. I also divide the box into 100 slices, rather than 50, to give finer details.
 
 	gmx density -s step7_20.tpr -f traj_continuous_v1_20.xtc -n density_groups.ndx -o density_map.xvg -d Z -center -ng 6 -b 100000 -sl 100
+	
+### Charge density
+Charge densities can be extracted in a similar manner to this, by using the gmx potential function. For example, to calculate the potential of the entire system, one can use a setup similar to the gmx density command. Note, this should be done with the complete trajectory, as we need information about the ions and water to make sure we get everything correct.
+
+	gmx potential -s step7_20.tpr -f traj_continuous_v1_20.xtc -n density_groups.ndx -o potential_map.xvg -d Z -center -b 100000 -sl 100 -ng 5
+
+
