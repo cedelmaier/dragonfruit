@@ -32,7 +32,10 @@ simulation_names = [
                     #'unbiased_zdepth00_rotx180_helix_50mMKCl',
                     #'unbiased_zdepth00_rotx270_helix_50mMKCl',
                     #'unbiased_zdepth00_trans_helix_50mMKCl',
-                    'unbiased_150mMKCl',
+                    #'unbiased_150mMKCl',
+                    'rfmonomer_aglipid_11x11_zdepth00_rotx0_50mMKCl',
+                    'rfmonomer_aglipid_11x11_zdepth00_rotx90_50mMKCl',
+                    'rfmonomer_aglipid_11x11_zdepth00_rotx270_50mMKCl',
                     ]
 simulation_legends = [
                       #r'Rot 0 deg',
@@ -40,7 +43,10 @@ simulation_legends = [
                       #r'Rot 180 deg',
                       #r'Rot 270 deg',
                       #r'Trans',
-                      r'Rot 0 deg 150 mM KCl',
+                      #r'Rot 0 deg 150 mM KCl',
+                      r'RFMAGL 0 deg 50 KCl',
+                      r'RFMAGL 90 deg 50 KCl',
+                      r'RFMAGL 270 deg 50 KCl',
                      ]
 
 
@@ -51,11 +57,12 @@ simulation_legends = [
 #outname = 'unfolded_20'
 #outname = 'unbiased_zdepth00_rotxN_helix_50mMKCl' 
 #outname = 'unbiased_zdepth00_rotxNtrans_helix_50mMKCl' 
-outname = 'unbiased_zdepth00_rotx90_helix_150mMKCl'
+#outname = 'unbiased_zdepth00_rotx90_helix_150mMKCl'
 #outname = 'unbiased_zdepth00_rotx0_helix_50mMKCl'
 #outname = 'unbiased_zdepth00_rotx90_helix_50mMKCl'
 #outname = 'unbiased_zdepth00_rotx180_helix_50mMKCl'
 #outname = 'unbiased_zdepth00_rotx270_helix_50mMKCl'
+outname = 'rfmonomer_aglipid_rotxN_50mMKCl'
 
 # Set up the plots beforehand
 #plt.style.use(septin_poster_stl)

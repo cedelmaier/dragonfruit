@@ -9,11 +9,11 @@ Here are the commands (somewhat up to date) for compiling HOOMD in different env
 Here, we can setup an anaconda environment to take care of everything, which makes stuff a lot easier. For
 example, for build 3.2.0, we can use the following to generate a new conda environment.
 
-    conda create -c conda-forge --name hoomd_320 python=3.9.7
+    conda create -c conda-forge --name hoomd_320 python=3.9.6
 
 and then load the environment with the proper stuff
 
-    conda install -c conda-forge gsd freud fresnel jupyter notebook pytest pybind11 matplotlib pytables cereal pandas scipy
+    conda install -c conda-forge gsd freud fresnel jupyter notebook pytest pybind11 matplotlib pytables cereal pandas scipy pyyaml numpy
 
 then things get more complicated. Because of the ever-evolving nature of HOOMD, including the special potentials requires
 going in and setting them up by hand, as the way in which files are defined keeps changing. The EvalulatorPairGrimeLipid.h

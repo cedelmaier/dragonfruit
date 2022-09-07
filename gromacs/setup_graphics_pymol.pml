@@ -22,9 +22,9 @@
 #load "traj_continuous_v1_1000_reduced.pdb"
 #load_traj "traj_continuous_v1_1000_reduced.xtc", start=9000, stop=10000
 
-#cd /Users/cedelmaier/Projects/Biophysics/septin_project/atomistic/simulations/unfolded/zdepth_20angstroms/s1
-#load "traj_continuous_v1_1000_reduced.pdb"
-#load_traj "traj_continuous_v1_1000_reduced.xtc", start=6, stop=206
+cd /Users/cedelmaier/Projects/Biophysics/septin_project/atomistic/simulations/unfolded/zdepth_20angstroms/s1
+load "traj_continuous_v1_1000_reduced.pdb"
+load_traj "traj_continuous_v1_1000_reduced.xtc", start=6, stop=206
 
 ## Cosine weighting for the bilyaer
 #cd /Users/cedelmaier/Projects/Biophysics/septin_project/atomistic/simulations/coiled_umbrella/20220531/wcosine800ps
@@ -50,9 +50,10 @@
 #cd /Users/cedelmaier/Projects/Biophysics/septin_project/atomistic/simulations/data/unbiased_150mMKCl/N4
 #cd /Users/cedelmaier/Projects/Biophysics/septin_project/atomistic/simulations/data/unbiased/plumed/N1
 #cd /Users/cedelmaier/Projects/Biophysics/septin_project/atomistic/simulations/data/unbiased_zdepth00_trans_helix_50mMKCl/N1
-cd /Users/cedelmaier/Projects/Biophysics/septin_project/atomistic/simulations/data/unbiased_zdepth00_rotx0_helix_50mMKCl/N1
-load "traj_continuous_v1_20reduced.pdb"
-load_traj "traj_continuous_v1_20reduced.xtc"
+#cd /Users/cedelmaier/Projects/Biophysics/septin_project/atomistic/simulations/data/unbiased_zdepth00_rotx0_helix_50mMKCl/N1
+#cd /Users/cedelmaier/Projects/Biophysics/septin_project/atomistic/simulations/data/unbiased_zdepth00_rotx90_helix_50mMKCl/N1
+#load "traj_continuous_v1_20reduced.pdb"
+#load_traj "traj_continuous_v1_20reduced.xtc"
 
 ########
 # Actual program
@@ -105,11 +106,11 @@ rotate x, angle=270, state=0
 ########
 # Movie generation
 ########
-## Set up movie code
-##intra_fit name ca, 1
-#set ray_trace_frames=1
-#set cache_frames=0
-#
-## This is what actually djmps a bunch of PNG files for a movie
-#mpng frame_
+# Set up movie code
+#intra_fit name ca, 1
+set ray_trace_frames=1
+set cache_frames=0
+
+# This is what actually djmps a bunch of PNG files for a movie
+mpng frame_
 
