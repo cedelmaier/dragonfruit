@@ -217,6 +217,7 @@ class GromacsSeed(SeedBase):
         leaflet0_com = []
         leaflet1_com = []
         unit_cell = []
+        p_dipole_list = []
         # Wrap in a nice progress bar for ourselves, yay
         for ts in ProgressBar(traj_universe.trajectory):
             # Get the time of the snapshot
@@ -234,6 +235,18 @@ class GromacsSeed(SeedBase):
 
             # Get the unit cell as well
             unit_cell.append(traj_universe.dimensions)
+
+            # Calculate the dipole moment
+            nhelix = len(helix_atoms.positions[:,2])
+            p_r_dipole = np.zeros((nhelix, 3))
+            p_dipole = np.array([0.0, 0.0, 0.0])
+            for iatom in range(nhelix):
+                atom_name   = helix_atoms.atoms.names[iatom]
+                atom_charge = helix_atoms.atoms.charges[iatom]
+                relative_position = (helix_atoms.positions[iatom,:] - helix_atoms.center_of_mass())
+                p_r_dipole[iatom] = relative_position * atom_charge
+                p_dipole += p_r_dipole[iatom]
+            p_dipole_list.append(p_dipole)
 
         # Save off the times for other uses!
         self.times = times
@@ -262,8 +275,13 @@ class GromacsSeed(SeedBase):
         unit_cell_df = pd.DataFrame(unit_cell, columns = ['unit_cell_x', 'unit_cell_y', 'unit_cell_z', 'unit_cell_alpha', 'unit_cell_beta', 'unit_cell_gamma'], index = times)
         unit_cell_df.index.name = 'Time(ps)'
         # Extract the helix parameters that we want from the helix_analysis
-        global_tilt_df = pd.DataFrame(self.helix_analysis.results.global_tilts, columns = ['global_tilt'], index=times)
+        global_tilt_df = pd.DataFrame(self.helix_analysis.results.global_tilts, columns = ['global_tilt'], index = times)
         global_tilt_df.index.name = 'Time(ps)'
+        global_axis_df = pd.DataFrame(self.helix_analysis.results.global_axis, columns = ['helix_global_axis_x', 'helix_global_axis_y', 'helix_global_axis_z'], index = times)
+        global_axis_df.index.name = 'Time(ps)'
+        # What about the dipole moment of the helix?
+        p_dipole_df = pd.DataFrame(p_dipole_list, columns = ['p_dipole_x', 'p_dipole_y', 'p_dipole_z'], index = times)
+        p_dipole_df.index.name = 'Time(ps)'
 
         self.time_dfs.append(lipid_com_df)
         self.time_dfs.append(helix_com_df)
@@ -271,6 +289,8 @@ class GromacsSeed(SeedBase):
         self.time_dfs.append(leaflet1_com_df)
         self.time_dfs.append(unit_cell_df)
         self.time_dfs.append(global_tilt_df)
+        self.time_dfs.append(global_axis_df)
+        self.time_dfs.append(p_dipole_df)
         
         if self.verbose: print("GromacsSeed::AnalyzeTrajectory return")
 
@@ -493,6 +513,21 @@ class GromacsSeed(SeedBase):
         r""" Plot the global tilt of the helix
         """
         graph_seed_globaltilt(self, ax, color = 'b')
+
+    def GraphPDipoleTilt(self, ax, color = 'b'):
+        r""" Plot the tilt of the helix dipole with respect to the Z axis
+        """
+        graph_seed_pdipoletilt(self, ax, color = 'b')
+
+    def GraphHelixPDipoleAngle(self, ax, color = 'b'):
+        r""" Plot the angle between the helix vector and the p_dipole vector
+        """
+        graph_seed_helixpdipoleangle(self, ax, color = 'b')
+
+    def GraphPDipoleMoment(self, ax, color = 'b'):
+        r""" Plot the angle between the helix vector and the p_dipole vector
+        """
+        graph_seed_pdipolemoment(self, ax, color = 'b')
 
 #    def graph_helix_analysis(self, axarr):
 #        r""" Plot results of the helix analysis

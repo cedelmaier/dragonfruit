@@ -149,6 +149,24 @@ class GromacsAnalysis(object):
             fig.tight_layout()
             fig.savefig('gromacs_avg_gausscurv.pdf', dpi = fig.dpi)
 
+            # Plot the angle of the dipole moment with the Z-axis
+            fig, axarr = plt.subplots(1, 1, figsize = (15, 10))
+            sd.GraphPDipoleTilt(axarr)
+            fig.tight_layout()
+            fig.savefig('gromacs_pdipole_tilt.pdf', dpi=fig.dpi)
+
+            # Plot the angle of the dipole moment with the Z-axis
+            fig, axarr = plt.subplots(1, 1, figsize = (15, 10))
+            sd.GraphHelixPDipoleAngle(axarr)
+            fig.tight_layout()
+            fig.savefig('gromacs_helixpdipole_angle.pdf', dpi=fig.dpi)
+
+            # Plot the magnitude of the electric dipole moment
+            fig, axarr = plt.subplots(1, 1, figsize = (15, 10))
+            sd.GraphPDipoleMoment(axarr)
+            fig.tight_layout()
+            fig.savefig('gromacs_pdipolemoment.pdf', dpi = fig.dpi)
+
     def AnalyzeSimulation(self):
         r""" Analyze a simulation (collection of seeds)
         """

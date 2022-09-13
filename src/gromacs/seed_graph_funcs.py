@@ -150,3 +150,82 @@ def graph_seed_globaltilt(sd,
     ax.set_ylim([ylow, yhi])
 
     return [ylow, yhi, ydata]
+
+# Graph the pdipole tilt
+def graph_seed_pdipoletilt(sd,
+                            ax,
+                            color = 'b',
+                            xlabel = True):
+    r""" Plot the pdipole tilt (Z-axis as reference)
+    """
+    p_dipole = sd.master_time_df[['p_dipole_x', 'p_dipole_y', 'p_dipole_z']].to_numpy()
+    z_axis = np.array([0.0, 0.0, 1.0])
+    ntimes = len(sd.master_time_df.index)
+    angles = np.zeros(ntimes)
+    for idx in range(ntimes):
+        angle = np.arccos(np.dot(p_dipole[idx,:], z_axis) / (np.linalg.norm(p_dipole[idx,:]) * np.linalg.norm(z_axis)))
+        angle = angle * 180.0/np.pi
+        angles[idx] = angle
+
+    # Have to do some shennanigans to get the correct form for our plotting
+    angles_series = pd.Series(angles)
+    ydata = graph_seed_plot(sd.label, sd.master_time_df.index/1000.0, angles_series, ax, mtitle = "Helix Dipole Tilt", xtitle = "Time (ns)", ytitle = r"Helix Dipole Tilt (deg)", color = color, smooth = True, smooth_window = 11, smooth_poly = 3)
+
+    # Set the appropriate limits
+    ylow    = 0.0
+    yhi     = 180.0
+    ax.set_ylim([ylow, yhi])
+
+    return [ylow, yhi, ydata]
+
+# Graph the pdipole tilt
+def graph_seed_helixpdipoleangle(sd,
+                            ax,
+                            color = 'b',
+                            xlabel = True):
+    r""" Plot the angle between the helix and p_dipole
+    """
+    helix_axis = sd.master_time_df[['helix_global_axis_x', 'helix_global_axis_y', 'helix_global_axis_z']].to_numpy()
+    p_dipole = sd.master_time_df[['p_dipole_x', 'p_dipole_y', 'p_dipole_z']].to_numpy()
+    ntimes = len(sd.master_time_df.index)
+    angles = np.zeros(ntimes)
+    for idx in range(ntimes):
+        angle = np.arccos(np.dot(p_dipole[idx,:], helix_axis[idx,:]) / (np.linalg.norm(p_dipole[idx,:]) * np.linalg.norm(helix_axis[idx,:])))
+        angle = angle * 180.0/np.pi
+        angles[idx] = angle
+
+    # Have to do some shennanigans to get the correct form for our plotting
+    angles_series = pd.Series(angles)
+    ydata = graph_seed_plot(sd.label, sd.master_time_df.index/1000.0, angles_series, ax, mtitle = "Helix-Dipole Angle", xtitle = "Time (ns)", ytitle = r"Helix-Dipole Angle (deg)", color = color, smooth = True, smooth_window = 11, smooth_poly = 3)
+
+    # Set the appropriate limits
+    ylow    = 0.0
+    yhi     = 180.0
+    ax.set_ylim([ylow, yhi])
+
+    return [ylow, yhi, ydata]
+
+# Graph the pdipole moment
+def graph_seed_pdipolemoment(sd,
+                            ax,
+                            color = 'b',
+                            xlabel = True):
+    r""" Plot the electric dipole moment of helix
+    """
+    p_dipole = sd.master_time_df[['p_dipole_x', 'p_dipole_y', 'p_dipole_z']].to_numpy()
+    ntimes = len(sd.master_time_df.index)
+    magnitudes = np.zeros(ntimes)
+    for idx in range(ntimes):
+        mag = np.linalg.norm(p_dipole[idx,:])
+        magnitudes[idx] = mag
+
+    # Have to do some shennanigans to get the correct form for our plotting
+    mag_series = pd.Series(magnitudes)
+    ydata = graph_seed_plot(sd.label, sd.master_time_df.index/1000.0, mag_series, ax, mtitle = "Helix Electric Dipole Magnitude", xtitle = "Time (ns)", ytitle = r"Helix Electric Dipole Magnitude", color = color, smooth = True, smooth_window = 11, smooth_poly = 3)
+
+    # Set the appropriate limits
+    ylow    = 0.0
+    yhi     = 40.0
+    ax.set_ylim([ylow, yhi])
+
+    return [ylow, yhi, ydata]

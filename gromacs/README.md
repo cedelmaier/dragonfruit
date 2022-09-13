@@ -432,5 +432,24 @@ You need to figure out which group you are going to center around. For instance,
 Charge densities can be extracted in a similar manner to this, by using the gmx potential function. For example, to calculate the potential of the entire system, one can use a setup similar to the gmx density command. Note, this should be done with the complete trajectory, as we need information about the ions and water to make sure we get everything correct.
 
 	gmx potential -s step7_20.tpr -f traj_continuous_v1_20.xtc -n density_groups.ndx -o potential_map.xvg -d Z -center -b 100000 -sl 100 -ng 5
+	
+# Lipid preparation
+
+## Ronit Freeman bilayer
+Based off of Beber 2019 (or earlier work, see Zotero). Complicated bilayer, with the following conditions (ratios are preserved, not percentages).
+
+	Cholesterol 30
+	POPC 113 (stand-in for Egg PC)
+	DOPE 20
+	DOPS 20
+	SAPI24 8
+	SAPI25 8
+	
+	
+	
+	
+	
+
+
 
 

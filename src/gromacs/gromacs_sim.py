@@ -47,7 +47,9 @@ class GromacsSim(SimulationBase):
         # Define the functions we want to graph on a per-seed basis
         self.graph_perseed_functions = [ graph_seed_zpos_wheads,
                                          graph_seed_helicity,
-                                         graph_seed_globaltilt ]
+                                         graph_seed_globaltilt,
+                                         graph_seed_pdipoletilt,
+                                         graph_seed_helixpdipoleangle ]
 
         if self.verbose: print("GromacsSim::__init__ return")
 
@@ -78,7 +80,7 @@ class GromacsSim(SimulationBase):
         r""" Graph dynamic (time) data for simulation
         """
         # For now, setup the 3 different graphs
-        fig, axarr = plt.subplots(3, 2, figsize=(25,16))
+        fig, axarr = plt.subplots(5, 2, figsize=(25,16))
         colors = mpl.cm.rainbow(np.linspace(0,1,len(self.seeds)))
 
         # Get the timing information (in ns)
@@ -107,6 +109,9 @@ class GromacsSim(SimulationBase):
             else:
                 axr[1].plot(timepoints, yarr_avg)
             axr[1].set_ylim([ylow, yhi])
+
+        # XXX: Legend isn't plotting properly figure this out some other time
+        #axarr[1,0].legend(loc='center right', bbox_to_anchor=(1.0, 0.0))
 
         axarr[-1,1].set_xlabel(r'Time (ns)')
         axarr[-1,0].set_xlabel(r'Time (ns)')
