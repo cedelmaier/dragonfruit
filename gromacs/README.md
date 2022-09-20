@@ -444,7 +444,8 @@ Based off of Beber 2019 (or earlier work, see Zotero). Complicated bilayer, with
 	DOPS 20
 	SAPI24 8
 	SAPI25 8
-	
+
+Everything here is done at 50 mM NaCl unless stated explicitly otherwise.
 	
 	
 	

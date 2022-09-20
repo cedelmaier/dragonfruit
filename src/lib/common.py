@@ -90,3 +90,4 @@ def ragged_mean(x):
     stdd = np.nanstd(np.array(list(itertools.zip_longest(*x)), dtype=np.float64), axis=1, ddof=1)
 
     return [mean, stdd]
+

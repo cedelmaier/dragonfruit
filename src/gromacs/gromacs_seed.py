@@ -33,6 +33,8 @@ sys.path.append(os.path.join(os.path.dirname(__file__), 'lib'))
 from stylelib.common_styles import septin_runs_stl
 from seed_base import SeedBase
 from seed_graph_funcs import *
+from dragonfruit_io import create_chargeless_topology
+from gromacs_electrostatics import GromacsElectrostaticsAnalyzer
 
 class GromacsSeed(SeedBase):
     def __init__(self, path, opts):
@@ -62,6 +64,9 @@ class GromacsSeed(SeedBase):
                           "DOPS",
                           "SAPI24",
                           "SAPI25"}
+
+        # Create any subclasses that we might need
+        self.gromacs_electrostatics = GromacsElectrostaticsAnalyzer(path, opts)
 
         if self.verbose: print("GromacsSeed::__init__ return")
 
@@ -148,8 +153,12 @@ class GromacsSeed(SeedBase):
         self.filename_gromacs       = os.path.join(self.path, self.gromacs_file)
 
         self.AnalyzeTrajectory()
-        self.AnalyzeCurvature()
-        self.AnalyzeDSSP()
+        #self.AnalyzeCurvature()
+        #self.AnalyzeDSSP()
+        self.AnalyzeElectrostatics()
+
+        print(f"ERROR: Preamture exit!")
+        sys.exit(1)
 
         # Put the master time dataframe together
         self.master_time_df = pd.concat(self.time_dfs, axis = 1)
@@ -171,12 +180,18 @@ class GromacsSeed(SeedBase):
 
         # Get the residues that are in the lipids
         resnames = set(np.unique(traj_universe.atoms.residues.resnames))
-        common_lipids = resnames & self.lipid_set
+        self.common_lipids = resnames & self.lipid_set
+
+        print(f"ERROR: Premature exit from AnalyzeTrajectory to work on electorstatics, please take out later!")
+        print(f"ERROR: Premature exit from AnalyzeTrajectory to work on electorstatics, please take out later!")
+        print(f"ERROR: Premature exit from AnalyzeTrajectory to work on electorstatics, please take out later!")
+        return
+
 
         select_com_dict = {}
         lipid_selection = ''
         # Create selection logic for lipids
-        for rname in common_lipids:
+        for rname in self.common_lipids:
             select_com_dict[rname] = 'resname '+ rname
             lipid_selection = lipid_selection + select_com_dict[rname] + ' or '
 
@@ -474,6 +489,23 @@ class GromacsSeed(SeedBase):
         self.time_dfs.append(curvature_df)
 
         if self.verbose: print("GromacsSeed::AnalyzeCurvature return")
+
+    def AnalyzeElectrostatics(self):
+        r""" Analyze electrostatics in the simluation
+
+        NOTE: This is complicated, and requires access to a gromacs executable, and may
+        cause issues when run on supercomputers, for instance. Be careful with this, as it
+        also might cause large amounts of data to be written if not cleaned up properly!
+        """
+        if self.verbose: print("GromacsSeed::AnalyzeElectrostatics")
+
+        if self.verbose: print("GromacsSeed::AnalyzeElectrostatics creating charge-less topology")
+        self.gromacs_electrostatics.CreateChargelessTopology(self.common_lipids)
+
+        if self.verbose: print("GromacsSeed::AnalyzeElectrostatics regenerating all forces")
+        self.gromacs_electrostatics.GenerateForces("all")
+
+        if self.verbose: print("GromacsSeed::AnalyzeElectrostatics return")
 
     def WriteData(self):
         r""" Write the data to HD5 and pickle files
