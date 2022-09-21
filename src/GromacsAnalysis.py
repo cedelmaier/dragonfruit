@@ -50,6 +50,8 @@ def parse_args():
     # Add verbosity control
     parser.add_argument('-v', '--verbose', action="store_true",
             help = 'Verbose output')
+    parser.add_argument('-t', '--trace', action ="store_true",
+            help = 'Trace output')
 
     opts = parser.parse_args()
     return opts
@@ -166,6 +168,9 @@ class GromacsAnalysis(object):
             sd.GraphPDipoleMoment(axarr)
             fig.tight_layout()
             fig.savefig('gromacs_pdipolemoment.pdf', dpi = fig.dpi)
+
+            # Run the calculation of the forces, force-moment, and torques
+            sd.calculate_force_variables()
 
     def AnalyzeSimulation(self):
         r""" Analyze a simulation (collection of seeds)

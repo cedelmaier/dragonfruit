@@ -53,8 +53,9 @@ class GromacsSeed(SeedBase):
         self.ReadData()
 
         # Set up the named versions of files at the end
-        self.hd5_name       = self.name + '.h5'
-        self.pickle_name    = self.name + '.pickle'
+        self.hd5_name               = self.name + '.h5'
+        self.electrostatics_name    = self.name + '_electrostatics.h5'
+        self.pickle_name            = self.name + '.pickle'
         self.time_dfs = []
         self.lipid_set = {"DOPC",
                           "PLPI",
@@ -94,7 +95,7 @@ class GromacsSeed(SeedBase):
         print(f"Gromacs file        = {self.gromacs_file}")
         print(f"--------")
 
-    def CheckLoadAnalyze(self, file_path_pandas, file_path_pickle, force_analyze = False):
+    def CheckLoadAnalyze(self, file_path_pandas, file_path_electrostatics, file_path_pickle, force_analyze = False):
         r""" Check if the data can be loaded from HD5 and pickle files
         """
         if self.verbose: print("GromacsSeed::CheckLoadAnalyze")
@@ -103,7 +104,7 @@ class GromacsSeed(SeedBase):
             if self.verbose: print(f"  Found file(s), attempting load")
             # Skip analysis and load
             try:
-                self.LoadData(file_path_pandas, file_path_pickle)
+                self.LoadData(file_path_pandas, file_path_electrostatics, file_path_pickle)
                 if self.verbose: print("GromacsSeed::CheckLoadAnalyze return")
                 return False
             except EOFError: return False
@@ -113,7 +114,7 @@ class GromacsSeed(SeedBase):
             if self.verbose: print("GromacsSeed::CheckLoadAnalyze return")
             return True
 
-    def LoadData(self, file_path_pandas, file_path_helixanalysis):
+    def LoadData(self, file_path_pandas, file_path_electrostatics, file_path_helixanalysis):
         r""" Load the data from pandas and pickle
         """
         if self.verbose: print(f"GromacsSeed::LoadData")
@@ -121,6 +122,8 @@ class GromacsSeed(SeedBase):
         self.master_time_df = pd.read_hdf(file_path_pandas)
         with open(file_path_helixanalysis, 'rb') as f:
             self.helix_analysis = pickle.load(f)
+
+        self.gromacs_electrostatics.electrostatic_df = pd.read_hdf(file_path_electrostatics)
 
         if self.verbose: print(f"GromacsSeed::LoadData return")
 
@@ -134,6 +137,7 @@ class GromacsSeed(SeedBase):
 
         # Check if we are loading or analyzing the information
         if not self.CheckLoadAnalyze(os.path.join(self.path, self.hd5_name),
+                                     os.path.join(self.path, self.electrostatics_name),
                                      os.path.join(self.path, self.pickle_name),
                                      force_analyze):
             if self.verbose: print("  Loading previously analyzed data")
@@ -152,13 +156,13 @@ class GromacsSeed(SeedBase):
         self.filename_trajectory    = os.path.join(self.path, self.trajectory_file)
         self.filename_gromacs       = os.path.join(self.path, self.gromacs_file)
 
-        self.AnalyzeTrajectory()
-        #self.AnalyzeCurvature()
-        #self.AnalyzeDSSP()
-        self.AnalyzeElectrostatics()
+        self.PrepareAnalysis()
 
-        print(f"ERROR: Preamture exit!")
-        sys.exit(1)
+        # Order here does matter, as need electrostatics before trajectory
+        self.AnalyzeElectrostatics()
+        self.AnalyzeTrajectory()
+        self.AnalyzeCurvature()
+        self.AnalyzeDSSP()
 
         # Put the master time dataframe together
         self.master_time_df = pd.concat(self.time_dfs, axis = 1)
@@ -169,12 +173,11 @@ class GromacsSeed(SeedBase):
         if self.verbose: print("---- %s seconds ----" % (time.time() - self.start_time))
         if self.verbose: print("GromacsSeed::Analyze return")
 
-    def AnalyzeTrajectory(self):
-        r""" Analyze trajectory information, unwrapped coordinates
-
-        `AnalyzeTrajectory` is for all time-dependent analyses carried out in MDAnalysis
+    def PrepareAnalysis(self):
+        r""" Prepare for the analysis by pre-calculating certain quantities
         """
-        if self.verbose: print("GromacsSeed::AnalyzeTrajectory")
+        if self.verbose: print("GromacsSeed::PrepareAnalysis")
+
         # Create the universe
         traj_universe = mda.Universe(self.filename_structure, self.filename_trajectory)
 
@@ -182,34 +185,40 @@ class GromacsSeed(SeedBase):
         resnames = set(np.unique(traj_universe.atoms.residues.resnames))
         self.common_lipids = resnames & self.lipid_set
 
-        print(f"ERROR: Premature exit from AnalyzeTrajectory to work on electorstatics, please take out later!")
-        print(f"ERROR: Premature exit from AnalyzeTrajectory to work on electorstatics, please take out later!")
-        print(f"ERROR: Premature exit from AnalyzeTrajectory to work on electorstatics, please take out later!")
-        return
-
-
-        select_com_dict = {}
-        lipid_selection = ''
+        self.select_com_dict = {}
+        self.lipid_selection = ''
         # Create selection logic for lipids
         for rname in self.common_lipids:
-            select_com_dict[rname] = 'resname '+ rname
-            lipid_selection = lipid_selection + select_com_dict[rname] + ' or '
+            self.select_com_dict[rname] = 'resname '+ rname
+            self.lipid_selection = self.lipid_selection + self.select_com_dict[rname] + ' or '
 
         # Remove trailing or
-        lipid_selection = lipid_selection[:-3]
-        if self.verbose: print(f"  Lipid selection: {lipid_selection}")
+        self.lipid_selection = self.lipid_selection[:-3]
+        if self.verbose: print(f"  Lipid selection: {self.lipid_selection}")
+
+        if self.verbose: print("GromacsSeed::PrepareAnalysis return")
+
+    def AnalyzeTrajectory(self):
+        r""" Analyze trajectory information, unwrapped coordinates
+
+        `AnalyzeTrajectory` is for all time-dependent analyses carried out in MDAnalysis
+        """
+        if self.verbose: print("GromacsSeed::AnalyzeTrajectory")
+
+        # Creat the universe
+        traj_universe = mda.Universe(self.filename_structure, self.filename_trajectory)
 
         # Now get all the atoms that we want to analyze, also, get the COM structure set up
         atom_com_dict = {}
         lipid_com_dict = {}
-        for key,val in select_com_dict.items():
+        for key,val in self.select_com_dict.items():
             atom_com_dict[key] = traj_universe.select_atoms(val)
             lipid_com_dict[key] = []
-        lipid_atoms =   traj_universe.select_atoms(lipid_selection)
+        lipid_atoms =   traj_universe.select_atoms(self.lipid_selection)
         helix_atoms =   traj_universe.select_atoms('protein')
         not_protein =   traj_universe.select_atoms('not protein')
-        not_solvent =   traj_universe.select_atoms(lipid_selection + ' or protein')
-        solvent =       traj_universe.select_atoms('not (' + lipid_selection + ' or protein)')
+        not_solvent =   traj_universe.select_atoms(self.lipid_selection + ' or protein')
+        solvent =       traj_universe.select_atoms('not (' + self.lipid_selection + ' or protein)')
 
         # Try to get the head groups of the two leaflets for analysis too
         # Has an implicit cutoff at 15.0
@@ -233,6 +242,19 @@ class GromacsSeed(SeedBase):
         leaflet1_com = []
         unit_cell = []
         p_dipole_list = []
+
+        # Forces
+        force_breakdown_types = ["all", "noq", "q"]
+        force_calc_types = ["force", "moment", "torque"]
+        forces_com = {} # Master dictionary for all of the COM forces we are going to look at here, yay us
+        # Initialize the forces
+        for force_calc in force_calc_types:
+            forces_com[force_calc] = {}
+            for force_type in force_breakdown_types:
+                forces_com[force_calc][force_type] = []
+        # Create a copy of the electorstatic_df
+        elec_df = self.gromacs_electrostatics.electrostatic_df.copy(deep = True)
+
         # Wrap in a nice progress bar for ourselves, yay
         for ts in ProgressBar(traj_universe.trajectory):
             # Get the time of the snapshot
@@ -262,6 +284,44 @@ class GromacsSeed(SeedBase):
                 p_r_dipole[iatom] = relative_position * atom_charge
                 p_dipole += p_r_dipole[iatom]
             p_dipole_list.append(p_dipole)
+
+            # Calculate the center of mass force
+            # Figure out if we are synchronized for the two dataframes, as one is resampled
+            if traj_universe.trajectory.time in elec_df.index:
+                # Loop over the force type we are intersted in to extract columns
+                for force_type in force_breakdown_types:
+                    elec_df_type = elec_df.filter(regex = f".*_{force_type}")
+
+                    # Extract just the row we are interested in
+                    elec_df_row = elec_df_type.loc[traj_universe.trajectory.time]
+                    # Cast this as a reshaped array with the proper [atom, dimension] setup
+                    atom_forces = elec_df_row.to_numpy(dtype=np.float64).reshape(nhelix, 3)
+
+                    # Have to calculate the net force first, as ths is used in the torque calculations
+                    f_net = np.zeros(3, dtype=np.float64)
+                    for iatom in range(nhelix):
+                        #atom_name = helix_atoms.atoms.names[iatom]
+                        #r_i = (helix_atoms.positions[iatom,:] - helix_atoms.center_of_mass())
+                        f_i = atom_forces[iatom,:]
+                        f_net += f_i
+                    # Reprocess and do the torque and moment
+                    f_moment = np.zeros((3, 3), dtype=np.float64)
+                    torque = np.zeros(3, dtype=np.float64)
+                    for iatom in range(nhelix):
+                        r_i = (helix_atoms.positions[iatom,:] - helix_atoms.center_of_mass())
+                        f_i = atom_forces[iatom,:] - f_net
+                        torque += np.cross(r_i, f_i)
+                        f_moment += np.outer(r_i, f_i)
+
+                    # Record the products in their places
+                    forces_com["force"][force_type].append(f_net)
+                    forces_com["torque"][force_type].append(torque)
+                    forces_com["moment"][force_type].append(f_moment)
+
+        # Print the forces to check
+        print(forces_com)
+        sys.exit(1)
+        # Tomorrow come check on if we can save the electrostatics in the dataframe or something
 
         # Save off the times for other uses!
         self.times = times
@@ -499,13 +559,30 @@ class GromacsSeed(SeedBase):
         """
         if self.verbose: print("GromacsSeed::AnalyzeElectrostatics")
 
-        if self.verbose: print("GromacsSeed::AnalyzeElectrostatics creating charge-less topology")
+        #if self.verbose: print("GromacsSeed::AnalyzeElectrostatics creating charge-less topology")
         self.gromacs_electrostatics.CreateChargelessTopology(self.common_lipids)
 
-        if self.verbose: print("GromacsSeed::AnalyzeElectrostatics regenerating all forces")
-        self.gromacs_electrostatics.GenerateForces("all")
+        #if self.verbose: print("GromacsSeed::AnalyzeElectrostatics regenerating all forces")
+        self.gromacs_electrostatics.GenerateForces("all", self.trajectory_file)
+        self.gromacs_electrostatics.GenerateForces("noq", self.trajectory_file)
+
+        #if self.verbose: print("GromacsSeed::AnalyzeElectrostatics calculating electrostatic forces")
+        self.gromacs_electrostatics.CalculateElectrostaticForces()
+
+        # Calculate the force moments
+        self.CalculateForceMoments()
 
         if self.verbose: print("GromacsSeed::AnalyzeElectrostatics return")
+
+    def CalculateForceMoments(self):
+        r""" Calculate the force, force-moment, and torque on the helix about it's COM
+
+        NOTE: This requires that both the trajectory and electrostatics be accessible
+        """
+        print("GromacsAnalysis::CalculateForceMoments")
+
+
+        print("GromacsAnalysis::CalculateForceMoments return")
 
     def WriteData(self):
         r""" Write the data to HD5 and pickle files
@@ -515,9 +592,12 @@ class GromacsSeed(SeedBase):
         # Dump the HD5 files
         hd5_filename = os.path.join(self.path, self.hd5_name)
         self.master_time_df.to_hdf(hd5_filename, key='master_time_df', mode='w')
+        if self.verbose: print(self.master_time_df)
 
-        if self.verbose:
-            print(self.master_time_df)
+        # Also dump the electrostatics
+        electrostatics_filename = os.path.join(self.path, self.electrostatics_name)
+        self.gromacs_electrostatics.electrostatic_df.to_hdf(electrostatics_filename, key='electrostatics_df', mode='w')
+        if self.verbose: print(self.gromacs_electrostatics.electrostatic_df)
 
         # Dump the pickle file(s)
         pickle_filename = os.path.join(self.path, self.pickle_name)
@@ -560,6 +640,16 @@ class GromacsSeed(SeedBase):
         r""" Plot the angle between the helix vector and the p_dipole vector
         """
         graph_seed_pdipolemoment(self, ax, color = 'b')
+
+    def calculate_force_variables(self):
+        r""" Calculate the force, force-moment, and torque on the system
+        """
+        print("GromacsSeed::calculate_force_variables")
+
+        # Get the helix center of mass coordinates
+        helix_com = self.master_time_df[['helix_x', 'helix_y', 'helix_z']].to_numpy()
+        ntimes_com = len(self.master_time_df.index)
+        print(helix_com)
 
 #    def graph_helix_analysis(self, axarr):
 #        r""" Plot results of the helix analysis
