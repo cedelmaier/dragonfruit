@@ -19,9 +19,10 @@ import pandas as pd
 sys.path.append(os.path.join(os.path.dirname(__file__), 'lib'))
 sys.path.append(os.path.join(os.path.dirname(__file__), 'gromacs'))
 from common import create_datadir
-from stylelib.common_styles import septin_runs_stl
+from stylelib.common_styles import *
 from gromacs_seed import GromacsSeed
 from gromacs_sim import GromacsSim
+from gromacs_run import GromacsRun
 
 def parse_args():
     parser = argparse.ArgumentParser(prog='GromacsAnalysis.py')
@@ -34,6 +35,8 @@ def parse_args():
 
     parser.add_argument('-d', '--workdir', action = 'store_true',
             help = 'Working directory')
+    parser.add_argument('--datadir', type=str,
+            help = 'Data directory where analyzed files will be written to. Defaults to {workdir}/data')
     parser.add_argument('--yaml', type = str,
             help = 'YAML file to read')
 
@@ -80,7 +83,7 @@ class GromacsAnalysis(object):
             self.verbose = True
 
         # If there is some central amount of data, create the directory
-        if (self.opts.write):
+        if (self.opts.write or self.opts.write):
             self.opts.datadir = create_datadir(self.opts.workdir)
 
     def ProgOpts(self):
@@ -169,8 +172,17 @@ class GromacsAnalysis(object):
             fig.tight_layout()
             fig.savefig('gromacs_pdipolemoment.pdf', dpi = fig.dpi)
 
-            # Run the calculation of the forces, force-moment, and torques
-            sd.calculate_force_variables()
+            # Plot the Z component of the force
+            fig, axarr = plt.subplots(1, 1, figsize = (15, 10))
+            sd.GraphZForce(axarr)
+            fig.tight_layout()
+            fig.savefig('gromacs_zforce.pdf', dpi = fig.dpi)
+
+            # Plot the perpendicular torque to the helix
+            fig, axarr = plt.subplots(1, 1, figsize = (15, 10))
+            sd.GraphPerpTorque(axarr)
+            fig.tight_layout()
+            fig.savefig('gromacs_perptorque.pdf', dpi = fig.dpi)
 
     def AnalyzeSimulation(self):
         r""" Analyze a simulation (collection of seeds)
@@ -180,6 +192,15 @@ class GromacsAnalysis(object):
         if self.opts.graph:
             plt.style.use(septin_runs_stl)
             sim.GraphSimulation()
+
+    def AnalyzeRun(self):
+        r""" Analyze a run (collection of simulations)
+        """
+        run = GromacsRun(opts, self.opts.workdir)
+
+        if self.opts.graph:
+            plt.style.use(septin_poster_stl)
+            run.AggregateSimilar()
 
 ##########################################
 if __name__ == "__main__":

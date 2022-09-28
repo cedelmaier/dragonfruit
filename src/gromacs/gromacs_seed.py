@@ -55,8 +55,10 @@ class GromacsSeed(SeedBase):
         # Set up the named versions of files at the end
         self.hd5_name               = self.name + '.h5'
         self.electrostatics_name    = self.name + '_electrostatics.h5'
+        self.forces_name            = self.name + '_forces.h5'
         self.pickle_name            = self.name + '.pickle'
         self.time_dfs = []
+        self.new_electrostatics_dfs = []
         self.lipid_set = {"DOPC",
                           "PLPI",
                           "CHL1",
@@ -90,21 +92,29 @@ class GromacsSeed(SeedBase):
         print(f"Seed {self.name}")
         print(f"--------")
         print(f"File information")
+        print(f"Path                = {self.path}")
         print(f"Structure file      = {self.structure_file}")
         print(f"Trajectory file     = {self.trajectory_file}")
         print(f"Gromacs file        = {self.gromacs_file}")
         print(f"--------")
 
-    def CheckLoadAnalyze(self, file_path_pandas, file_path_electrostatics, file_path_pickle, force_analyze = False):
+    def CheckLoadAnalyze(self, force_analyze = False):
         r""" Check if the data can be loaded from HD5 and pickle files
         """
         if self.verbose: print("GromacsSeed::CheckLoadAnalyze")
         if self.verbose: print(f"  Forcing analysis: {force_analyze}")
+
+        # Set up the file paths for ourselves
+        file_path_pandas = os.path.join(self.path, self.hd5_name)
+        file_path_electrostatics = os.path.join(self.path, self.electrostatics_name)
+        file_path_forces = os.path.join(self.path, self.forces_name)
+        file_path_pickle = os.path.join(self.path, self.pickle_name)
+
         if os.path.isfile(file_path_pandas) and os.path.isfile(file_path_pickle) and not force_analyze:
             if self.verbose: print(f"  Found file(s), attempting load")
             # Skip analysis and load
             try:
-                self.LoadData(file_path_pandas, file_path_electrostatics, file_path_pickle)
+                self.LoadData(file_path_pandas, file_path_electrostatics, file_path_forces, file_path_pickle)
                 if self.verbose: print("GromacsSeed::CheckLoadAnalyze return")
                 return False
             except EOFError: return False
@@ -114,7 +124,7 @@ class GromacsSeed(SeedBase):
             if self.verbose: print("GromacsSeed::CheckLoadAnalyze return")
             return True
 
-    def LoadData(self, file_path_pandas, file_path_electrostatics, file_path_helixanalysis):
+    def LoadData(self, file_path_pandas, file_path_electrostatics, file_path_forces, file_path_helixanalysis):
         r""" Load the data from pandas and pickle
         """
         if self.verbose: print(f"GromacsSeed::LoadData")
@@ -124,6 +134,7 @@ class GromacsSeed(SeedBase):
             self.helix_analysis = pickle.load(f)
 
         self.gromacs_electrostatics.electrostatic_df = pd.read_hdf(file_path_electrostatics)
+        self.master_forces_df = pd.read_hdf(file_path_forces)
 
         if self.verbose: print(f"GromacsSeed::LoadData return")
 
@@ -136,10 +147,7 @@ class GromacsSeed(SeedBase):
             force_analyze = True
 
         # Check if we are loading or analyzing the information
-        if not self.CheckLoadAnalyze(os.path.join(self.path, self.hd5_name),
-                                     os.path.join(self.path, self.electrostatics_name),
-                                     os.path.join(self.path, self.pickle_name),
-                                     force_analyze):
+        if not self.CheckLoadAnalyze(force_analyze):
             if self.verbose: print("  Loading previously analyzed data")
             if self.verbose: print("GromacsSeed::Analyze return")
             return False
@@ -166,6 +174,9 @@ class GromacsSeed(SeedBase):
 
         # Put the master time dataframe together
         self.master_time_df = pd.concat(self.time_dfs, axis = 1)
+
+        # Put the force calculations together
+        self.master_forces_df = pd.concat(self.new_electrostatics_dfs, axis = 1)
 
         # Save the data
         self.WriteData()
@@ -254,6 +265,7 @@ class GromacsSeed(SeedBase):
                 forces_com[force_calc][force_type] = []
         # Create a copy of the electorstatic_df
         elec_df = self.gromacs_electrostatics.electrostatic_df.copy(deep = True)
+        #self.new_electrostatics_dfs.append(elec_df.copy(deep = True))
 
         # Wrap in a nice progress bar for ourselves, yay
         for ts in ProgressBar(traj_universe.trajectory):
@@ -318,10 +330,32 @@ class GromacsSeed(SeedBase):
                     forces_com["torque"][force_type].append(torque)
                     forces_com["moment"][force_type].append(f_moment)
 
-        # Print the forces to check
-        print(forces_com)
-        sys.exit(1)
-        # Tomorrow come check on if we can save the electrostatics in the dataframe or something
+        # END of progress bar loop
+
+        # Add the forces to the electrostatics dataframe
+        for force_type in force_breakdown_types:
+            # Force and torque follow the same convention
+            force_column_names = ["force_com_" + force_type + "_" + xval for xval in ["x", "y", "z"]]
+            force_df = pd.DataFrame(forces_com["force"][force_type], columns = force_column_names, index = elec_df.index)
+            torque_column_names = ["torque_com_" + force_type + "_" + xval for xval in ["x", "y", "z"]]
+            torque_df = pd.DataFrame(forces_com["torque"][force_type], columns = torque_column_names, index = elec_df.index)
+
+            # Moment is slightly harder, but still fine
+            n_moment_frames = len(force_df.index)
+            moment_dict = {}
+            x_names = ["x", "y", "z"]
+            for idx in np.arange(n_moment_frames):
+                for xx in np.arange(3):
+                    for yy in np.arange(3):
+                        full_moment_name = "moment_com_" + force_type + "_" + x_names[xx] + x_names[yy]
+                        if full_moment_name not in moment_dict:
+                            moment_dict[full_moment_name] = []
+                        moment_dict[full_moment_name].append(forces_com["moment"][force_type][idx][xx][yy])
+            moment_df = pd.DataFrame(moment_dict, index = elec_df.index)
+
+            self.new_electrostatics_dfs.append(force_df)
+            self.new_electrostatics_dfs.append(torque_df)
+            self.new_electrostatics_dfs.append(moment_df)
 
         # Save off the times for other uses!
         self.times = times
@@ -559,30 +593,14 @@ class GromacsSeed(SeedBase):
         """
         if self.verbose: print("GromacsSeed::AnalyzeElectrostatics")
 
-        #if self.verbose: print("GromacsSeed::AnalyzeElectrostatics creating charge-less topology")
         self.gromacs_electrostatics.CreateChargelessTopology(self.common_lipids)
 
-        #if self.verbose: print("GromacsSeed::AnalyzeElectrostatics regenerating all forces")
         self.gromacs_electrostatics.GenerateForces("all", self.trajectory_file)
         self.gromacs_electrostatics.GenerateForces("noq", self.trajectory_file)
 
-        #if self.verbose: print("GromacsSeed::AnalyzeElectrostatics calculating electrostatic forces")
         self.gromacs_electrostatics.CalculateElectrostaticForces()
 
-        # Calculate the force moments
-        self.CalculateForceMoments()
-
         if self.verbose: print("GromacsSeed::AnalyzeElectrostatics return")
-
-    def CalculateForceMoments(self):
-        r""" Calculate the force, force-moment, and torque on the helix about it's COM
-
-        NOTE: This requires that both the trajectory and electrostatics be accessible
-        """
-        print("GromacsAnalysis::CalculateForceMoments")
-
-
-        print("GromacsAnalysis::CalculateForceMoments return")
 
     def WriteData(self):
         r""" Write the data to HD5 and pickle files
@@ -598,6 +616,11 @@ class GromacsSeed(SeedBase):
         electrostatics_filename = os.path.join(self.path, self.electrostatics_name)
         self.gromacs_electrostatics.electrostatic_df.to_hdf(electrostatics_filename, key='electrostatics_df', mode='w')
         if self.verbose: print(self.gromacs_electrostatics.electrostatic_df)
+
+        # Also also dump the forces
+        forces_filename = os.path.join(self.path, self.forces_name)
+        self.master_forces_df.to_hdf(forces_filename, key='master_forces_df', mode='w')
+        if self.verbose: print(self.master_forces_df)
 
         # Dump the pickle file(s)
         pickle_filename = os.path.join(self.path, self.pickle_name)
@@ -641,15 +664,15 @@ class GromacsSeed(SeedBase):
         """
         graph_seed_pdipolemoment(self, ax, color = 'b')
 
-    def calculate_force_variables(self):
-        r""" Calculate the force, force-moment, and torque on the system
+    def GraphZForce(self, ax, color = 'b'):
+        r""" Plot the Z forces on the helix (varying shades of alpha)
         """
-        print("GromacsSeed::calculate_force_variables")
+        graph_seed_zforce(self, ax, color = 'b')
 
-        # Get the helix center of mass coordinates
-        helix_com = self.master_time_df[['helix_x', 'helix_y', 'helix_z']].to_numpy()
-        ntimes_com = len(self.master_time_df.index)
-        print(helix_com)
+    def GraphPerpTorque(self, ax, color = 'b'):
+        r""" Plot the perpendicular torque (from helix uhat and z-axis)
+        """
+        graph_seed_perptorque(self, ax, color = 'b')
 
 #    def graph_helix_analysis(self, axarr):
 #        r""" Plot results of the helix analysis
