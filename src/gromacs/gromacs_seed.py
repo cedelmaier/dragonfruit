@@ -7,6 +7,7 @@
 import logging
 import pickle
 import os
+import re
 import sys
 import time
 import yaml
@@ -83,6 +84,9 @@ class GromacsSeed(SeedBase):
         self.trajectory_file    = self.default_yaml['trajectory']
         self.gromacs_file       = self.default_yaml['gromacs']
 
+        # Harcoded information
+        self.zbin_size          = 0.5  # Size of z-bins for calculations
+
         if self.verbose: print("GromacsSeed::ReadData return")
 
     def PrintInformation(self):
@@ -97,6 +101,9 @@ class GromacsSeed(SeedBase):
         print(f"Trajectory file     = {self.trajectory_file}")
         print(f"Gromacs file        = {self.gromacs_file}")
         print(f"--------")
+        print(f"Electrostatic information")
+        print(f"Z-bin size          = {self.zbin_size}")
+        print(f"--------")
 
     def CheckLoadAnalyze(self, force_analyze = False):
         r""" Check if the data can be loaded from HD5 and pickle files
@@ -109,6 +116,22 @@ class GromacsSeed(SeedBase):
         file_path_electrostatics = os.path.join(self.path, self.electrostatics_name)
         file_path_forces = os.path.join(self.path, self.forces_name)
         file_path_pickle = os.path.join(self.path, self.pickle_name)
+
+        # If there was a change in name at some point, try to account for that, as if we cannot find the .h5 files
+        # we might have a different name
+        seed_name_regex = re.compile('N[0-9]*.h5')
+        current_h5_name = self.name + ".h5"
+        for root, dirs, files in os.walk(self.path):
+            for file in files:
+                if seed_name_regex.match(file):
+                    if file != current_h5_name:
+                        print(f"  Found a different .h5 file, setting new names")
+                        filebase = file.split('.')[0]
+                        file_path_pandas = os.path.join(self.path, filebase + ".h5")
+                        file_path_electrostatics = os.path.join(self.path, filebase + "_electrostatics.h5")
+                        file_path_forces = os.path.join(self.path, filebase + "_forces.h5")
+                        file_path_pickle = os.path.join(self.path, filebase + ".pickle")
+                        break
 
         if os.path.isfile(file_path_pandas) and os.path.isfile(file_path_pickle) and not force_analyze:
             if self.verbose: print(f"  Found file(s), attempting load")
@@ -142,6 +165,7 @@ class GromacsSeed(SeedBase):
         r""" Analysis of a single gromacs simulation seed
         """
         if self.verbose: print("GromacsSeed::Analyze")
+        print(f"Seed {self.name} reporting for duty!")
         # Check the force flag
         if self.opts.force:
             force_analyze = True
@@ -265,7 +289,6 @@ class GromacsSeed(SeedBase):
                 forces_com[force_calc][force_type] = []
         # Create a copy of the electorstatic_df
         elec_df = self.gromacs_electrostatics.electrostatic_df.copy(deep = True)
-        #self.new_electrostatics_dfs.append(elec_df.copy(deep = True))
 
         # Wrap in a nice progress bar for ourselves, yay
         for ts in ProgressBar(traj_universe.trajectory):

@@ -83,7 +83,7 @@ class GromacsAnalysis(object):
             self.verbose = True
 
         # If there is some central amount of data, create the directory
-        if (self.opts.write or self.opts.write):
+        if (self.opts.write or self.opts.graph):
             self.opts.datadir = create_datadir(self.opts.workdir)
 
     def ProgOpts(self):
@@ -190,7 +190,7 @@ class GromacsAnalysis(object):
         sim = GromacsSim(self.opts.workdir, opts)
         sim.Analyze()
         if self.opts.graph:
-            plt.style.use(septin_runs_stl)
+            plt.style.use(septin_poster_stl)
             sim.GraphSimulation()
 
     def AnalyzeRun(self):

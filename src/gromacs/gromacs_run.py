@@ -197,6 +197,7 @@ class GromacsRun(RunBase):
         print(f"Aggregating similar simulations and graphing")
         for simtorun in self.simulations_to_run:
             print(f"  Simulation block {simtorun}")
+            print(f"    Data directory {self.opts.datadir}")
 
             # Try to create a subdirectory if it needs to exist
             simdir = create_datadir(self.opts.datadir, simtorun)
@@ -249,6 +250,10 @@ class GromacsRun(RunBase):
                         yarr_avg = np.zeros_like(yarr)
                     yarr_avg = np.add(yarr_avg, yarr)
                     num_seeds += 1
+
+                print(f"yarr_avg: {yarr_avg}")
+                print(f"num_seeds: {num_seeds}")
+                sys.exit(1)
 
                 # Actually do the average
                 yarr_avg /= np.float32(num_seeds)
