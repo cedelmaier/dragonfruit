@@ -31,6 +31,7 @@ from sim_base import SimulationBase
 
 from common import create_datadir
 from seed_graph_funcs import *
+from sim_graph_funcs import *
 
 # Move thit into a subclass at some point
 def shaded_error(ax, x, y, error, alpha, color, linestyle = 'solid', label = None):
@@ -77,6 +78,14 @@ class GromacsSim(SimulationBase):
         self.graph_yaxis_title['hp']            = r"$\Phi_{up}$ (deg)"
         self.graph_yaxis_title['zforce']        = r"Force (kJ mol$^{-1}$ nm${^-1})"
         self.graph_yaxis_title['perptorque']    = r"Helix perpendicular torque (kJ mol$^{-1}$)"
+
+        # Set up the final data information
+        self.final_data = {}
+        self.ylow_dict = {}
+        self.yhi_dict = {}
+        for key,_ in self.graph_yaxis_title.items():
+            self.final_data[key] = []
+        self.dfs = []
 
         self.graph_perseed_trajectory   = [ graph_seed_zpos_wheads,
                                             graph_seed_helicity ]
@@ -146,9 +155,14 @@ class GromacsSim(SimulationBase):
         else:
             self.sim_datadir = self.opts.datadir
 
-        #self.GraphDynamicData()
         self.GraphPerseed()
         self.GraphGroups()
+        self.GraphDistributions()
+        self.GraphFinalScatter()
+
+        # XXX Move this into a separate write data section for the future
+        self.final_df = pd.concat(self.dfs, axis=1)
+        print(self.final_df)
 
         if self.verbose: print(f"GromacsSim::GraphSimulation return")
 
@@ -158,15 +172,16 @@ class GromacsSim(SimulationBase):
         if self.verbose: print(f"GromacsSim::GraphPerseed")
 
         individual_dir = create_datadir(self.sim_datadir, "individual")
+        self.individual_dir = individual_dir
 
         # Loop over the seeds and grab the information
         nseeds = len(self.seeds)
         print(f"Graphing individual quantities ({individual_dir})")
         for key,val in self.graph_perseed.items():
             print(f"  Graph: {key}")
-            fig, axarr              = plt.subplots(1, 2, figsize = (16,9))
-            fig_seeds, axarr_seeds  = plt.subplots(1, 1, figsize = (16, 9))
-            fig_mean, axarr_mean    = plt.subplots(1, 1, figsize = (16, 9))
+            fig, axarr                              = plt.subplots(1, 2, figsize = (16,9))
+            fig_seeds, axarr_seeds                  = plt.subplots(1, 1, figsize = (16, 9))
+            fig_mean, axarr_mean                    = plt.subplots(1, 1, figsize = (16, 9))
             graph = val # Alias graph
             colors = mpl.cm.rainbow(np.linspace(0,1,nseeds))
 
@@ -193,7 +208,21 @@ class GromacsSim(SimulationBase):
                 yarr_list.append(yarr)
                 ylow_list.append(ylow)
                 yhi_list.append(yhi)
-                
+
+                self.ylow_dict[key] = ylow
+                self.yhi_dict[key] = yhi
+
+                # Grab the information on the single seed
+                # XXX: Figure out how to make this easier, or move the data harvesting to an analysis location
+                yarr_nparray = np.array(yarr)
+                if yarr_nparray.ndim == 2:
+                    if key == "zforce" or key == "perptorque":
+                        self.final_data[key].append(yarr_nparray[:,-1])
+                    else:
+                        self.final_data[key].append(yarr_nparray[:,-1])
+                else:
+                    self.final_data[key].append(yarr_nparray[-1])
+
             # Get the mean and STD
             y_mean = np.mean(np.array(yarr_list), axis=0)
             y_std = np.std(np.array(yarr_list), axis=0, ddof=1)
@@ -316,53 +345,83 @@ class GromacsSim(SimulationBase):
             #mpl.rcdefaults()
         if self.verbose: print(f"GromacsSim::GraphGroups return")
 
-
-    def GraphDynamicData(self):
-        r""" Graph dynamic (time) data for simulation
+    def GraphDistributions(self):
+        r""" Graph distributions of variables
         """
-        # For now, setup the 3 different graphs
-        fig, axarr = plt.subplots(2, 2, figsize=(25,16))
-        colors = mpl.cm.rainbow(np.linspace(0,1,len(self.seeds)))
+        if self.verbose: print(f"GromacsSim::GraphDistributions")
 
-        # Get the timing information (in ns)
-        timepoints = self.seeds[-1].master_time_df.index/1000.0
+        for key,_ in self.graph_perseed.items():
+            print(f"  Distribution: {key}")
+            fig_dist, ax_dist   = plt.subplots(1, 1, figsize = (16, 9))
 
-        # Zip together the list like we had before to be clever
-        # The first loop zips together the functions we want to call with the axis array we generated
-        for graph, axr in zip(self.graph_perseed_trajectory, axarr):
-            # Get the average array all setup correctly
-            yarr_avg = None
-            num_seeds = 0 # Use later for successful determination
-            # The second loop creates different colors for each seed
-            for sd, col in zip(self.seeds, colors):
-                [ylow, yhi, yarr] = graph(sd, axr[0], color=col, xlabel = False) # Actal magic of the grahping call
-                if yarr_avg is None:
-                    yarr_avg = np.zeros_like(yarr)
-                yarr_avg = np.add(yarr_avg, yarr)
-                num_seeds += 1
-
-            yarr_avg /= np.float32(num_seeds)
-            # Check for different behavior if we have multiple arrays
-            if yarr_avg.ndim == 2:
-                axr[1].plot(timepoints, yarr_avg[0][:], color = "slategrey")
-                axr[1].plot(timepoints, yarr_avg[1][:], color = "slategrey")
-                axr[1].plot(timepoints, yarr_avg[2][:])
+            if key == "zforce" or key == "perptorque":
+                xdata = np.array(self.final_data[key])[:,0]
+            elif key == "zpos":
+                xdata = np.array(self.final_data[key])[:,2]
             else:
-                axr[1].plot(timepoints, yarr_avg)
-            axr[1].set_ylim([ylow, yhi])
+                xdata = np.array(self.final_data[key])
 
-        # XXX: Legend isn't plotting properly figure this out some other time
-        #axarr[1,0].legend(loc='center right', bbox_to_anchor=(1.0, 0.0))
+            plt.figure(fig_dist)
+            fig_range = (self.ylow_dict[key], self.yhi_dict[key])
+            (hist, bin_mids, npoints) = graph_sim_histogram(xdata, ax_dist, mtitle = key, ytitle = "Count", xtitle = self.graph_yaxis_title[key], xrange = fig_range)
+            fig_dist.tight_layout()
+            plt.savefig("{}/{}_distribution_{}.pdf".format(self.individual_dir, key, self.name), dpi = fig_dist.dpi)
 
-        axarr[-1,1].set_xlabel(r'Time (ns)')
-        axarr[-1,0].set_xlabel(r'Time (ns)')
+            # Save off the data!
+            df = pd.DataFrame({key: xdata})
+            self.dfs.append(df)
 
-        fig.tight_layout()
-        plt.savefig("{}_{}.pdf".format(os.path.join(self.sim_datadir, 'dynamicdata'), self.name), dpi=fig.dpi)
+            # Clean up
+            plt.close(fig_dist)
+            gc.collect()
 
-        # Clean up
-        fig.clf()
-        plt.close()
-        gc.collect()
-        mpl.rcdefaults()
+        if self.verbose: print(f"GromacsSim::GraphDistributions return")
 
+    def GraphFinalScatter(self):
+        r""" Graph scatter plots of every final variable versus every other final variable
+        """
+        if self.verbose: print(f"GromacsSim::GraphFinalScatter")
+
+        # Create a new directory for the results
+        combodir = create_datadir(self.sim_datadir, "combinations")
+
+        # Generate all unique pairs of keys
+        combinations = list(itertools.combinations(self.graph_perseed.keys(), 2))
+
+        # Now loop over them
+        for combo in combinations:
+            print(f"  Combination: {combo[0]}, {combo[1]}")
+            fig_scatter, ax_scatter = plt.subplots(1, 1, figsize=(16,9))
+
+            key1 = combo[0]
+            key2 = combo[1]
+
+            if key1 == "zforce" or key1 == "perptorque":
+                xdata = np.array(self.final_data[key1])[:,0]
+            elif key1 == "zpos":
+                xdata = np.array(self.final_data[key1])[:,2]
+            else:
+                xdata = np.array(self.final_data[key1])
+
+            if key2 == "zforce" or key2 == "perptorque":
+                ydata = np.array(self.final_data[key2])[:,0]
+            elif key2 == "zpos":
+                ydata = np.array(self.final_data[key2])[:,2]
+            else:
+                ydata = np.array(self.final_data[key2])
+
+            print(xdata)
+            print(ydata)
+
+            plt.figure(fig_scatter)
+            graph_sim_scatter(xdata, ydata, ax_scatter, mtitle = "{}_{}".format(key1, key2), xtitle = self.graph_yaxis_title[key1], ytitle = self.graph_yaxis_title[key2])
+            ax_scatter.set_xlim([self.ylow_dict[key1], self.yhi_dict[key1]])
+            ax_scatter.set_ylim([self.ylow_dict[key2], self.yhi_dict[key2]])
+            fig_scatter.tight_layout()
+            plt.savefig("{}/{}_{}_{}.pdf".format(combodir, key1, key2, self.name), dpi = fig_scatter.dpi)
+
+            # clean up
+            plt.close(fig_scatter)
+            gc.collect()
+
+        if self.verbose: print(f"GromacsSim::GraphFinalScatter return")

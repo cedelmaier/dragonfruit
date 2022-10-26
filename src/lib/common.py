@@ -91,3 +91,9 @@ def ragged_mean(x):
 
     return [mean, stdd]
 
+def hist_prob_density_convert(mid_points = [], hist = [], n_points = 1):
+    r""" Convert a number histogram to probability density
+    """
+    bin_mids = mid_points
+    hist = np.divide(hist, (bin_mids[1]-bin_mids[0])*n_points)
+    return bin_mids, hist, n_points

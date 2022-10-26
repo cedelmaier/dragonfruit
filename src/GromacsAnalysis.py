@@ -200,7 +200,7 @@ class GromacsAnalysis(object):
 
         if self.opts.graph:
             plt.style.use(septin_poster_stl)
-            run.AggregateSimilar()
+            run.GraphRun()
 
 ##########################################
 if __name__ == "__main__":
