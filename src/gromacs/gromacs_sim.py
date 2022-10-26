@@ -66,26 +66,21 @@ class GromacsSim(SimulationBase):
         self.graph_perseed['zforce']        = graph_seed_zforce
         self.graph_perseed['perptorque']    = graph_seed_perptorque
 
-        self.graph_yaxis_title = {}
-        self.graph_yaxis_title['zpos']          = r"Z ($\AA$)"
-        self.graph_yaxis_title['helix']         = r"Helicity (AU)"
-        #self.graph_yaxis_title['tilt']          = r"Helix tilt (deg)"
-        self.graph_yaxis_title['tilt']          = r"$\Theta_{u}$ (deg)"
-        #self.graph_yaxis_title['pdip']          = r"Helix electric dipole tilt (deg)"
-        self.graph_yaxis_title['pdip']          = r"$\Theta_{p}$ (deg)"
-        self.graph_yaxis_title['pmom']          = r"Helix electric dipole magnitude"
-        #self.graph_yaxis_title['hp']            = r"Helix-Helix electric dipole angle (deg)"
-        self.graph_yaxis_title['hp']            = r"$\Phi_{up}$ (deg)"
-        self.graph_yaxis_title['zforce']        = r"Force (kJ mol$^{-1}$ nm${^-1})"
-        self.graph_yaxis_title['perptorque']    = r"Helix perpendicular torque (kJ mol$^{-1}$)"
+        self.named_graphs = {}
+        self.named_graphs['zpos']           = r"Z ($\AA$)"
+        self.named_graphs['helix']          = r"Helicity (AU)"
+        self.named_graphs['tilt']           = r"$\Theta_{u}$ (deg)"
+        self.named_graphs['pdip']           = r"$\Theta_{p}$ (deg)"
+        self.named_graphs['pmom']           = r"Helix electric dipole magnitude"
+        self.named_graphs['hp']             = r"$\Phi_{up}$ (deg)"
+        self.named_graphs['zforce']         = r"Force (kJ mol$^{-1}$ nm${^-1})"
+        self.named_graphs['perptorque']     = r"Helix perpendicular torque (kJ mol$^{-1}$)"
 
-        # Set up the final data information
-        self.final_data = {}
+        # Set up block averaging information
+        self.block_size = 50000.0 # 50 ns blocks
+        self.block_average = {}
         self.ylow_dict = {}
         self.yhi_dict = {}
-        for key,_ in self.graph_yaxis_title.items():
-            self.final_data[key] = []
-        self.dfs = []
 
         self.graph_perseed_trajectory   = [ graph_seed_zpos_wheads,
                                             graph_seed_helicity ]
@@ -110,12 +105,34 @@ class GromacsSim(SimulationBase):
 
         for sd in self.seeds: sd.Analyze()
 
+        # Do the block averaging
+        self.BlockAverage()
+
         # Categorize the final state of the seed by tilt
         self.CategorizeSeeds()
 
         print(f"---- Simulation {self.name} analyzed ----")
 
         if self.verbose: print(f"GromacsSim::Analyze return")
+
+    def WriteData(self):
+        r""" Write the data for this simuilation to H5 files
+        """
+        if self.verbose: print(f"GromacsSim::WriteData")
+
+        # A couple of quick checks to make sure data directories are setup correctly
+        if not self.opts.datadir: self.opts.datadir = create_datadir(self.opts.workdir)
+        if self.opts.workdir != self.sim_path:
+            self.sim_datadir = create_datadir(self.opts.datadir, datadir_name = "{}_data".format(self.name))
+        else:
+            self.sim_datadir = self.opts.datadir
+
+        #self.final_df.to_hdf(os.path.join(self.sim_datadir, "{}_final.h5".format(self.name)), key = "final_df", mode = "w")
+        if self.verbose: print(f"Block average data")
+        if self.verbose: print(self.block_df)
+        self.block_df.to_hdf(os.path.join(self.sim_datadir, "{}_blocks.h5".format(self.name)), key = "block_df", mode = "w")
+
+        if self.verbose: print(f"GromacsSim::WriteData return")
 
     def CategorizeSeeds(self):
         r""" Categorize the seeds by tilt
@@ -127,22 +144,100 @@ class GromacsSim(SimulationBase):
         print(f"WARNING: Categorize Seeds was done in a hurray, check later!")
 
         tilt_criteria = 50.0
-        end_times = 175.0
 
         for sd in self.seeds:
-            print(f"Categorizing seed: {sd.label}")
-            global_tilt = sd.master_time_df['global_tilt'].to_numpy().flatten()
-            times = sd.master_time_df.index
-            times = times/1000.0
-            flat_times = times.to_numpy().flatten()
-
-            final_indices = np.where(flat_times > end_times)
-
-            final_tilt_seed = np.mean(global_tilt[final_indices])
-            is_tilted = (final_tilt_seed < tilt_criteria) or (final_tilt_seed > 180.0 - tilt_criteria)
-            print(f"  Criteria: {is_tilted}, Final tilt: {final_tilt_seed}")
+            print(f"Categorizing seed: {sd.name}")
+           
+            target_name = "{}_tilt_mean".format(sd.name)
+            tilt_df = self.block_df.filter(regex = target_name)
+            final_global_tilt = tilt_df.iloc[-1].to_numpy().flatten()
+            is_tilted = (final_global_tilt < tilt_criteria) or (final_global_tilt > 180.0 - tilt_criteria)
+            print(f"  Criteria: {is_tilted}, Final tilt: {final_global_tilt}")
 
         if self.verbose: print(f"GromacsSim::CategorizeSeeds return")
+
+    def BlockAverage(self):
+        r""" Do the block averaging of the seeds
+        """
+        if self.verbose: print(f"GromacsSim::BlockAverage")
+
+        # Dummy graph for us
+        fig, ax = plt.subplots(1, 1, figsize = (16,9))
+
+        self.block_dfs = []
+
+        # Loop over seeds
+        for sd in self.seeds:
+            self.block_average[sd.name] = {}
+
+            # Now do the measurements
+            for key,val in self.graph_perseed.items():
+                self.block_average[sd.name][key] = {}
+                graph = val
+
+                # Timepoints needed now
+                timepoints_traj = sd.master_time_df.index/1000.0
+                timepoints_forces = sd.master_forces_df.index/1000.0
+
+                if key == "zforce" or key == "perptorque":
+                    timepoints = timepoints_forces
+                else:
+                    timepoints = timepoints_traj
+
+                nblocks = timepoints[-1]/(self.block_size / 1000.0)
+
+                # Get the actual data out from the graph functions
+                [ylow, yhi, yarr] = graph(sd, ax)
+                yarr_np = np.array(yarr)
+
+                # Set up the hi/low parameter choices
+                self.ylow_dict[key] = ylow
+                self.yhi_dict[key] = yhi
+
+                # Create placeholders for mean and std
+                self.block_average[sd.name][key]["mean"] = {}
+                self.block_average[sd.name][key]["std"] = {}
+
+                # Loop over the blocks
+                for iblock in np.arange(nblocks):
+                    start_time = iblock * self.block_size / 1000.0
+                    end_time = (iblock + 1) * self.block_size / 1000.0
+
+                    flat_times = timepoints.to_numpy().flatten()
+                    time_indices = (flat_times >= start_time) & (flat_times <= end_time)
+
+                    # Get the actual array in the middle of other arrays
+                    if yarr_np.ndim == 2:
+                        if key == "zforce" or key == "perptorque":
+                            mnparr = yarr_np[0,time_indices]
+                        else:
+                            mnparr = yarr_np[2,time_indices]
+                    else:
+                        mnparr = yarr_np[time_indices]
+
+                    self.block_average[sd.name][key]["mean"][start_time] = np.mean(mnparr)
+                    self.block_average[sd.name][key]["std"][start_time] = np.std(mnparr, ddof=1)
+
+                # Also keep track of this as a dataframe for ease of use
+                column_name_mean = "{}_{}_mean".format(sd.name, key)
+                column_name_std  = "{}_{}_std".format(sd.name, key)
+                index_vals = self.block_average[sd.name][key]["mean"].keys()
+                column_vals_mean = self.block_average[sd.name][key]["mean"].values()
+                column_vals_std  = self.block_average[sd.name][key]["std"].values()
+                column_dict = {column_name_mean: column_vals_mean,
+                               column_name_std: column_vals_std}
+                df_key = pd.DataFrame(column_dict, index = index_vals)
+                self.block_dfs.append(df_key)
+
+
+        # Clean up the graphs
+        plt.close()
+        gc.collect()
+
+        # Put the information together
+        self.block_df = pd.concat(self.block_dfs, axis=1)
+
+        if self.verbose: print(f"GromacsSim::BlockAverage return")
 
     def GraphSimulation(self):
         r""" Graph simulation parameters and variables
@@ -159,10 +254,6 @@ class GromacsSim(SimulationBase):
         self.GraphGroups()
         self.GraphDistributions()
         self.GraphFinalScatter()
-
-        # XXX Move this into a separate write data section for the future
-        self.final_df = pd.concat(self.dfs, axis=1)
-        print(self.final_df)
 
         if self.verbose: print(f"GromacsSim::GraphSimulation return")
 
@@ -209,20 +300,6 @@ class GromacsSim(SimulationBase):
                 ylow_list.append(ylow)
                 yhi_list.append(yhi)
 
-                self.ylow_dict[key] = ylow
-                self.yhi_dict[key] = yhi
-
-                # Grab the information on the single seed
-                # XXX: Figure out how to make this easier, or move the data harvesting to an analysis location
-                yarr_nparray = np.array(yarr)
-                if yarr_nparray.ndim == 2:
-                    if key == "zforce" or key == "perptorque":
-                        self.final_data[key].append(yarr_nparray[:,-1])
-                    else:
-                        self.final_data[key].append(yarr_nparray[:,-1])
-                else:
-                    self.final_data[key].append(yarr_nparray[-1])
-
             # Get the mean and STD
             y_mean = np.mean(np.array(yarr_list), axis=0)
             y_std = np.std(np.array(yarr_list), axis=0, ddof=1)
@@ -263,7 +340,7 @@ class GromacsSim(SimulationBase):
             axarr_seeds.set_xlabel(r'Time(ns)')
             axarr_mean.set_xlabel(r'Time(ns)')
 
-            axarr_mean.set_ylabel(self.graph_yaxis_title[key])
+            axarr_mean.set_ylabel(self.named_graphs[key])
 
             # Save the figure
             plt.figure(fig)
@@ -354,22 +431,18 @@ class GromacsSim(SimulationBase):
             print(f"  Distribution: {key}")
             fig_dist, ax_dist   = plt.subplots(1, 1, figsize = (16, 9))
 
-            if key == "zforce" or key == "perptorque":
-                xdata = np.array(self.final_data[key])[:,0]
-            elif key == "zpos":
-                xdata = np.array(self.final_data[key])[:,2]
-            else:
-                xdata = np.array(self.final_data[key])
+            #if key == "zforce" or key == "perptorque":
+            #    xdata = np.array(self.final_data[key])[:,0]
+            #elif key == "zpos":
+            #    xdata = np.array(self.final_data[key])[:,2]
+            #else:
+            #    xdata = np.array(self.final_data[key])
 
-            plt.figure(fig_dist)
-            fig_range = (self.ylow_dict[key], self.yhi_dict[key])
-            (hist, bin_mids, npoints) = graph_sim_histogram(xdata, ax_dist, mtitle = key, ytitle = "Count", xtitle = self.graph_yaxis_title[key], xrange = fig_range)
-            fig_dist.tight_layout()
-            plt.savefig("{}/{}_distribution_{}.pdf".format(self.individual_dir, key, self.name), dpi = fig_dist.dpi)
-
-            # Save off the data!
-            df = pd.DataFrame({key: xdata})
-            self.dfs.append(df)
+            #plt.figure(fig_dist)
+            #fig_range = (self.ylow_dict[key], self.yhi_dict[key])
+            #(hist, bin_mids, npoints) = graph_sim_histogram(xdata, ax_dist, mtitle = key, ytitle = "Count", xtitle = self.named_graphs[key], xrange = fig_range)
+            #fig_dist.tight_layout()
+            #plt.savefig("{}/{}_distribution_{}.pdf".format(self.individual_dir, key, self.name), dpi = fig_dist.dpi)
 
             # Clean up
             plt.close(fig_dist)
@@ -396,27 +469,29 @@ class GromacsSim(SimulationBase):
             key1 = combo[0]
             key2 = combo[1]
 
-            if key1 == "zforce" or key1 == "perptorque":
-                xdata = np.array(self.final_data[key1])[:,0]
-            elif key1 == "zpos":
-                xdata = np.array(self.final_data[key1])[:,2]
-            else:
-                xdata = np.array(self.final_data[key1])
+            # Get the information out of the dataframe
+            target_xdata_mean   = ".*_{}_mean".format(key1)
+            target_xdata_std    = ".*_{}_std".format(key1)
+            xdata_mean_df       = self.block_df.filter(regex = target_xdata_mean)
+            xdata_std_df        = self.block_df.filter(regex = target_xdata_std)
 
-            if key2 == "zforce" or key2 == "perptorque":
-                ydata = np.array(self.final_data[key2])[:,0]
-            elif key2 == "zpos":
-                ydata = np.array(self.final_data[key2])[:,2]
-            else:
-                ydata = np.array(self.final_data[key2])
+            target_xdata_mean   = ".*_{}_mean".format(key2)
+            target_xdata_std    = ".*_{}_std".format(key2)
+            ydata_mean_df       = self.block_df.filter(regex = target_xdata_mean)
+            ydata_std_df        = self.block_df.filter(regex = target_xdata_std)
 
-            print(xdata)
-            print(ydata)
+            xdata_mean = xdata_mean_df.iloc[-1,:]
+            ydata_mean = ydata_mean_df.iloc[-1,:]
+            xdata_std = xdata_std_df.iloc[-1,:]
+            ydata_std = ydata_std_df.iloc[-1,:]
 
             plt.figure(fig_scatter)
-            graph_sim_scatter(xdata, ydata, ax_scatter, mtitle = "{}_{}".format(key1, key2), xtitle = self.graph_yaxis_title[key1], ytitle = self.graph_yaxis_title[key2])
+            ax_scatter.scatter(x = xdata_mean, y = ydata_mean, zorder = 100, s = 30, marker = 's', color = 'b', facecolors = 'none')
+            ax_scatter.errorbar(x = xdata_mean, y = ydata_mean, xerr = xdata_std, yerr = ydata_std, ecolor = 'b', elinewidth = 2, capsize = 5, capthick = 1, zorder = 0, fmt = 'none', marker = 's')
             ax_scatter.set_xlim([self.ylow_dict[key1], self.yhi_dict[key1]])
             ax_scatter.set_ylim([self.ylow_dict[key2], self.yhi_dict[key2]])
+            ax_scatter.set_xlabel(self.named_graphs[key1])
+            ax_scatter.set_ylabel(self.named_graphs[key2])
             fig_scatter.tight_layout()
             plt.savefig("{}/{}_{}_{}.pdf".format(combodir, key1, key2, self.name), dpi = fig_scatter.dpi)
 

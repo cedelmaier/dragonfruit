@@ -72,7 +72,7 @@ class GromacsRun(RunBase):
         self.named_graphs['perptorque']    = r"Helix perpendicular torque (kJ mol$^{-1}$)"
 
         # Load up the ylow ad yhi dicts
-        self.ylow_dict = {"zpos": -30.0,
+        self.ylow_dict = {"zpos": 0.0,
                           "helix": 0.0,
                           "tilt": 0.0,
                           "pdip": 0.0,
@@ -93,7 +93,7 @@ class GromacsRun(RunBase):
         self.dfs = {}
         for key,_ in self.sims.items():
             print(f"Loading final data: {key}")
-            file_path_current = os.path.join(self.main_path, key, "data", "{}.h5".format(key))
+            file_path_current = os.path.join(self.main_path, key, "data", "{}_blocks.h5".format(key))
             self.dfs[key] = pd.read_hdf(file_path_current)
             print(self.dfs[key])
 
@@ -104,7 +104,9 @@ class GromacsRun(RunBase):
         """
         if self.verbose: print(f"GromacsRun::GraphRun")
 
-        self.GraphDistributions()
+        self.run_datadir = create_datadir(self.main_path, "data")
+
+        #self.GraphDistributions()
         self.GraphFinalScatter()
 
         if self.verbose: print(f"GromacsRun::GraphRun return")
@@ -115,7 +117,6 @@ class GromacsRun(RunBase):
         if self.verbose: print(f"GromacsRun::GraphDistributions")
 
         colors = mpl.cm.rainbow(np.linspace(0,1,len(self.sims)))
-        self.datadir = create_datadir(self.main_path, "data")
 
         # Loop over graphs
         for key,val in self.named_graphs.items():
@@ -142,7 +143,7 @@ class GromacsRun(RunBase):
             ax_dist.set_xlabel(self.named_graphs[key])
             ax_dist.set_ylabel("Count")
             fig_dist.tight_layout()
-            plt.savefig("{}/distribution_{}.pdf".format(self.datadir, key), dpi = fig_dist.dpi)
+            plt.savefig("{}/distribution_{}.pdf".format(self.run_datadir, key), dpi = fig_dist.dpi)
 
             plt.close()
             gc.collect()
@@ -155,7 +156,7 @@ class GromacsRun(RunBase):
         if self.verbose: print(f"GromacsRun::GraphFinalScatter")
 
         colors = mpl.cm.rainbow(np.linspace(0,1,len(self.sims)))
-        self.combodir = create_datadir(self.datadir, "combinations")
+        self.combodir = create_datadir(self.run_datadir, "combinations")
 
         # Generate all unique pairs of keys
         combinations = list(itertools.combinations(self.named_graphs.keys(), 2))
@@ -171,10 +172,25 @@ class GromacsRun(RunBase):
             legend_names = []
             color_count = 0
             for sim, simname in self.sims.items():
-                xdata = self.dfs[sim][[key1]].to_numpy().flatten()
-                ydata = self.dfs[sim][[key2]].to_numpy().flatten()
+                # Get the information out of the dataframe
+                target_xdata_mean   = ".*_{}_mean".format(key1)
+                target_xdata_std    = ".*_{}_std".format(key1)
+                xdata_mean_df       = self.dfs[sim].filter(regex = target_xdata_mean)
+                xdata_std_df        = self.dfs[sim].filter(regex = target_xdata_std)
 
-                ax_scatter.scatter(xdata, ydata, color = colors[color_count])
+                target_xdata_mean   = ".*_{}_mean".format(key2)
+                target_xdata_std    = ".*_{}_std".format(key2)
+                ydata_mean_df       = self.dfs[sim].filter(regex = target_xdata_mean)
+                ydata_std_df        = self.dfs[sim].filter(regex = target_xdata_std)
+
+                xdata_mean = xdata_mean_df.iloc[-1,:]
+                ydata_mean = ydata_mean_df.iloc[-1,:]
+                xdata_std = xdata_std_df.iloc[-1,:]
+                ydata_std = ydata_std_df.iloc[-1,:]
+
+                ax_scatter.scatter(x = xdata_mean, y = ydata_mean, zorder = 100, s = 80, marker = 's', color = colors[color_count], facecolors = 'none')
+                ax_scatter.errorbar(x = xdata_mean, y = ydata_mean, xerr = xdata_std, yerr = ydata_std, ecolor = colors[color_count], elinewidth = 2, capsize = 5, capthick = 1, zorder = 0, fmt = 'none', marker = 's')
+
                 legend_names.append("{} {} mM".format(simname[0], simname[1]))
 
                 color_count += 1

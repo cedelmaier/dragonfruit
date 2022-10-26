@@ -193,6 +193,9 @@ class GromacsAnalysis(object):
             plt.style.use(septin_poster_stl)
             sim.GraphSimulation()
 
+        if self.opts.write:
+            sim.WriteData()
+
     def AnalyzeRun(self):
         r""" Analyze a run (collection of simulations)
         """

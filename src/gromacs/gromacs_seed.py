@@ -70,7 +70,7 @@ class GromacsSeed(SeedBase):
                           "SAPI25"}
 
         # Create any subclasses that we might need
-        self.gromacs_electrostatics = GromacsElectrostaticsAnalyzer(path, opts)
+        self.gromacs_electrostatics = GromacsElectrostaticsAnalyzer(path, opts, self.structure_file)
 
         if self.verbose: print("GromacsSeed::__init__ return")
 

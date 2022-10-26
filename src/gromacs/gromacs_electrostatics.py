@@ -17,9 +17,10 @@ from stylelib.common_styles import septin_runs_stl
 from dragonfruit_io import create_chargeless_topology, read_xvg
 
 class GromacsElectrostaticsAnalyzer(object):
-    def __init__(self, path, opts):
+    def __init__(self, path, opts, filename_tpr):
         self.verbose = opts.verbose
         self.trace = opts.trace
+        self.filename_tpr = filename_tpr
         if self.verbose: print("GromacsElectrostaticsAnalyzer::__init__")
 
         self.path = os.path.abspath(path)
@@ -238,7 +239,7 @@ q
         print(f"WARNING: Doing something very dirty here in electorstatics, check later!")
         if os.path.exists(os.path.join(self.path, "density_groups.ndx")): os.remove(os.path.join(self.path, "density_groups.ndx"))
         with open(os.path.join(self.path, "create_density_map.txt"), "r") as in_stream:
-                gmx_density_p = subprocess.Popen(["gmx", "make_ndx", "-f", "step7_20.tpr", "-o", "density_groups.ndx"], stdin = in_stream, stdout = subprocess.PIPE, stderr = subprocess.PIPE)
+                gmx_density_p = subprocess.Popen(["gmx", "make_ndx", "-f", self.filename_tpr, "-o", "density_groups.ndx"], stdin = in_stream, stdout = subprocess.PIPE, stderr = subprocess.PIPE)
                 g_output, g_errors = gmx_density_p.communicate()
                 gmx_density_p.wait()
                 if self.trace: print(g_errors.decode("utf-8"))
