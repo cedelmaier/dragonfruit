@@ -85,7 +85,13 @@ class GromacsSeed(SeedBase):
         self.gromacs_file       = self.default_yaml['gromacs']
 
         # Harcoded information
-        self.zbin_size          = 0.5  # Size of z-bins for calculations
+        self.zbin_size          = 0.5   # Size of z-bins for calculations
+        self.zbin_range         = 40.0  # Range of Z bins for calculations
+
+        # We keep track of the histogram information ourself due to various reasons
+        self.zbin_nbins = np.int32(self.zbin_range / self.zbin_size)
+        self.zbin_edges = np.linspace(-self.zbin_range, self.zbin_range, self.zbin_nbins+1)
+        self.zbin_mids = moving_average(self.zbin_edges)
 
         if self.verbose: print("GromacsSeed::ReadData return")
 
@@ -103,6 +109,8 @@ class GromacsSeed(SeedBase):
         print(f"--------")
         print(f"Electrostatic information")
         print(f"Z-bin size          = {self.zbin_size}")
+        print(f"Z-range             = {self.zbin_range}")
+        print(f"Nbins EM            = {self.zbin_nbins}")
         print(f"--------")
 
     def CheckLoadAnalyze(self, force_analyze = False):
@@ -278,6 +286,10 @@ class GromacsSeed(SeedBase):
         unit_cell = []
         p_dipole_list = []
 
+        # Keep track of the running histograms
+        self.histograms = {}
+        self.histograms['System'] = np.zeros(len(self.zbin_mids))
+
         # Forces
         force_breakdown_types = ["all", "noq", "q"]
         force_calc_types = ["force", "moment", "torque"]
@@ -289,6 +301,10 @@ class GromacsSeed(SeedBase):
                 forces_com[force_calc][force_type] = []
         # Create a copy of the electorstatic_df
         elec_df = self.gromacs_electrostatics.electrostatic_df.copy(deep = True)
+
+        # Run a helix analysis first, as we need its information for figuring out the location
+        # of charges in the reference frame of the helix
+        self.helix_analysis = hel.HELANAL(traj_universe, select='name CA and resid 1-18').run()
 
         # Wrap in a nice progress bar for ourselves, yay
         for ts in ProgressBar(traj_universe.trajectory):
@@ -319,6 +335,13 @@ class GromacsSeed(SeedBase):
                 p_r_dipole[iatom] = relative_position * atom_charge
                 p_dipole += p_r_dipole[iatom]
             p_dipole_list.append(p_dipole)
+
+            ## Calculte the charge density of various quantitites in the system
+            #print(f"Trying to figure out charge densities")
+            ## Loop through the edges of the zbins and find the charge density in each
+            #for ibin in np.arange(len(self.zbin_mids)):
+            #    print(f"Edge: {self.zbin_edges[ibin]}, {self.zbin_edges[ibin+1]}")
+            #sys.exit(1)
 
             # Calculate the center of mass force
             # Figure out if we are synchronized for the two dataframes, as one is resampled
@@ -382,9 +405,6 @@ class GromacsSeed(SeedBase):
 
         # Save off the times for other uses!
         self.times = times
-
-        # Run a helix analysis
-        self.helix_analysis = hel.HELANAL(traj_universe, select='name CA and resid 1-18').run()
 
         # Split up into a pandas dataframe for viewing
         # Get all of the lipid center of mass to store in the dataframe

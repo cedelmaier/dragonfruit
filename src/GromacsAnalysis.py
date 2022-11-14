@@ -202,7 +202,7 @@ class GromacsAnalysis(object):
         run = GromacsRun(opts, self.opts.workdir)
 
         if self.opts.graph:
-            plt.style.use(septin_poster_stl)
+            plt.style.use(septin_paper_stl)
             run.GraphRun()
 
 ##########################################

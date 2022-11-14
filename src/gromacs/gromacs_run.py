@@ -106,7 +106,7 @@ class GromacsRun(RunBase):
 
         self.run_datadir = create_datadir(self.main_path, "data")
 
-        #self.GraphDistributions()
+        self.GraphDistributions()
         self.GraphFinalScatter()
 
         if self.verbose: print(f"GromacsRun::GraphRun return")
@@ -122,26 +122,34 @@ class GromacsRun(RunBase):
         for key,val in self.named_graphs.items():
             print(f"Distribution: {key}")
            
-            fig_dist, ax_dist   = plt.subplots(1, 1, figsize = (16, 9))
+            fig_dist, ax_dist   = plt.subplots(1, 1, figsize = (5, 2.5))
             plt.figure(fig_dist)
             # Loop over simulations
             fig_range = (self.ylow_dict[key], self.yhi_dict[key])
             legend_names = []
             xdatas = []
             for sim, simname in self.sims.items():
-                xdata = self.dfs[sim][[key]].to_numpy()
-                xdatas.append(xdata.flatten())
+                target_xdata_mean   = ".*_{}_mean".format(key)
+                xdata_mean_df       = self.dfs[sim].filter(regex = target_xdata_mean)
+                
+                xdata_mean = xdata_mean_df.iloc[-1,:]
+                xdatas.append(xdata_mean.to_numpy())
 
                 legend_names.append("{} {} mM".format(simname[0], simname[1]))
 
-            # Do this as a single histogram for the pretty bar plots
+                #print(f"{sim}")
+                #print(xdata_mean.to_numpy())
+
             xdatas = np.array(xdatas)
-            xdatas = xdatas.T
-            his_ret = ax_dist.hist(xdatas, histtype='bar', color = colors, range = fig_range)
-            print(his_ret)
-            ax_dist.legend(legend_names)
-            ax_dist.set_xlabel(self.named_graphs[key])
-            ax_dist.set_ylabel("Count")
+            #print(xdatas)
+            np.savetxt('{}/{}.csv'.format(self.run_datadir, key), xdatas, delimiter=',')
+
+            # Do this as a single histogram for the pretty bar plots
+            #violin_ret = ax_dist.violinplot(xdatas, showmeans = True, showextrema = True
+            #print(his_ret)
+            #ax_dist.legend(legend_names)
+            #ax_dist.set_xlabel(self.named_graphs[key])
+            #ax_dist.set_ylabel("Count")
             fig_dist.tight_layout()
             plt.savefig("{}/distribution_{}.pdf".format(self.run_datadir, key), dpi = fig_dist.dpi)
 
@@ -164,7 +172,7 @@ class GromacsRun(RunBase):
         # Now loop over them
         for combo in combinations:
             print(f"Combination: {combo}")
-            fig_scatter, ax_scatter = plt.subplots(1, 1, figsize = (16, 9))
+            fig_scatter, ax_scatter = plt.subplots(1, 1, figsize = (3.0, 3.0))
 
             key1 = combo[0]
             key2 = combo[1]

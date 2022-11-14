@@ -23,3 +23,15 @@ septin_poster_stl = {
     "font.serif" : "Arial",
     "font.sans-serif" : "Arial"
     }
+
+septin_paper_stl = {
+    "axes.titlesize" : 8,
+    "axes.labelsize" : 8,
+    "lines.linewidth" : 3,
+    "lines.markersize" : 4,
+    "xtick.labelsize" : 8,
+    "ytick.labelsize" : 8,
+    "font.size" : 8,
+    "font.serif" : "Arial",
+    "font.sans-serif" : "Arial"
+    }
