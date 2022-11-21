@@ -33,12 +33,23 @@ def shaded_error(ax, x, y, error, alpha, color, linestyle = 'solid', label = Non
                     alpha = alpha, edgecolor = color, facecolor = color, linestyle = linestyle, linewidth = linewidth)
 
 main_path = os.path.abspath('/Users/cedelmaier/Projects/Biophysics/septin_project/atomistic/simulations/data/')
+external_path = os.path.abspath('/Volumes/T7/data/septin_project/datasets/')
 
-simnames = {"charge_fold_30": "unbiased_50mMKCl_solution",
-            "charge_fold_15": "agmonomer_aglipid_11x11_zdepth15_rotx0_50mMKCl",
-            "charge_unfold_15": "agmonomermelt_aglipid_11x11_zdepth15_rotx0_50mMKCl",
-            "charge_fold_00": "unbiased_zdepth00_rotx0_helix_50mMKCl",
-           }
+#simnames = {
+#            "neutral_fold_00": "rfmonomer_aglipid_11x11_zdepth00_rotx0_50mMKCl_long",
+#            "charge_fold_00": "unbiased_zdepth00_rotx0_helix_50mMKCl",
+#            "charge_fold_15": "agmonomer_aglipid_11x11_zdepth15_rotx0_50mMKCl",
+#            "charge_fold_30": "unbiased_50mMKCl_solution",
+#            "charge_unfold_15": "agmonomermelt_aglipid_11x11_zdepth15_rotx0_50mMKCl",
+#            }
+simnames = {
+            "neutral_fold_00":  os.path.join(main_path, "rfmonomer_aglipid_11x11_zdepth00_rotx0_50mMKCl_long"),
+            "charge_fold_00":   os.path.join(external_path, "gromacs_zdepth00_rotx0_helix_50mMKCl"),
+            "charge_fold_15":   os.path.join(main_path, "agmonomer_aglipid_11x11_zdepth15_rotx0_50mMKCl"),
+            "charge_fold_30":   os.path.join(external_path, "unbiased_50mMKCl_solution"),
+            "charge_unfold_15": os.path.join(main_path, "agmonomermelt_aglipid_11x11_zdepth15_rotx0_50mMKCl"),
+            }
+
 #seednames = ["N1"]
 seednames = ["N1", "N2", "N3", "N4"]
 
@@ -77,16 +88,18 @@ for simname,seedname in simnames.items():
     # print the simulation we are doing
     print(simname, seedname)
 
-    fig_zpos, axarr_zpos = plt.subplots(1, 2, figsize = (5.0, 2.5), sharey = True)
-    fig_heli, axarr_heli = plt.subplots(1, 2, figsize = (5.0, 2.5), sharey = True)
+    fig_zpos, axarr_zpos            = plt.subplots(1, 2, figsize = (5.0, 2.5), sharey = True)
+    fig_zpos_mean, axarr_zpos_mean  = plt.subplots(1, 2, figsize = (5.0, 2.5), sharey = True)
+    fig_heli, axarr_heli            = plt.subplots(1, 2, figsize = (5.0, 2.5), sharey = True)
 
     # pretend we are a seed
     cidx = 0
     leaf0_list = []
     leaf1_list = []
     leaf1_list_top = []
+    center_list = []
     for sd in seednames:
-        file_path_trajectory = os.path.join(main_path, seedname, sd, sd + ".h5")
+        file_path_trajectory = os.path.join(seedname, sd, sd + ".h5")
         master_time_df = pd.read_hdf(file_path_trajectory)
         print(master_time_df)
 
@@ -113,14 +126,17 @@ for simname,seedname in simnames.items():
         max_time = xdata[-1]
 
         # This version puts the breaks in the x-axis
+        plt.figure(fig_zpos)
         axarr_zpos[0].plot(xdata, ydata, linewidth = 1, color = CB_color_cycle[cidx])
         axarr_zpos[1].plot(xdata, ydata, linewidth = 1, color = CB_color_cycle[cidx])
 
         leaf0_list.append(z_leaf0)
         leaf1_list.append(z_leaf1)
         leaf1_list_top.append(z_leaf1 + pbc_full_z)
+        center_list.append(ydata)
 
         # Do the helix as well
+        plt.figure(fig_heli)
         helicity    = master_time_df[['helicity']].to_numpy().flatten() 
         axarr_heli[0].plot(xdata, helicity, linewidth = 1, color = CB_color_cycle[cidx])
         axarr_heli[1].plot(xdata, helicity, linewidth = 1, color = CB_color_cycle[cidx])
@@ -136,6 +152,10 @@ for simname,seedname in simnames.items():
     leaf1_std = np.std(np.array(leaf1_list), axis=0, ddof=1)
     leaf1_top_std = np.std(np.array(leaf1_list_top), axis=0, ddof=1)
 
+    # Mean version as well
+    center_mean = np.mean(np.array(center_list), axis=0)
+    center_std  = np.std(np.array(center_list), axis=0, ddof=1)
+
     shaded_error(axarr_zpos[0], xdata, leaf0_mean, leaf0_std, alpha = 0.5, color = 'slategrey')
     shaded_error(axarr_zpos[1], xdata, leaf0_mean, leaf0_std, alpha = 0.5, color = 'slategrey')
     shaded_error(axarr_zpos[0], xdata, leaf1_mean, leaf1_std, alpha = 0.5, color = 'slategrey')
@@ -143,22 +163,42 @@ for simname,seedname in simnames.items():
     shaded_error(axarr_zpos[0], xdata, leaf1_top_mean, leaf1_top_std, alpha = 0.5, color = 'slategrey')
     shaded_error(axarr_zpos[1], xdata, leaf1_top_mean, leaf1_top_std, alpha = 0.5, color = 'slategrey')
 
+    # Mean version duplicates lots of work
+    shaded_error(axarr_zpos_mean[0], xdata, leaf0_mean, leaf0_std, alpha = 0.5, color = 'slategrey')
+    shaded_error(axarr_zpos_mean[1], xdata, leaf0_mean, leaf0_std, alpha = 0.5, color = 'slategrey')
+    shaded_error(axarr_zpos_mean[0], xdata, leaf1_mean, leaf1_std, alpha = 0.5, color = 'slategrey')
+    shaded_error(axarr_zpos_mean[1], xdata, leaf1_mean, leaf1_std, alpha = 0.5, color = 'slategrey')
+    shaded_error(axarr_zpos_mean[0], xdata, leaf1_top_mean, leaf1_top_std, alpha = 0.5, color = 'slategrey')
+    shaded_error(axarr_zpos_mean[1], xdata, leaf1_top_mean, leaf1_top_std, alpha = 0.5, color = 'slategrey')
+    shaded_error(axarr_zpos_mean[0], xdata, center_mean, center_std, alpha = 0.5, color = CB_color_cycle[0])
+    shaded_error(axarr_zpos_mean[1], xdata, center_mean, center_std, alpha = 0.5, color = CB_color_cycle[0])
+
     # Set the ylimits
     axarr_zpos[0].set_ylim(ylow_dict["zpos"], yhi_dict["zpos"])
     axarr_zpos[1].set_ylim(ylow_dict["zpos"], yhi_dict["zpos"])
+    axarr_zpos_mean[0].set_ylim(ylow_dict["zpos"], yhi_dict["zpos"])
+    axarr_zpos_mean[1].set_ylim(ylow_dict["zpos"], yhi_dict["zpos"])
 
     # Set the limits of the two subplots differently
     axarr_zpos[0].set_xlim(0.0, 10.0)
     axarr_zpos[1].set_xlim(max_time - 100.0, max_time)
+    axarr_zpos_mean[0].set_xlim(0.0, 10.0)
+    axarr_zpos_mean[1].set_xlim(max_time - 100.0, max_time)
 
     # Set so we can't see the spines, etc
     axarr_zpos[0].spines['right'].set_visible(False)
     axarr_zpos[0].tick_params(labelright = False)
+    axarr_zpos_mean[0].spines['right'].set_visible(False)
+    axarr_zpos_mean[0].tick_params(labelright = False)
 
     axarr_zpos[1].spines['left'].set_visible(False)
     axarr_zpos[1].tick_params(labelleft = False)
     axarr_zpos[1].yaxis.tick_right()
     axarr_zpos[1].tick_params(right=False)
+    axarr_zpos_mean[1].spines['left'].set_visible(False)
+    axarr_zpos_mean[1].tick_params(labelleft = False)
+    axarr_zpos_mean[1].yaxis.tick_right()
+    axarr_zpos_mean[1].tick_params(right=False)
 
     # Create the breaks
     d = 0.01
@@ -168,16 +208,28 @@ for simname,seedname in simnames.items():
     kwargs.update(transform=axarr_zpos[1].transAxes)
     axarr_zpos[1].plot((-d, d), (-d, d), linewidth=1, **kwargs)
     axarr_zpos[1].plot((-d, d), (1-d, 1+d), linewidth=1, **kwargs)
+    kwargs = dict(transform=axarr_zpos_mean[0].transAxes, color = 'k', clip_on = False)
+    axarr_zpos_mean[0].plot((1-d, 1+d), (-d, d), linewidth=1, **kwargs)
+    axarr_zpos_mean[0].plot((1-d, 1+d), (1-d, 1+d), linewidth=1, **kwargs)
+    kwargs.update(transform=axarr_zpos_mean[1].transAxes)
+    axarr_zpos_mean[1].plot((-d, d), (-d, d), linewidth=1, **kwargs)
+    axarr_zpos_mean[1].plot((-d, d), (1-d, 1+d), linewidth=1, **kwargs)
 
     spaceshift = 0.10
     fig_zpos.supxlabel(r"Time (ns)", x = 0.5+spaceshift/2.0)
     axarr_zpos[0].set_ylabel(axis_names["zpos"])
+    fig_zpos_mean.supxlabel(r"Time (ns)", x = 0.5+spaceshift/2.0)
+    axarr_zpos_mean[0].set_ylabel(axis_names["zpos"])
 
     # Layout options must come in order
+    plt.figure(fig_zpos)
     fig_zpos.tight_layout()
     plt.subplots_adjust(wspace=spaceshift, bottom=0.16)
-
-    plt.savefig("figure1_zpos_" + simname + "_allseeds_phosphates.pdf", dpi = fig_zpos.dpi)
+    plt.savefig("figure1_zpos_" + simname + "_allseeds.pdf", dpi = fig_zpos.dpi)
+    plt.figure(fig_zpos_mean)
+    fig_zpos_mean.tight_layout()
+    plt.subplots_adjust(wspace=spaceshift, bottom=0.16)
+    plt.savefig("figure1_zpos_" + simname + "_mean.pdf", dpi = fig_zpos_mean.dpi)
 
     # Do the helicity too
     plt.figure(fig_heli)
@@ -214,5 +266,5 @@ for simname,seedname in simnames.items():
     fig_heli.tight_layout()
     plt.subplots_adjust(wspace=spaceshift, bottom=0.16)
 
-    plt.savefig("figure1_heli_" + simname + "_allseeds_phosphates.pdf", dpi = fig_zpos.dpi)
+    plt.savefig("figure1_heli_" + simname + "_allseeds.pdf", dpi = fig_zpos.dpi)
 

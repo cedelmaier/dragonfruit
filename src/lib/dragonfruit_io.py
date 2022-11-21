@@ -51,8 +51,9 @@ def read_xvg(fname, identifier = ''):
             elif line[0].isdigit():
                 num_data.append(map(float, line.split()))
 
-    num_data = zip(*num_data)
-  
+    #num_data = zip(*num_data)
+    num_data = list(zip(*num_data))
+
     if not metadata['labels']['series']:
         for series in range(len(num_data) - 1):
             metadata['labels']['series'].append('')

@@ -1,6 +1,6 @@
 # Here are some tips and tricks for GROMACS
 
-# GROMACS running
+# Running GROMACS
 Here are the tips and tricks for running GROMACS itself. These include the
 ability to concatenate and process the trajectory files after a certain amount
 of running gromacs.
@@ -21,7 +21,8 @@ For CUDA-based-PLUMED gromacs, use the following commands.
 	module load gcc/9.1.0
 	module load cuda/9.2
 	source /nas/longleaf/apps/gromacs/???
-	
+
+
 ## Flatiron Institute: Rome: Loading GROMACS
 For the Flatiron computers, to load gromacs with the plumed compilation, this seems
 to work the best.
@@ -38,7 +39,7 @@ At the moment, have a special create_runscripts_gromacsplumed.py that generates 
 
 ## Running GROMACS
 I have created run scripts for the membrane simulations that can be generated with
-the create_run_scripts.py python script. This script is invoked in the following way,
+the create\_run\_scripts.py python script. This script is invoked in the following way,
 for instance, if you have 100 steps that you want to simulate (100 ns, each 'step' is
 1 ns worth of time). In this case, we start at step 1 after equilibration, then
 run some number of scripts that generate 10ns worth of data (the stride value). The nsday
@@ -54,6 +55,8 @@ Then, start the first run script via something like this,
 which will start the process of running all of the script you created. Eventually this will generate
 100 output trajectory files from gromacs, each worth 1 ns of data. Then, you have to combine
 them together in some meaningful way to see the full trajectory.
+
+Note, some of these do not care about the ns/day (like at Flatiron), because they have a very generous allocation. Still, it should be used if you have some idea about how long things run.
 
 ## Preprocessing GROMACS
 In order to use the structure files from Ronit's lab, or really just as a sanity check, you need to make sure that you're properly patching the end termini of the protein under study. For instance, from Ronit's lab, we want to add NH2 onto both the Nterminal and Cterminal of the AH domain. To do this, several steps must occur.
@@ -79,6 +82,8 @@ Where you interactively choose the correct options. This will genereate a gromac
 and gromacs file
 
 	monomer_processed.gro
+	
+Really, overall, the whole point is to properly get the terminal patching done with either GROMACS or the CHARMM-gui, and this can then be used as inputs to the run system. Hopefully, overall, you use the CHARMM-gui to get things configured, and then can just use my canned run scripts to submit everything to whatever supercomputer you are using.
 
 ## Postprocessing GROMACS
 We want to combine the trajectories together (usually) in a compressed data format. To do this, we
@@ -118,7 +123,7 @@ Then build the system out of the relevant components. To generate an asymmetric 
 To run equilibration, use the run_equilibration.sh script provided. This should
 properly setup the environment and run equilibration steps 1-6,
 
-A dual AH domain simulation is prepared by aligning the ILE4 residues so that the proteins are oriented the proper way, and displacing the second AH-domain by some number of angstroms in pymol using the translate command.
+A dual AH domain simulation is prepared by aligning the ILE4 residues so that the proteins are oriented the proper way, and displacing the second AH-domain by some number of angstroms in pymol using the translate command. There is probably a better way to do this, by creating the peptides in PyMOL to start, copying them, and then generating the water/etc around the peptides in the membrane.
 
 ## CHARMM GUI preparing asymmetric water box
 In the case of PMF calculations we need to prepare an asymmetric water box, in order to have the
@@ -150,24 +155,14 @@ To view the xpm files, you need to run them through something to convert to EPS 
 
     gmx xpm2ps -f dssp_test.xpm -o dssp_test.eps
 
-which will give an eps file that can be converted into a plot for what kind of residues are turns/helices,
-for instance.
+which will give an eps file that can be converted into a plot for what kind of residues are turns/helices, for instance.
 
-## Umbrella sampling
-**WARNING**: This is setup for pulling of COM between the AH domain and the membrane, without a reference
-coordinate other than the COM of the lipid bilayer and the AH-domain. This may or may not be correct. So, 
-make sure to think about what you are submitting!
+## Umbrella sampling via GROMACS
+**WARNING**: This is setup for pulling of COM between the AH domain and the membrane, without a reference coordinate other than the COM of the lipid bilayer and the AH-domain. This may or may not be correct. So, make sure to think about what you are submitting!
 
-Umbrella sampling is done similar to what is done in the gromacs tutorial 3 online. This is based off of
-previous work that has also done umbrella sampling (see papers on Overleaf for more details). The basics of
-this are to run a simulation and then pull the AH domain out of the membrane, measuring it at different intervals.
-To do this, we need to run several commands in order, some of which do require GROMACS to run, and may not work
-dependong on the version synchornizations between computers.
+Umbrella sampling is done similar to what is done in the gromacs tutorial 3 online. This is based off of previous work that has also done umbrella sampling (see papers on Overleaf for more details). The basics of this are to run a simulation and then pull the AH domain out of the membrane, measuring it at different intervals. To do this, we need to run several commands in order, some of which do require GROMACS to run, and may not work dependong on the version synchornizations between computers.
 
-First, one must start from a simulation of the AH-domain and membrane. I've used the coiled AH inserted at 
-+00 angstroms for this example. First, generate a configuration with the CHARMM-GUI, but include a *lot* of
-water on both sides (NOTE: This would be better if it were one-sided), in order to give enough room to pull
-the AH domain out of the membrane. Equilibration is done the same as the other types of simulations.
+First, one must start from a simulation of the AH-domain and membrane. I've used the coiled AH inserted at +00 angstroms for this example. First, generate a configuration with the CHARMM-GUI, but include a *lot* of water on both sides (NOTE: This would be better if it were one-sided), in order to give enough room to pull the AH domain out of the membrane. Equilibration is done the same as the other types of simulations.
 
     run_equilibration.sh
 
@@ -207,6 +202,147 @@ order, but that's fine.
     gmx wham -it tpr_files.dat -if pull_files.dat -o -hist -unit kCal
 
 This generates some files that you can then look into for the binding energy!
+
+## Umbrella Sampling via PLUMED
+Plumed and GROMACS work slightly differently. You can look at the online tutorial for plumed (any of the master-classes should work) to understand how this is working. Currently I'm running a hybrid design. First, the peptide is steered either outside to inside (or the reverse) using PLUMED, and then the actual sampling is done with GROMACS directly. This is because the GROMACS system seems to be slightly easier to interpret the 1D umbrella sampling and can be done direclty with gromacs, rather than using PLUMED to generate the final free energy surface files.
+
+## Metadynamics
+We can also use metadynamics to figure out the free energy of the peptide. In this case, I started from an 'equilibrated' state where the peptide is at the surface of the membrane. Then, this can be run through PLUMED in a metadynamics simulation.
+
+Currently, my plumed file looks like this for a neutral-cap monomer.
+
+	# vim:ft=plumed
+	MOLINFO STRUCTURE=reference.pdb
+
+	# Figure out the lipid and helix COM coordinates
+	lipid_com: COM ATOMS=313-48624
+	helix_com: COM ATOMS=1-312
+
+	# Get the Z distance
+	z_dist: DISTANCE ATOMS=lipid_com,helix_com COMPONENTS
+
+	# Get the alpha value
+	alpha: ALPHARMSD RESIDUES=1-18
+	
+	# Get some end to end alpha helix distance
+	alpha_dist: DISTANCE ATOMS=4,308
+
+	# Set up walls to prevent the helix from escaping
+	uwall: UPPER_WALLS ARG=z_dist.z AT=5.0  KAPPA=200.0 EXP=2 EPS=1 OFFSET=0
+	lwall: LOWER_WALLS ARG=z_dist.z AT=-5.0 KAPPA=200.0 EXP=2 EPS=1 OFFSET=0
+
+	# Set up the simple 1D metadynamics
+	metad: METAD ARG=z_dist.z ...
+    	# Deposit a gaussian every 500 time steps, with an initial height
+    	PACE=500 HEIGHT=0.5 BIASFACTOR=15
+    	# Try a gaussian width of 0.2 nm
+    	SIGMA=0.2
+    	# Gaussian written to file and stored on grid
+    	FILE=HILLS GRID_MIN=-5.0 GRID_MAX=5.0
+	...
+
+	# Print to a file
+	PRINT ARG=* FILE=colvar_metad.dat STRIDE=500
+	
+### Getting the masses and charges out of GROMACS
+We usually need the masses and charges out of a gromacs simulation for plumed to use the XTC files. To do this, use the following file and commands.
+
+`plumed_dumpmasscharge.dat`:
+
+	DUMPMASSCHARGE FILE=mcfile.dat
+
+Then you can run the command.
+
+	mpirun -np 1 gmx_mpi mdrun -s step6.0_minimization.tpr -nsteps 1 -plumed plumed_dumpmasscharge.dat
+
+and you will have a file `mcfile.dat`. Note this has to be done with a version of gromacs that is compiled with PLUMED (yuck).
+
+### Harvesting plumed info from previous simulations
+After you get out the masses/charges from a previously run simulation, you can then runt he plumed driver on it. If you use the following file, then you can harvest things like the Z distance and the alpha variable.
+
+`plumed_metad_measure.dat`:
+
+	# vim:ft=plumed
+	MOLINFO STRUCTURE=reference.pdb
+
+	# Figure out the lipid and helix COM coordinates
+	lipid_com: COM ATOMS=313-48624
+	helix_com: COM ATOMS=1-312
+
+	# Get the Z distance
+	z_dist: DISTANCE ATOMS=lipid_com,helix_com COMPONENTS
+
+	# Get the alpha value
+	alpha: ALPHARMSD RESIDUES=1-18
+
+	# Get some end to end alpha helix distance
+	alpha_dist: DISTANCE ATOMS=4,308
+
+	# Print to a file
+	PRINT ARG=* FILE=colvar_metad.dat STRIDE=1
+
+You can then run the plumed driver with the file to harvest the data.
+
+	plumed driver --mf_xtc traj_continuous_v1_100.xtc --mc mcfile.dat --plumed plumed_metad_measure.dat --kt 2.494339
+	
+### Reweighting the original simulation
+We can also re-bias the original simulation to see if the free energies are the same (converged) or not (hint: they're not, as we don't have nearly the statistics we need!). First, you are going to need the results of the metadynamics simulation in a HILLS file (see above). Then, you can use this to "unbias" the original simulation. First, you need a new plumed file that doesn't deposit new gaussian kernels and can then be used to get out the free energy contributions. NOTE: This is done on the 'original' simulation, not the metadynamics version.
+
+`plumed_metad_reweight.dat`:
+
+	# vim:ft=plumed
+	MOLINFO STRUCTURE=reference.pdb
+
+	# Figure out the lipid and helix COM coordinates
+	lipid_com: COM ATOMS=313-48624
+	helix_com: COM ATOMS=1-312
+
+	# Get the Z distance
+	z_dist: DISTANCE ATOMS=lipid_com,helix_com COMPONENTS
+
+	# Get the alpha value
+	alpha: ALPHARMSD RESIDUES=1-18
+
+	# Get some end to end alpha helix distance
+	alpha_dist: DISTANCE ATOMS=4,308
+
+	# Set up walls to prevent the helix from escaping
+	#uwall: UPPER_WALLS ARG=z_dist.z AT=5.0  KAPPA=200.0 EXP=2 EPS=1 OFFSET=0
+	#lwall: LOWER_WALLS ARG=z_dist.z AT=-5.0 KAPPA=200.0 EXP=2 EPS=1 OFFSET=0
+
+	# Set up the simple 1D metadynamics, increase time and don't deposit hills
+	metad: METAD ARG=z_dist.z ...
+    	# Deposit a gaussian (NEVER) with zero height
+    	PACE=1000000000 HEIGHT=0.0 BIASFACTOR=15
+    	# Try a gaussian width of 0.2 nm
+    	SIGMA=0.2
+    	# Gaussian written to file and stored on grid
+    	FILE=/Users/cedelmaier/Projects/Biophysics/septin_project/atomistic/simulations/data/enhanced_sampling/rfmonomer_aglipid_11x11_zdepth00_50mMKCl_metad_v2/HILLS GRID_MIN=-5.0 GRID_MAX=5.0
+    	# Make sure we restart this
+    	RESTART=YES
+	...
+
+	# Use the metadynamics bias as argument
+	as: REWEIGHT_BIAS ARG=metad.bias
+
+	# Calculate histograms of dz and alpha every 50 steps using the weights from the bias potential
+	hhdz: HISTOGRAM ARG=z_dist.z STRIDE=50 GRID_MIN=-5.0 GRID_MAX=5.0 GRID_BIN=50 BANDWIDTH=0.05 	LOGWEIGHTS=as
+	hhalpha: HISTOGRAM ARG=alpha STRIDE=50 GRID_MIN=0.0 GRID_MAX=18.0 GRID_BIN=50 BANDWIDTH=0.05 	LOGWEIGHTS=as
+	#Convert histograms h(s) to free energies
+	ffdz: CONVERT_TO_FES GRID=hhdz
+	ffalpha: CONVERT_TO_FES GRID=hhalpha
+	#Print to the file
+	DUMPGRID GRID=ffdz FILE=ffdz.dat
+	DUMPGRID GRID=ffalpha FILE=ffalpha.dat
+
+	# Print to a file
+	PRINT ARG=z_dist.z,alpha,metad.bias FILE=colvar_reweight.dat STRIDE=1
+
+One can then see how hilariously off the free energy estimates are by using the plumed driver.
+
+	plumed driver --mf_xtc traj_continuous_v1_100.xtc --mc mcfile.dat --plumed plumed_metad_reweight.dat --kt 2.494339
+
+
 
 # VMD tips and tricks (groan)
 

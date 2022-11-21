@@ -151,8 +151,8 @@ def create_header_longleaf(mpartition, ntmpi, ntomp, ngpu, total_time_hr, module
 # Comments for running on the UNC longleaf cluster
 #SBATCH --job-name=grun
 #SBATCH --partition={}
-#SBATCH --cpus-per-task={}
 #SBATCH --ntasks={}
+#SBATCH --cpus-per-task={}
 #SBATCH --gres=gpu:{}
 #SBATCH --qos=gpu_access
 #SBATCH --mem=8G

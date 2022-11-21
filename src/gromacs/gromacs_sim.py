@@ -96,6 +96,11 @@ class GromacsSim(SimulationBase):
         self.graph_groups["angles"] = self.graph_perseed_tilts
         self.graph_groups["forces"] = self.graph_perseed_forces
 
+        # Look for a stability analysis file for ourselves...
+        self.stability_filename = None
+        if os.path.isfile(os.path.join(self.opts.workdir,"stability_data.csv")):
+            self.stability_filename = os.path.join(self.opts.workdir, "stability_data.csv")
+
         if self.verbose: print("GromacsSim::__init__ return")
 
     def Analyze(self):
@@ -488,10 +493,32 @@ class GromacsSim(SimulationBase):
             plt.figure(fig_scatter)
             ax_scatter.scatter(x = xdata_mean, y = ydata_mean, zorder = 100, s = 30, marker = 's', color = 'b', facecolors = 'none')
             ax_scatter.errorbar(x = xdata_mean, y = ydata_mean, xerr = xdata_std, yerr = ydata_std, ecolor = 'b', elinewidth = 2, capsize = 5, capthick = 1, zorder = 0, fmt = 'none', marker = 's')
+
+            # If we have stability and the combination is zpos/tilt, then we can graph this
+            if key1 == "zpos" and key2 == "tilt" and self.stability_filename:
+                df_stability = pd.read_csv(self.stability_filename)
+                df_stability.drop_duplicates()
+
+                # Cyan = force untable, magenta = torque unstable, black = stable
+                stable_colors = []
+                for index,row in df_stability.iterrows():
+                    ccolor = 'k'
+                    if row['Fstab'] == 0 and row['Tstab'] == 0:
+                        ccolor = 'r'
+                    elif row['Fstab'] == 0:
+                        ccolor = 'c'
+                    elif row['Tstab'] == 0:
+                        ccolor = 'm'
+                    stable_colors.append(ccolor)
+                
+                predict_scatter = ax_scatter.scatter(df_stability['Z']*10.0, df_stability['Theta'], s = 50, marker = 'o', color = stable_colors, facecolors = stable_colors)
+                #predict_legend = ax_scatter.legend(*predict_scatter.legend_elements())
+
             ax_scatter.set_xlim([self.ylow_dict[key1], self.yhi_dict[key1]])
             ax_scatter.set_ylim([self.ylow_dict[key2], self.yhi_dict[key2]])
             ax_scatter.set_xlabel(self.named_graphs[key1])
             ax_scatter.set_ylabel(self.named_graphs[key2])
+
             fig_scatter.tight_layout()
             plt.savefig("{}/{}_{}_{}.pdf".format(combodir, key1, key2, self.name), dpi = fig_scatter.dpi)
 
