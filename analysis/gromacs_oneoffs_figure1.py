@@ -6,6 +6,7 @@
 
 import pickle
 import os
+import subprocess
 import sys
 
 import MDAnalysis as mda
@@ -20,6 +21,7 @@ from scipy.signal import savgol_filter
 # Magic to get the library directory working properly
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'src', 'lib'))
 from stylelib.common_styles import *
+from common import create_datadir
 
 # Set the style for the plots
 plt.style.use(septin_poster_stl)
@@ -32,8 +34,23 @@ def shaded_error(ax, x, y, error, alpha, color, linestyle = 'solid', label = Non
     ax.fill_between(x, y-error, y+error,
                     alpha = alpha, edgecolor = color, facecolor = color, linestyle = linestyle, linewidth = linewidth)
 
+# Doesn't work and can't figure out why right now
+#def convert_pdf_gs(name, newname):
+#    r""" Convert the PDF file using GS to make it smaller and more manageable
+#    """
+#    pdf_p = subprocess.Popen(["gs", "-sDevice=pdfwrite", "-dCompatibilityLevel=1.4", "-dNOPAUSE", "-dQUIET", "-dBATCH", "-sOutputFile={}".format(newname), name], stdout = subprocess.PIPE, stderr = subprocess.PIPE)
+#    pdf_output, pdf_errors = pdf_p.communicate()
+#    pdf_p.wait()
+#    print(pdf_output.decode("utf-8"))
+#    print(pdf_errors.decode("utf-8"))
+
+
 main_path = os.path.abspath('/Users/cedelmaier/Projects/Biophysics/septin_project/atomistic/simulations/data/')
 external_path = os.path.abspath('/Volumes/T7/data/septin_project/datasets/')
+
+# Create some external data directories
+allseed_datadir = create_datadir(os.getcwd(), datadir_name = "allseeds")
+mean_datadir = create_datadir(os.getcwd(), datadir_name = "mean")
 
 #simnames = {
 #            "neutral_fold_00": "rfmonomer_aglipid_11x11_zdepth00_rotx0_50mMKCl_long",
@@ -44,6 +61,8 @@ external_path = os.path.abspath('/Volumes/T7/data/septin_project/datasets/')
 #            }
 simnames = {
             "neutral_fold_00":  os.path.join(main_path, "rfmonomer_aglipid_11x11_zdepth00_rotx0_50mMKCl_long"),
+            "neutral_fold_15":  os.path.join(external_path, "rfmonomer_aglipid_11x11_zdepth15_50mMKCl"),
+            "neutral_fold_30":  os.path.join(external_path, "rfmonomer_aglipid_11x11_zdepth30_50mMKCl"),
             "charge_fold_00":   os.path.join(external_path, "gromacs_zdepth00_rotx0_helix_50mMKCl"),
             "charge_fold_15":   os.path.join(main_path, "agmonomer_aglipid_11x11_zdepth15_rotx0_50mMKCl"),
             "charge_fold_30":   os.path.join(external_path, "unbiased_50mMKCl_solution"),
@@ -91,6 +110,7 @@ for simname,seedname in simnames.items():
     fig_zpos, axarr_zpos            = plt.subplots(1, 2, figsize = (5.0, 2.5), sharey = True)
     fig_zpos_mean, axarr_zpos_mean  = plt.subplots(1, 2, figsize = (5.0, 2.5), sharey = True)
     fig_heli, axarr_heli            = plt.subplots(1, 2, figsize = (5.0, 2.5), sharey = True)
+    fig_heli_mean, axarr_heli_mean  = plt.subplots(1, 2, figsize = (5.0, 2.5), sharey = True)
 
     # pretend we are a seed
     cidx = 0
@@ -98,6 +118,7 @@ for simname,seedname in simnames.items():
     leaf1_list = []
     leaf1_list_top = []
     center_list = []
+    heli_list = []
     for sd in seednames:
         file_path_trajectory = os.path.join(seedname, sd, sd + ".h5")
         master_time_df = pd.read_hdf(file_path_trajectory)
@@ -140,6 +161,7 @@ for simname,seedname in simnames.items():
         helicity    = master_time_df[['helicity']].to_numpy().flatten() 
         axarr_heli[0].plot(xdata, helicity, linewidth = 1, color = CB_color_cycle[cidx])
         axarr_heli[1].plot(xdata, helicity, linewidth = 1, color = CB_color_cycle[cidx])
+        heli_list.append(helicity)
 
         cidx += 1
 
@@ -155,6 +177,8 @@ for simname,seedname in simnames.items():
     # Mean version as well
     center_mean = np.mean(np.array(center_list), axis=0)
     center_std  = np.std(np.array(center_list), axis=0, ddof=1)
+    heli_mean   = np.mean(np.array(heli_list), axis=0)
+    heli_std    = np.std(np.array(heli_list), axis=0, ddof=1)
 
     shaded_error(axarr_zpos[0], xdata, leaf0_mean, leaf0_std, alpha = 0.5, color = 'slategrey')
     shaded_error(axarr_zpos[1], xdata, leaf0_mean, leaf0_std, alpha = 0.5, color = 'slategrey')
@@ -225,30 +249,46 @@ for simname,seedname in simnames.items():
     plt.figure(fig_zpos)
     fig_zpos.tight_layout()
     plt.subplots_adjust(wspace=spaceshift, bottom=0.16)
-    plt.savefig("figure1_zpos_" + simname + "_allseeds.pdf", dpi = fig_zpos.dpi)
+    allseed_zpos_name = allseed_datadir + "/mplfigure1_zpos_" + simname + "_allseeds.pdf"
+    allseed_zpos_name_gs = allseed_datadir + "/figure1_zpos_" + simname + "_allseeds.pdf"
+    plt.savefig(allseed_zpos_name, dpi = fig_zpos.dpi)
     plt.figure(fig_zpos_mean)
     fig_zpos_mean.tight_layout()
     plt.subplots_adjust(wspace=spaceshift, bottom=0.16)
-    plt.savefig("figure1_zpos_" + simname + "_mean.pdf", dpi = fig_zpos_mean.dpi)
+    mean_zpos_name = mean_datadir + "/mplfigure1_zpos_" + simname + "_mean.pdf"
+    mean_zpos_name_gs = mean_datadir + "/figure1_zpos_" + simname + "_mean.pdf"
+    plt.savefig(mean_zpos_name, dpi = fig_zpos_mean.dpi)
 
     # Do the helicity too
+    shaded_error(axarr_heli_mean[0], xdata, heli_mean, heli_std, alpha = 0.5, color = CB_color_cycle[0])
+    shaded_error(axarr_heli_mean[1], xdata, heli_mean, heli_std, alpha = 0.5, color = CB_color_cycle[0])
     plt.figure(fig_heli)
     # Set the ylimits
     axarr_heli[0].set_ylim(ylow_dict["helix"], yhi_dict["helix"])
     axarr_heli[1].set_ylim(ylow_dict["helix"], yhi_dict["helix"])
+    axarr_heli_mean[0].set_ylim(ylow_dict["helix"], yhi_dict["helix"])
+    axarr_heli_mean[1].set_ylim(ylow_dict["helix"], yhi_dict["helix"])
 
     # Set the limits of the two subplots differently
     axarr_heli[0].set_xlim(0.0, 10.0)
     axarr_heli[1].set_xlim(max_time - 100.0, max_time)
+    axarr_heli_mean[0].set_xlim(0.0, 10.0)
+    axarr_heli_mean[1].set_xlim(max_time - 100.0, max_time)
 
     # Set so we can't see the spines, etc
     axarr_heli[0].spines['right'].set_visible(False)
     axarr_heli[0].tick_params(labelright = False)
+    axarr_heli_mean[0].spines['right'].set_visible(False)
+    axarr_heli_mean[0].tick_params(labelright = False)
 
     axarr_heli[1].spines['left'].set_visible(False)
     axarr_heli[1].tick_params(labelleft = False)
     axarr_heli[1].yaxis.tick_right()
     axarr_heli[1].tick_params(right=False)
+    axarr_heli_mean[1].spines['left'].set_visible(False)
+    axarr_heli_mean[1].tick_params(labelleft = False)
+    axarr_heli_mean[1].yaxis.tick_right()
+    axarr_heli_mean[1].tick_params(right=False)
 
     # Create the breaks
     d = 0.01
@@ -258,13 +298,38 @@ for simname,seedname in simnames.items():
     kwargs.update(transform=axarr_heli[1].transAxes)
     axarr_heli[1].plot((-d, d), (-d, d), linewidth=1, **kwargs)
     axarr_heli[1].plot((-d, d), (1-d, 1+d), linewidth=1, **kwargs)
+    kwargs = dict(transform=axarr_heli_mean[0].transAxes, color = 'k', clip_on = False)
+    axarr_heli_mean[0].plot((1-d, 1+d), (-d, d), linewidth=1, **kwargs)
+    axarr_heli_mean[0].plot((1-d, 1+d), (1-d, 1+d), linewidth=1, **kwargs)
+    kwargs.update(transform=axarr_heli_mean[1].transAxes)
+    axarr_heli_mean[1].plot((-d, d), (-d, d), linewidth=1, **kwargs)
+    axarr_heli_mean[1].plot((-d, d), (1-d, 1+d), linewidth=1, **kwargs)
 
     fig_heli.supxlabel(r"Time (ns)", x = 0.5+spaceshift/2.0)
     axarr_heli[0].set_ylabel(axis_names["helix"])
+    fig_heli_mean.supxlabel(r"Time (ns)", x = 0.5+spaceshift/2.0)
+    axarr_heli_mean[0].set_ylabel(axis_names["helix"])
 
     # Layout options must come in order
+    plt.figure(fig_heli)
     fig_heli.tight_layout()
     plt.subplots_adjust(wspace=spaceshift, bottom=0.16)
+    allseed_heli_name = allseed_datadir + "/mplfigure1_heli_" + simname + "_allseeds.pdf"
+    allseed_heli_name_gs = allseed_datadir + "/figure1_heli_" + simname + "_allseeds.pdf"
+    plt.savefig(allseed_heli_name, dpi = fig_heli.dpi)
 
-    plt.savefig("figure1_heli_" + simname + "_allseeds.pdf", dpi = fig_zpos.dpi)
+    plt.figure(fig_heli_mean)
+    fig_heli_mean.tight_layout()
+    plt.subplots_adjust(wspace=spaceshift, bottom=0.16)
+    mean_heli_name = mean_datadir + "/mplfigure1_heli_" + simname + "_mean.pdf"
+    mean_heli_name_gs = mean_datadir + "/figure1_heli_" + simname + "_mean.pdf"
+    plt.savefig(mean_heli_name, dpi = fig_heli_mean.dpi)
 
+    # This is a trick to get the PDF files of the right size, at MPL decides to make them rather
+    # unpleasant to use, in terms of size, for things like Illustrator, Keynote, etc.
+    #convert_pdf_gs(allseed_zpos_name, allseed_zpos_name_gs)
+    #convert_pdf_gs(mean_zpos_name, mean_zpos_name_gs)
+    #convert_pdf_gs(allseed_heli_name, allseed_heli_name_gs)
+    #convert_pdf_gs(mean_heli_name, mean_heli_name_gs)
+
+    plt.close('all')

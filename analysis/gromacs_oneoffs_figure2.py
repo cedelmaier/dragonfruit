@@ -39,6 +39,11 @@ umbrella_names = {
         "umbrella_outsidein_1000kJ": "rfmonomer_aglipid_11x11_zdepth80_50mMKCl_smd_higherkappa"
         }
 
+umbrella_labels = {
+        "umbrella_outsidein_200kJ": r"200 kJ mol$^{-1}$ nm$^{-2}$ SMD",
+        "umbrella_outsidein_1000kJ": r"1000 kJ mol$^{-1}$ nm$^{-2}$ SMD",
+        }
+
 metadynamics_names = {
         "metad_20k": "rfmonomer_aglipid_11x11_zdepth00_50mMKCl_metad",
         "metad_40k": "rfmonomer_aglipid_11x11_zdepth00_50mMKCl_metad_v2"
@@ -56,6 +61,7 @@ dfs = {}
 
 # Read in the XVG file for the umbrella sampling. Note, there are several of these
 cidx = 0
+fig_umbrella_all, ax_umbrella_all = plt.subplots(1, 1, figsize=(5.0,2.50))
 for simname,seedname in umbrella_names.items():
     print(simname, seedname)
 
@@ -85,6 +91,22 @@ for simname,seedname in umbrella_names.items():
     dfs[simname] = df
     plt.close()
 
+    ydata = ydata - np.min(ydata)
+    ax_umbrella_all.plot(xdata, ydata, linewidth = 1, color = CB_color_cycle[cidx], label = umbrella_labels[simname])
+
+    cidx += 1
+
+plt.figure(fig_umbrella_all)
+ax_umbrella_all.set_xlim(0.0, 100.0)
+ax_umbrella_all.set_xlabel(r"z ($\AA$)")
+ax_umbrella_all.set_ylabel(r"Free energy (kJ mol$^{-1}$)")
+ax_umbrella_all.legend()
+fig_umbrella_all.tight_layout()
+fig_umbrella_all.savefig("figure2_umbrella_comparison.pdf", dpi = fig_umbrella_all.dpi)
+plt.close()
+
+cidx = 0
+fig_metad_all, ax_metad_all = plt.subplots(1, 1, figsize=(5.0,2.5))
 # What about metadynamics?
 for simname,seedname in metadynamics_names.items():
     print(simname, seedname)
@@ -121,11 +143,24 @@ for simname,seedname in metadynamics_names.items():
     fig_fes.savefig("figure2_metad_" + simname + "_fes.pdf", dpi = fig_fes.dpi)
     plt.close()
 
+    ax_metad_all.plot(df_fes["z_dist.z"]*10.0, df_fes["file.free"], linewidth = 1, color = CB_color_cycle[cidx], label = simname)
+
     df_new = df_fes[['z_dist.z', 'file.free']].copy(deep=True)
     df_new.columns = ['z', 'FE']
     df_new.set_index('z', inplace=True, drop=True)
 
     dfs[simname] = df_new
+
+    cidx += 1
+
+plt.figure(fig_metad_all)
+ax_metad_all.set_xlim(0.0, 100.0)
+ax_metad_all.set_xlabel(r"z ($\AA$)")
+ax_metad_all.set_ylabel(r"Free energy (kJ mol$^{-1}$)")
+ax_metad_all.legend()
+fig_metad_all.tight_layout()
+fig_metad_all.savefig("figure2_metad_comparison.pdf", dpi = fig_metad_all.dpi)
+plt.close()
 
 # Now plot the different energies!
 fig_fes, ax_fes = plt.subplots(1, 1, figsize = (5.0, 2.5))
