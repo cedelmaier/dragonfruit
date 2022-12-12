@@ -343,6 +343,17 @@ One can then see how hilariously off the free energy estimates are by using the 
 	plumed driver --mf_xtc traj_continuous_v1_100.xtc --mc mcfile.dat --plumed plumed_metad_reweight.dat --kt 2.494339
 
 
+### Selecting a subset of atoms for the CVs
+Sometimes we might want to select some subset of atoms for our CVs, as they are quite large and computationally intensive. Here are some tricks, then.
+
+Phosphorus only from lipids:
+
+	grep -Ew "P" reference.pdb.bak | awk '{printf "%s,",$2}'
+    
+Carbon backbone only from helix:
+
+	grep -Ew "CA" reference.pdb.bak | awk '{printf "%s,",$2}'
+
 
 # VMD tips and tricks (groan)
 
