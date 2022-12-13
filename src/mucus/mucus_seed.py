@@ -311,18 +311,18 @@ class MucusSeed(SeedBase):
 
         # Add the actual command for lammps
         sh_str += (
-            f'mpirun --map-by ppr:{self.cluster.ntmpi}:node:pe=$OMP_NUM_THREADS --bind-to hwthread --report-bindings \\ \n'
-            f'  lmp_mpi -sf omp -pk omp ${{OMP_NUM_THREADS}} -in ${{CTRL_FILE}} \\ \n'
-            f'  -var OUTPUT_PREFIX ${{OUTPUT_PREFIX}} \\ \n'
-            f'  -var DATA_FILE     ${{DATA_FILE}} \\ \n'
-            f'  -var TRAJ_EVERY    {self.nwrite_equilibrate} \\ \n'
-            f'  -var BMHA          ${{BMHA}} \\ \n'
-            f'  -var LJELECTROSTATIC  ${{ELECTROSTATIC}} \\ \n'
-            f'  -var BEND             ${{BEND_K}} \\ \n'
-            f'  -var DELTA_T          {self.deltatau} \\ \n'
-            f'  -var T_DAMP           {self.t_damp} \\ \n'
-            f'  -var SEED             ${{SEED}} \\ \n'
-            f'  -var N_STEPS          ${{N_STEPS}} \n'
+            f'mpirun --map-by ppr:{self.cluster.ntmpi}:node:pe=$OMP_NUM_THREADS --bind-to hwthread --report-bindings \\\n'
+            f'  lmp_mpi -sf omp -pk omp ${{OMP_NUM_THREADS}} -in ${{CTRL_FILE}} \\\n'
+            f'  -var OUTPUT_PREFIX ${{OUTPUT_PREFIX}} \\\n'
+            f'  -var DATA_FILE     ${{DATA_FILE}} \\\n'
+            f'  -var TRAJ_EVERY    {self.nwrite_equilibrate} \\\n'
+            f'  -var BMHA          ${{BMHA}} \\\n'
+            f'  -var LJELECTROSTATIC  ${{ELECTROSTATIC}} \\\n'
+            f'  -var BEND             ${{BEND_K}} \\\n'
+            f'  -var DELTA_T          {self.deltatau} \\\n'
+            f'  -var T_DAMP           {self.t_damp} \\\n'
+            f'  -var SEED             ${{SEED}} \\\n'
+            f'  -var N_STEPS          ${{N_STEPS}}\n'
             f'\n'
         )
 
@@ -371,18 +371,18 @@ class MucusSeed(SeedBase):
 
         # Add the actual command for lammps
         sh_str += (
-            f'mpirun --map-by ppr:{self.cluster.ntmpi}:node:pe=$OMP_NUM_THREADS --bind-to hwthread --report-bindings \\ \n'
-            f'  lmp_mpi -sf omp -pk omp ${{OMP_NUM_THREADS}} -in ${{CTRL_FILE}} \\ \n'
-            f'  -var OUTPUT_PREFIX ${{OUTPUT_PREFIX}} \\ \n'
-            f'  -var DATA_FILE     ${{DATA_FILE}} \\ \n'
-            f'  -var TRAJ_EVERY    {self.nwrite} \\ \n'
-            f'  -var BMHA          ${{BMHA}} \\ \n'
-            f'  -var LJELECTROSTATIC  ${{ELECTROSTATIC}} \\ \n'
-            f'  -var BEND             ${{BEND_K}} \\ \n'
-            f'  -var DELTA_T          {self.deltatau} \\ \n'
-            f'  -var T_DAMP           {self.t_damp} \\ \n'
-            f'  -var SEED             ${{SEED}} \\ \n'
-            f'  -var N_STEPS          ${{N_STEPS}} \n'
+            f'mpirun --map-by ppr:{self.cluster.ntmpi}:node:pe=$OMP_NUM_THREADS --bind-to hwthread --report-bindings \\\n'
+            f'  lmp_mpi -sf omp -pk omp ${{OMP_NUM_THREADS}} -in ${{CTRL_FILE}} \\\n'
+            f'  -var OUTPUT_PREFIX ${{OUTPUT_PREFIX}} \\\n'
+            f'  -var DATA_FILE     ${{DATA_FILE}} \\\n'
+            f'  -var TRAJ_EVERY    {self.nwrite} \\\n'
+            f'  -var BMHA          ${{BMHA}} \\\n'
+            f'  -var LJELECTROSTATIC  ${{ELECTROSTATIC}} \\\n'
+            f'  -var BEND             ${{BEND_K}} \\\n'
+            f'  -var DELTA_T          {self.deltatau} \\\n'
+            f'  -var T_DAMP           {self.t_damp} \\\n'
+            f'  -var SEED             ${{SEED}} \\\n'
+            f'  -var N_STEPS          ${{N_STEPS}}\n'
             f'\n'
         )
 
@@ -522,7 +522,7 @@ neighbor        1.0 bin
 neigh_modify    every 1 delay 1 check yes
 
 fix nve_fix     muc_group nve
-fix nvt_fix     muc_group langevin ${Temperature} ${Temperature} ${T_DAMP} {SEED}
+fix nvt_fix     muc_group langevin ${Temperature} ${Temperature} ${T_DAMP} ${SEED}
 
 ################
 # Final setup for run
@@ -654,7 +654,7 @@ print ""
 # Order is e, c, h, p
 if "${LJ_E} > 0.0" then &
     "pair_style hybrid lj/cut ${SIGMA_16} lj/cut 2.5 born 2.5" &
-    "pair_modify pair lj/cut shift yes" 
+    "pair_modify shift yes" 
 
 if "${LJ_E} > 0.0" then &
     "pair_coeff ${muc_e} ${muc_e} lj/cut 1 1.0 1.0 ${SIGMA_16}" &
@@ -667,7 +667,7 @@ if "${LJ_E} > 0.0" then &
     "pair_coeff ${muc_p} ${muc_p} lj/cut 1 1.0 1.0 ${SIGMA_16}" &
 
 if "${LJ_E} > 0.0" then &
-    "pair_coeff ${muc_e} ${muc_p} lj/cut ${LJ_E} 2 1.0 2.5" &
+    "pair_coeff ${muc_e} ${muc_p} lj/cut 2 ${LJ_E} 1.0 2.5" &
 
 if "${BMH_A} < 0.0" then &
     "pair_coeff ${muc_h} ${muc_h} born ${BMH_A} ${BMH_RHO} 1.0 1.0 1.0 2.5" &
