@@ -1,7 +1,5 @@
-// Copyright (c) 2009-2021 The Regents of the University of Michigan
-// This file is part of the HOOMD-blue project, released under the BSD 3-Clause License.
-
-// Maintainer: cedelmaier
+// Copyright (c) 2009-2022 The Regents of the University of Michigan.
+// Part of HOOMD-blue, released under the BSD 3-Clause License.
 
 #ifndef __PAIR_EVALUATOR_BORNMAYERHUGGINS_H__
 #define __PAIR_EVALUATOR_BORNMAYERHUGGINS_H__
@@ -12,8 +10,10 @@
 
 #include "hoomd/HOOMDMath.h"
 
-/*! \file EvaluatorPairBornMayerHuggins.h
-    \brief Defines the pair evaluator class for Born-Mayer-Huggins potentails
+/*! \file EvaluatorPairLJ.h
+    \brief Defines the pair evaluator class for BornMayerHuggins potentials
+    \details As the prototypical example of a MD pair potential, this also serves as the primary
+   documentation and base reference for the implementation of pair evaluators.
 */
 
 // need to declare these class methods with __device__ qualifiers when building in nvcc
@@ -31,24 +31,10 @@ namespace hoomd
     {
 namespace md
     {
-
-//! Class for evaluating the Born-Mayer-Huggins pair potential
+//! Class for evaluating the LJ pair potential
 /*! <b>General Overview</b>
 
-    See EvaluatorPairLJ
-
-    <b>Born-Mayer-Huggins specifics</b>
-
-    EvaluatorPairBMH evaluates the function:
-XXX: FIXME
-    \f[ V_{\mathrm{yukawa}}(r) = \varepsilon \frac{ \exp \left( -\kappa r \right) }{r} \f]
-
-    The Yukawa potential does not need diameter or charge. Two parameters are specified and stored
-   in a Scalar2. \a epsilon is placed in \a params.x and \a kappa is in \a params.y.
-
-    These are related to the standard lj parameters sigma and epsilon by:
-    - \a epsilon = \f$ \varepsilon \f$
-    - \a kappa = \f$ \kappa \f$
+    Put something here
 
 */
 class EvaluatorPairBornMayerHuggins
@@ -68,7 +54,7 @@ class EvaluatorPairBornMayerHuggins
         HOSTDEVICE void allocate_shared(char*& ptr, unsigned int& available_bytes) const { }
 
 #ifdef ENABLE_HIP
-        // set CUDA memory hints
+        //! Set CUDA memory hints
         void set_memory_hint() const
             {
             // default implementation does nothing
@@ -80,21 +66,13 @@ class EvaluatorPairBornMayerHuggins
 
         param_type(pybind11::dict v, bool managed = false)
             {
+            auto rho(v["rho"].cast<Scalar>());
+
             A = v["A"].cast<Scalar>();
             sigma = v["sigma"].cast<Scalar>();
-            rhoinv = Scalar(1.0) / v["rho"].cast<Scalar>();
+            rhoinv = Scalar(1.0) / rho;
             C = v["C"].cast<Scalar>();
             D = v["D"].cast<Scalar>();
-            }
-
-        // this constructor facilitates unit testing
-        param_type(Scalar pA, Scalar psigma, Scalar prho, Scalar pC, Scalar pD, bool managed = false)
-            {
-            A = pA;
-            sigma = psigma;
-            rhoinv = Scalar(1.0) / prho;
-            C = pC;
-            D = pD;
             }
 
         pybind11::dict asDict()
@@ -110,9 +88,9 @@ class EvaluatorPairBornMayerHuggins
 #endif
         }
 #ifdef SINGLE_PRECISION
-    __attribute__((aligned(8)));
+        __attribute__((aligned(8)));
 #else
-    __attribute__((aligned(16)));
+        __attribute__((aligned(16)));
 #endif
 
     //! Constructs the pair potential evaluator
@@ -126,7 +104,7 @@ class EvaluatorPairBornMayerHuggins
         {
         }
 
-    //! Yukawa doesn't use diameter
+    //! LJ doesn't use diameter
     DEVICE static bool needsDiameter()
         {
         return false;
@@ -137,7 +115,7 @@ class EvaluatorPairBornMayerHuggins
     */
     DEVICE void setDiameter(Scalar di, Scalar dj) { }
 
-    //! Yukawa doesn't use charge
+    //! LJ doesn't use charge
     DEVICE static bool needsCharge()
         {
         return false;
@@ -151,11 +129,13 @@ class EvaluatorPairBornMayerHuggins
     //! Evaluate the force and energy
     /*! \param force_divr Output parameter to write the computed force divided by r.
         \param pair_eng Output parameter to write the computed pair energy
-        \param energy_shift If true, the potential must be shifted so that V(r) is continuous at the
-       cutoff \note There is no need to check if rsq < rcutsq in this method. Cutoff tests are
-       performed in PotentialPair.
+        \param energy_shift If true, the potential must be shifted so that
+        V(r) is continuous at the cutoff
+        \note There is no need to check if rsq < rcutsq in this method.
+        Cutoff tests are performed in PotentialPair.
 
-        \return True if they are evaluated or false if they are not because we are beyond the cutoff
+        \return True if they are evaluated or false if they are not because
+        we are beyond the cutoff
     */
     DEVICE bool evalForceAndEnergy(Scalar& force_divr, Scalar& pair_eng, bool energy_shift)
         {
@@ -170,11 +150,20 @@ class EvaluatorPairBornMayerHuggins
 
             force_divr = (A*rhoinv*rexp*r - Scalar(6.0)*C*r6inv - Scalar(8.0)*D*r6inv*r2inv) * r2inv;
             pair_eng = A*rexp - C*r6inv - D*r6inv*r2inv;
-
             return true;
             }
         else
             return false;
+        }
+
+    DEVICE Scalar evalPressureLRCIntegral()
+        {
+        return 0;
+        }
+
+    DEVICE Scalar evalEnergyLRCIntegral()
+        {
+        return 0;
         }
 
 #ifndef __HIPCC__
@@ -193,13 +182,13 @@ class EvaluatorPairBornMayerHuggins
 #endif
 
     protected:
-    Scalar rsq;     //!< Stored rsq from the constructor
-    Scalar rcutsq;  //!< Stored rcutsq from the constructor
-    Scalar A;       //!< A parameter extracted from the params passed to the constructor
-    Scalar sigma;   //!< sigma parameter extracted from the params passed to the constructor
-    Scalar rhoinv;  //!< rhoinv parameter extracted from the params passed to the constructor
-    Scalar C;       //!< C parameter extracted from the params passed to the constructor
-    Scalar D;       //!< D parameter extracted from the params passed to the constructor
+    Scalar rsq;    //!< Stored rsq from the constructor
+    Scalar rcutsq; //!< Stored rcutsq from the constructor
+    Scalar A;      //!< lj1 parameter extracted from the params passed to the constructor
+    Scalar sigma;  //!< lj1 parameter extracted from the params passed to the constructor
+    Scalar rhoinv; //!< lj1 parameter extracted from the params passed to the constructor
+    Scalar C;      //!< lj1 parameter extracted from the params passed to the constructor
+    Scalar D;      //!< lj1 parameter extracted from the params passed to the constructor
     };
 
     } // end namespace md
