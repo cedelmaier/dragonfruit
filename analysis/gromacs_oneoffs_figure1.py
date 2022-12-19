@@ -44,6 +44,26 @@ def shaded_error(ax, x, y, error, alpha, color, linestyle = 'solid', label = Non
 #    print(pdf_output.decode("utf-8"))
 #    print(pdf_errors.decode("utf-8"))
 
+#def gs_opt(filename):
+#    filenameTmp = filename.split('.')[-2]+'_tmp.pdf'
+#    gs = ['gs',
+#          '-sDEVICE=pdfwrite',
+#          '-dEmbedAllFonts=false',
+#          '-dSubsetFonts=true',             # Create font subsets (default)
+#          '-dPDFSETTINGS=/prepress',        # Image resolution
+#          '-dDetectDuplicateImages=true',   # Embeds images used multiple times only once
+#          '-dCompressFonts=true',           # Compress fonts in the output (default)
+#          '-dNOPAUSE',                      # No pause after each image
+#          '-dQUIET',                        # Suppress output
+#          '-dBATCH',                        # Automatically exit
+#          '-sOutputFile='+filenameTmp,      # Save to temporary output
+#          filename]                         # Input file
+#    
+#    subprocess.run(gs)                                      # Create temporary file
+#    #subprocess.run(['rm', filename], shell=True)            # Delete input file
+#    #subprocess.run(['mv', filenameTmp, filename], shell=True) # Rename temporary to input file
+#    os.rename(filenameTmp, filename)
+
 
 main_path = os.path.abspath('/Users/cedelmaier/Projects/Biophysics/septin_project/atomistic/simulations/data/')
 external_path = os.path.abspath('/Volumes/T7/data/septin_project/datasets/')
@@ -60,13 +80,14 @@ mean_datadir = create_datadir(os.getcwd(), datadir_name = "mean")
 #            "charge_unfold_15": "agmonomermelt_aglipid_11x11_zdepth15_rotx0_50mMKCl",
 #            }
 simnames = {
-            "neutral_fold_00":  os.path.join(main_path, "rfmonomer_aglipid_11x11_zdepth00_rotx0_50mMKCl_long"),
-            "neutral_fold_15":  os.path.join(external_path, "rfmonomer_aglipid_11x11_zdepth15_50mMKCl"),
-            "neutral_fold_30":  os.path.join(external_path, "rfmonomer_aglipid_11x11_zdepth30_50mMKCl"),
-            "charge_fold_00":   os.path.join(external_path, "gromacs_zdepth00_rotx0_helix_50mMKCl"),
-            "charge_fold_15":   os.path.join(main_path, "agmonomer_aglipid_11x11_zdepth15_rotx0_50mMKCl"),
-            "charge_fold_30":   os.path.join(external_path, "unbiased_50mMKCl_solution"),
-            "charge_unfold_15": os.path.join(main_path, "agmonomermelt_aglipid_11x11_zdepth15_rotx0_50mMKCl"),
+            "neutral_fold_00":      os.path.join(main_path, "rfmonomer_aglipid_11x11_zdepth00_rotx0_50mMKCl_long"),
+            "neutral_fold_15":      os.path.join(external_path, "rfmonomer_aglipid_11x11_zdepth15_50mMKCl"),
+            "neutral_fold_30":      os.path.join(external_path, "rfmonomer_aglipid_11x11_zdepth30_50mMKCl"),
+            "neutral_unfold_15":    os.path.join(external_path, "rfmonomermelt_aglipid_11x11_zdepth15_rotx0_50mMCKl"),
+            "charge_fold_00":       os.path.join(external_path, "gromacs_zdepth00_rotx0_helix_50mMKCl"),
+            "charge_fold_15":       os.path.join(main_path, "agmonomer_aglipid_11x11_zdepth15_rotx0_50mMKCl"),
+            "charge_fold_30":       os.path.join(external_path, "unbiased_50mMKCl_solution"),
+            "charge_unfold_15":     os.path.join(main_path, "agmonomermelt_aglipid_11x11_zdepth15_rotx0_50mMKCl"),
             }
 
 #seednames = ["N1"]
@@ -249,15 +270,13 @@ for simname,seedname in simnames.items():
     plt.figure(fig_zpos)
     fig_zpos.tight_layout()
     plt.subplots_adjust(wspace=spaceshift, bottom=0.16)
-    allseed_zpos_name = allseed_datadir + "/mplfigure1_zpos_" + simname + "_allseeds.pdf"
-    allseed_zpos_name_gs = allseed_datadir + "/figure1_zpos_" + simname + "_allseeds.pdf"
-    plt.savefig(allseed_zpos_name, dpi = fig_zpos.dpi)
+    allseed_zpos_name = allseed_datadir + "/figure1_zpos_" + simname + "_allseeds.png"
+    plt.savefig(allseed_zpos_name, dpi = 600)
     plt.figure(fig_zpos_mean)
     fig_zpos_mean.tight_layout()
     plt.subplots_adjust(wspace=spaceshift, bottom=0.16)
-    mean_zpos_name = mean_datadir + "/mplfigure1_zpos_" + simname + "_mean.pdf"
-    mean_zpos_name_gs = mean_datadir + "/figure1_zpos_" + simname + "_mean.pdf"
-    plt.savefig(mean_zpos_name, dpi = fig_zpos_mean.dpi)
+    mean_zpos_name = mean_datadir + "/figure1_zpos_" + simname + "_mean.png"
+    plt.savefig(mean_zpos_name, dpi = 600)
 
     # Do the helicity too
     shaded_error(axarr_heli_mean[0], xdata, heli_mean, heli_std, alpha = 0.5, color = CB_color_cycle[0])
@@ -314,16 +333,14 @@ for simname,seedname in simnames.items():
     plt.figure(fig_heli)
     fig_heli.tight_layout()
     plt.subplots_adjust(wspace=spaceshift, bottom=0.16)
-    allseed_heli_name = allseed_datadir + "/mplfigure1_heli_" + simname + "_allseeds.pdf"
-    allseed_heli_name_gs = allseed_datadir + "/figure1_heli_" + simname + "_allseeds.pdf"
-    plt.savefig(allseed_heli_name, dpi = fig_heli.dpi)
+    allseed_heli_name = allseed_datadir + "/figure1_heli_" + simname + "_allseeds.png"
+    plt.savefig(allseed_heli_name, dpi = 600)
 
     plt.figure(fig_heli_mean)
     fig_heli_mean.tight_layout()
     plt.subplots_adjust(wspace=spaceshift, bottom=0.16)
-    mean_heli_name = mean_datadir + "/mplfigure1_heli_" + simname + "_mean.pdf"
-    mean_heli_name_gs = mean_datadir + "/figure1_heli_" + simname + "_mean.pdf"
-    plt.savefig(mean_heli_name, dpi = fig_heli_mean.dpi)
+    mean_heli_name = mean_datadir + "/figure1_heli_" + simname + "_mean.png"
+    plt.savefig(mean_heli_name, dpi = 600)
 
     # This is a trick to get the PDF files of the right size, at MPL decides to make them rather
     # unpleasant to use, in terms of size, for things like Illustrator, Keynote, etc.
