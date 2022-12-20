@@ -27,8 +27,9 @@ def helix_space_func(t0, a, b, d):
     return 4.0 * np.square(a) * np.square(np.sin(t0/2.0)) + np.square(b*t0) - np.square(d)
 
 class HelixAHDomain(ahdomain):
-    def __init__(self, bead_size, yaml_file):
-        super().__init__(bead_size, yaml_file)
+    def __init__(self, verbose, bead_size, yaml_file):
+        if verbose: print(f"HelixAHDomain::__init__")
+        super().__init__(verbose, bead_size, yaml_file)
 
         # Override the number of beads, etc, that we are using
         self.pitch                          = np.float64(yaml_file['ah_domain']['pitch'])
@@ -75,9 +76,13 @@ class HelixAHDomain(ahdomain):
             print(f"Initial location {self.initial_location} not recognized, exiting!")
             sys.exit(1)
 
+        if self.verbose: print(f"HelixAHDomain::__init__ return")
+
     def CreateAH(self, snap):
+        if self.verbose: print(f"HelixAHDomain::CreateAH")
         # Early bail if no AH domains
         if self.nah == 0:
+            if self.verbose: print(f"HelixAHDomain::CreateAH return early (nAH  = {self.nah}")
             return
 
         # We have additional types that we must setup before creating particles
@@ -171,6 +176,7 @@ class HelixAHDomain(ahdomain):
                 if overlap == 0:
                     break
 
+        if self.verbose: print(f"HelixAHDomain::CreateAH return")
 
     def PrintInformation(self, snap):
         # Print out AH information

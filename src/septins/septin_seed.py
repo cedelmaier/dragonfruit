@@ -27,7 +27,8 @@ from seed_graph_funcs import *
 
 class SeptinSeed(SeedBase):
     def __init__(self, path, opts):
-        print(f"SeptinSeed::__init__")
+        self.verbose = opts.verbose
+        if self.verbose: print(f"SeptinSeed::__init__")
 
         SeedBase.__init__(self, path, opts)
 
@@ -43,14 +44,14 @@ class SeptinSeed(SeedBase):
 
         # Lipid parameters
         if 'membrane' in self.default_yaml:
-            self.lipids = Membrane(self.bead_size, self.default_yaml)
+            self.lipids = Membrane(self.verbose, self.bead_size, self.default_yaml)
         # AH parameters
         if 'ah_domain' in self.default_yaml:
             self.ahtype = self.default_yaml['ah_domain']['polymer_type']
             if self.ahtype == 'block_copolymer':
-                self.ahdomain = BlockAHDomain(self.bead_size, self.default_yaml)
+                self.ahdomain = BlockAHDomain(self.verbose, self.bead_size, self.default_yaml)
             elif self.ahtype == 'helix_block_copolymer':
-                self.ahdomain = HelixAHDomain(self.bead_size, self.default_yaml)
+                self.ahdomain = HelixAHDomain(self.verbose, self.bead_size, self.default_yaml)
             else:
                 print(f"AH domain type {self.ahtype} not implemented, exiting!")
                 sys.exit(1)
@@ -61,12 +62,12 @@ class SeptinSeed(SeedBase):
         # Set the name for the results file at the end
         self.hd5_name = "SeptinSeed.h5"
 
-        print(f"SeptinSeed::__init__ return")
+        if self.verbose: print(f"SeptinSeed::__init__ return")
 
     def ReadData(self):
         r""" Read the data from a YAML file for a single seed
         """
-        print(f"SeptinSeed::ReadData")
+        if self.verbose: print(f"SeptinSeed::ReadData")
         # Simulation parameters
         self.kT                 = np.float64(self.default_yaml['simulation']['kT'])
         self.bead_size          = np.float64(self.default_yaml['simulation']['bead_size'])
@@ -112,7 +113,8 @@ class SeptinSeed(SeedBase):
         else:
             print(f"Need to specify a correct initialization type, tried {self.init_type}, exiting!")
             sys.exit(1)
-        print(f"SeptinSeed::ReadData return")
+
+        if self.verbose: print(f"SeptinSeed::ReadData return")
 
     def PrintInformation(self, snap):
         r""" Print parameter information for SeptinSeed

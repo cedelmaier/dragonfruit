@@ -28,6 +28,10 @@ def parse_args():
     parser.add_argument('-d', '--workdir', action = 'store_true',
             help = 'Working directory')
 
+    # Add verbosity control
+    parser.add_argument('-v', '--verbose', action="store_true",
+            help = 'Verbose output')
+
 
     opts = parser.parse_args()
 

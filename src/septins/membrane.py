@@ -15,7 +15,9 @@ import yaml
 import numpy as np
 
 class Membrane(object):
-    def __init__(self, bead_size, yaml_file):
+    def __init__(self, verbose, bead_size, yaml_file):
+        self.verbose = verbose
+        if self.verbose: print(f"Membrame::__init__")
         # Lipid parameters
         self.nbeads    = np.int32(np.float64(yaml_file['membrane']['nbeads']))
         self.mdopc     = np.float64(yaml_file['membrane']['mass'])
@@ -59,8 +61,11 @@ class Membrane(object):
         self.nlipids = 2 * self.ngrid * self.ngrid
         self.nlipids_per_leaflet = self.nlipids / 2
 
+        if self.verbose: print(f"Membrame::__init__ return")
+
     # Init any information that required a snapshot
     def InitMembrane(self, snap):
+        if self.verbose: print(f"Membrane::InitMembrane")
         if self.is_init:
             print(f"Creating membrane from file")
             for itype,ntype in enumerate(snap.particles.types):
@@ -70,9 +75,11 @@ class Membrane(object):
             self.getTypebyName = {'H': 0, 'I': 1, 'T': 2}
             self.CreateMembrane(snap)
         self.is_init = True
+        if self.verbose: print(f"Membrane::InitMembrane return")
 
     # Create the membrane for our system
     def CreateMembrane(self, snap):
+        if self.verbose: print(f"Membrane::CreateMembrane")
         # What is the number of replications we need in the box?
         box_extent = self.lbox
         linear_extent = box_extent/self.ngrid
@@ -129,9 +136,10 @@ class Membrane(object):
 
         # XXX: FIXME: Dump a lammps configuration at the same time!
         self.CreateLAMMPS(snap)
+        if self.verbose: print(f"Membrane::CreateMembrane return")
 
     def CreateLAMMPS(self, snap):
-        print(f"Membrane::CreateLAMMPS")
+        if self.verbose: print(f"Membrane::CreateLAMMPS")
 
         # Get the  number of atoms
         natoms = snap.particles.N
@@ -207,7 +215,7 @@ class Membrane(object):
         with open(lammps_filename, 'w') as stream:
             stream.write(lammps_str)
 
-        print(f"Membrane::CreateLAMMPS return")
+        if self.verbose: print(f"Membrane::CreateLAMMPS return")
 
     def PrintInformation(self, snap):
         # Print out the relevant information about the lipids
@@ -244,7 +252,7 @@ class Membrane(object):
     def ConfigureAnalysis(self, snap):
         r""" Configure the analysis for the trajectory
         """
-        print(f"Membrane::ConfigureAnalysis")
+        if self.verbose: print(f"Membrane::ConfigureAnalysis")
 
         if self.analysis_init:
             print(f"Membrane: analysis already set up!")
@@ -255,7 +263,7 @@ class Membrane(object):
             self.getTypebyName[val] = idx
             self.getNamebyType[idx] = val
 
-        print(f"Membrane::ConfigureAnalysis return")
+        if self.verbose: print(f"Membrane::ConfigureAnalysis return")
 
     def GetLeafletIndices(self, snap, ptype):
         r""" Get the indices for the lipids, upper and lower leaflets

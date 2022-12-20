@@ -17,7 +17,9 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'lib'))
 from common import *
 
 class ahdomain(object):
-    def __init__(self, bead_size, yaml_file):
+    def __init__(self, verbose, bead_size, yaml_file):
+        self.verbose = verbose
+        if self.verbose: print(f"ahdomain::__init__")
         # AH-domain parameters
         self.nah              = np.int32(np.float64(yaml_file['ah_domain']['n_ah']))
         self.polymer_type     = yaml_file['ah_domain']['polymer_type']
@@ -33,6 +35,8 @@ class ahdomain(object):
         self.kbond            = np.float64(yaml_file['ah_domain']['kbond'])
         self.kbend            = np.float64(yaml_file['ah_domain']['kbend'])
         self.is_init          = yaml_file['ah_domain']['is_init']
+
+        if self.verbose: print(f"ahdomain::__init__ return")
 
     # Initialize the AH domains
     def InitAH(self, snap):

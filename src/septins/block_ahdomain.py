@@ -95,13 +95,13 @@ class SingleAHDomain(object):
         print(f"    deep_lifetime:          {self.lifetime_dict[BindingState.deep]}")
 
 class BlockAHDomain(ahdomain):
-    def __init__(self, bead_size, yaml_file):
-        super().__init__(bead_size, yaml_file)
+    def __init__(self, verbose, bead_size, yaml_file):
+        if verbose: print(f"BlockAHDomain __init__")
+        super().__init__(verbose, bead_size, yaml_file)
 
         # Set constants we will need for this simulation
         self.nbeads           = np.int32(np.float64(yaml_file['ah_domain']['nbeads']))
         self.nrepeat          = np.int32(np.float64(yaml_file['ah_domain']['nrepeat']))
-        self.thetabend        = np.float64(yaml_file['ah_domain']['thetabend'])
 
         # Set constants we will need
         self.bead_size = 0.75*bead_size
@@ -115,10 +115,16 @@ class BlockAHDomain(ahdomain):
         self.getTypeIDbyName = {}
         self.getNamebyTypeID = {}
 
+        if self.verbose: print(f"BlockAHDomain::__init__ return")
+
     # Create some number of block copolyerms in the simulation
     def CreateAH(self, snap):
+        if self.verbose: print(f"BlockAHDomain::CreateAH")
+        print(f"ERROR: Strict block AH domains is deprecated, exiting (look at helix domains)")
+        sys.exit(1)
         # Early bail if no AH domains
         if self.nah == 0:
+            if self.verbose: print(f"BlockAHDomain::CreateAH return (nAH = {self.nah})")
             return
 
         # We have additional types that we must setup before creating particles
