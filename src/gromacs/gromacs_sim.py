@@ -69,8 +69,9 @@ class GromacsSim(SimulationBase):
         self.named_graphs = {}
         self.named_graphs['zpos']           = r"Z ($\AA$)"
         self.named_graphs['helix']          = r"Helicity (AU)"
-        self.named_graphs['tilt']           = r"$\Theta_{u}$ (deg)"
-        self.named_graphs['pdip']           = r"$\Theta_{p}$ (deg)"
+        #self.named_graphs['tilt']           = r"$\Theta_{u}$ (deg)"
+        #self.named_graphs['tilt']           = r"$\Theta_{u}$ (deg)"
+        self.named_graphs['pdip']           = r"Tilt (deg)"
         self.named_graphs['pmom']           = r"Helix electric dipole magnitude"
         self.named_graphs['hp']             = r"$\Phi_{up}$ (deg)"
         self.named_graphs['zforce']         = r"Force (kJ mol$^{-1}$ nm${^-1})"

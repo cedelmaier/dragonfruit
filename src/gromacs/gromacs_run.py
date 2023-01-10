@@ -64,7 +64,8 @@ class GromacsRun(RunBase):
         self.named_graphs = {}
         self.named_graphs['zpos']          = r"Z ($\AA$)"
         self.named_graphs['helix']         = r"Helicity (AU)"
-        self.named_graphs['tilt']          = r"$\Theta_{u}$ (deg)"
+        #self.named_graphs['tilt']          = r"$\Theta_{u}$ (deg)"
+        self.named_graphs['tilt']          = r"Tilt (deg)"
         self.named_graphs['pdip']          = r"$\Theta_{p}$ (deg)"
         self.named_graphs['pmom']          = r"Helix electric dipole magnitude"
         self.named_graphs['hp']            = r"$\Phi_{up}$ (deg)"
@@ -191,13 +192,19 @@ class GromacsRun(RunBase):
                 ydata_mean_df       = self.dfs[sim].filter(regex = target_xdata_mean)
                 ydata_std_df        = self.dfs[sim].filter(regex = target_xdata_std)
 
+                # Curate the one data point from 50 mM Charged that is 180-value due to which leaflet it picked
+                if key2 == 'tilt':
+                    ydata_mean_df[ydata_mean_df < 40.0] = 180.0 - ydata_mean_df[ydata_mean_df < 40.0]
+
                 xdata_mean = xdata_mean_df.iloc[-1,:]
                 ydata_mean = ydata_mean_df.iloc[-1,:]
                 xdata_std = xdata_std_df.iloc[-1,:]
                 ydata_std = ydata_std_df.iloc[-1,:]
 
-                ax_scatter.scatter(x = xdata_mean, y = ydata_mean, zorder = 100, s = 80, marker = 's', color = colors[color_count], facecolors = 'none')
-                ax_scatter.errorbar(x = xdata_mean, y = ydata_mean, xerr = xdata_std, yerr = ydata_std, ecolor = colors[color_count], elinewidth = 2, capsize = 5, capthick = 1, zorder = 0, fmt = 'none', marker = 's')
+                #ax_scatter.scatter(x = xdata_mean, y = ydata_mean, zorder = 100, s = 80, marker = 's', color = colors[color_count], facecolors = 'none')
+                #ax_scatter.errorbar(x = xdata_mean, y = ydata_mean, xerr = xdata_std, yerr = ydata_std, ecolor = colors[color_count], elinewidth = 2, capsize = 5, capthick = 1, zorder = 0, fmt = 'none', marker = 's')
+                ax_scatter.scatter(x = xdata_mean, y = ydata_mean, zorder = 100, s = 20, marker = 's', color = colors[color_count], facecolors = 'none')
+                ax_scatter.errorbar(x = xdata_mean, y = ydata_mean, xerr = xdata_std, yerr = ydata_std, ecolor = colors[color_count], elinewidth = 1, capsize = 5, capthick = 1, zorder = 0, fmt = 'none', marker = 's')
 
                 legend_names.append("{} {} mM".format(simname[0], simname[1]))
 
