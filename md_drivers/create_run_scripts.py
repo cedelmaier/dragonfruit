@@ -93,7 +93,7 @@ def configure_cluster(mcluster, mruntype, mpartition, ntmpi, ntomp):
         if mruntype == "gpu":
             gmx_exec = "gmx_gpu"
             gmx_grompp = "gmx_gpu"
-            gmx_src  = "/nas/longleaf/apps/gromacs/2021.5/avx_512-cuda11.4/bin/GMXRC"
+            gmx_src  = "/nas/longleaf/apps/gromacs/2021.5/avx2_256-cuda11.4/bin/GMXRC"
             gmx_options = "-ntmpi {} -ntomp {} -nb gpu -bonded gpu -pme gpu -npme 1".format(ntmpi, ntomp)
             module_list.append('module load gcc/9.1.0')
             module_list.append('module load cuda/11.4')
