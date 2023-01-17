@@ -151,6 +151,14 @@ You also need to set the temperature. I use 300K, but use whatever you feel like
 
 Once you click 'Next' it will take a LONG time to generate the results, so sit back, relax, go do something else, whatever, and then we will pick up next time, which is actually equilibrating and running your simulation!
 
+### Checking on jobs
+If you want to close the window, you can do so, and come back later to harvest the results. Go into CHARMM-GUI and click on your 'User Profile' link. This will take you to a page where you can go look at the Job IDs. Click on that.
+
+This will take you to a page where you can see the list of jobs that were run by CHARMM-GUI, including what should be the one we are using. Once this changes status to Done, you can click on the Job ID link to go to the results.
+
+### The results
+Once you have reached the result page, you need to download the *.tgz file with the files for your simulation in it. There is usually a link in the upper right of the page for downloading the file, click that, and save it somewhere. Congratulations, you have finished the first masterclass!
+
 
 
 
