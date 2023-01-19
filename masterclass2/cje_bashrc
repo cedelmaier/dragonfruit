@@ -1,0 +1,49 @@
+# .bashrc
+
+##########################
+# !! IMPORTANT NOTICE !! #
+##########################
+# It is STRONGLY recommended that you NOT manually place module commands in
+# this file. Instead use the module save or savelist commands
+# to manage the module(s) you want to automatically load at login time.
+#
+# Please see https://its.unc.edu/research-computing/techdocs/modules-approach-to-software-management/
+# for more details on module usage.
+
+
+# Source global definitions
+if [ -f /etc/bashrc ]; then
+	. /etc/bashrc
+fi
+
+# Uncomment the following line if you don't like systemctl's auto-paging feature:
+# export SYSTEMD_PAGER=
+
+# User specific aliases and functions
+# CJE adding stuff here for startup of various things
+alias glog="git log --pretty=format:'%C(yellow)%h %Cred%an %Cblue%ad %Cgreen%d %Creset%s' --date=relative --graph"
+
+export PS1="\[\033[36m\]\u\[\033[m\]@\[\033[32m\]\h:\[\033[33;1m\]\w\[\033[m\]\$ "
+export CLICOLOR=1
+export LSCOLORS=ExFxBxDxCxegedabagacad
+
+alias ll='ls -altF'
+alias ls='ls -h --color=auto'
+
+alias cdpine='cd /pine/scr/e/d/edelmaie/'
+alias cd21='cd /21dayscratch/scr/e/d/edelmaie'
+
+# Specific commands to run various options for the scheduling system
+alias showsq="squeue -a -u edelmaie -S 'i' "
+
+# Interactive login
+alias sinteractive="srun -t 5:00:00 -p interact -N 1 --mem=6G --x11=first --pty /bin/bash"
+alias sinteractivecompile="srun --ntasks=1 --cpus-per-task=8 --mem=8G --time=8:00:00 --constraint=rhel8 --x11=first --pty /bin/bash"
+alias sinteractivegpu="srun --ntasks=1 --cpus-per-task=8 --mem=8G --time=8:00:00 --partition=gpu --gres=gpu:1 --qos=gpu_access --pty /bin/bash"
+alias sinteractivevolta="srun --ntasks=1 --cpus-per-task=8 --mem=60G --time=8:00:00 --partition=volta-gpu --gres=gpu:1 --qos=gpu_access --constraint=rhel8 --pty /bin/bash"
+
+alias sinteractivedogwood="srun -N 2 --ntasks-per-node=44 --time=1:00:00 -p 528_queue --mem=46g --pty /bin/bash"
+alias sinteractivedogwooddebug="srun -n 1 -p debug_queue --mem=5g --x11=first --pty /bin/bash"
+
+# Always print out the OMP settings
+export OMP_DISPLAY_ENV=true
