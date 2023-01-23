@@ -104,10 +104,14 @@ class MucusSeed(SeedBase):
         print(f"--------")
         print(f"Mucus polymer information")
         print(f"N polymers              = {self.n_mucins}")
+        print(f"N dimers per polymer    = {self.dimers_per_poly}")
         print(f"Monomer length          = {self.monomer_length}")
         print(f"Start N-terminus        = {self.start_n_terminus}")
+        print(f"N-term length           = {self.n_term_length}")
         print(f"Start Backbone          = {self.start_backbone}")
+        print(f"Backbone length         = {self.backbone_length}")
         print(f"Start C-terminus        = {self.start_c_terminus}")
+        print(f"C-term length           = {self.c_term_length}")
         print(f"N cysteines             = {self.n_cysteine}")
         print(f"  Cysteine locations      = {self.cysteine_locations}")
         print(f"Mucin charges           = {self.mucin_charges}")
@@ -225,9 +229,12 @@ class MucusSeed(SeedBase):
                     icount += 1
                     x = x + self.lbond
                     itype = 1
-                    if (k % self.nper_dimer < self.n_term_length): itype = 3
-                    if (k % self.nper_dimer > (self.nper_dimer - self.n_term_length - 1)): itype = 3
-                    if (k % self.nper_dimer < self.monomer_length) and (k % self.nper_poly >= self.monomer_length - self.c_term_length): itype = 3
+                    if ((k % self.nper_dimer) < self.n_term_length):
+                        itype = 3
+                    if ((k % self.nper_dimer) > (self.nper_dimer - self.n_term_length - 1)):
+                        itype = 3
+                    if (((k % self.nper_dimer) < self.monomer_length) and ((k % self.nper_dimer) >= (self.monomer_length - self.c_term_length))):
+                        itype = 3
                     for l in range(self.n_cysteine):
                         if (k % self.nper_dimer == self.cysteine_locations[l]): itype = 2
                         if ((self.nper_poly-k-1)%(self.nper_dimer) == self.cysteine_locations[l]): itype = 2
