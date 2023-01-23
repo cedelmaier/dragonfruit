@@ -1,0 +1,3 @@
+structure: step7_200.tpr
+trajectory: traj_continuous_early.xtc
+gromacs: step7_200.gro
