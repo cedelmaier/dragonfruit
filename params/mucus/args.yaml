@@ -1,0 +1,8 @@
+start:
+- python3
+- /nas/longleaf/home/edelmaie/septin_project/supra_cg/dragonfruit/src/MucusVolta.py
+- --yaml
+- mucus.default.yaml
+analysis:
+- python3
+- /nas/longleaf/home/edelmaie/septin_project/supra_cg/dragonfruit/src/SeptinAnalysis.py
