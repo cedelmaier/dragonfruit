@@ -1,7 +1,7 @@
 # General submission script for mucus simulations
-import hoomd
-import hoomd.md as md
-import gsd.hoomd
+#import hoomd
+#import hoomd.md as md
+#import gsd.hoomd
 
 import argparse
 import datetime
