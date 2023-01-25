@@ -353,6 +353,20 @@ Phosphorus only from lipids:
 Carbon backbone only from helix:
 
 	grep -Ew "CA" reference.pdb.bak | awk '{printf "%s,",$2}'
+	
+# Metadynamics Version 2
+This is an updated version of the metadynamics information that I've found. So this is a work in progress.
+
+## FES via sum\_hills
+We can use the native plumed sum_hills utility to generate a free energy landscape that should be the corrected version (well-tempered or standard metadynamics).
+
+Use the following command, for instance, to generate a 2D FES of the landscape from the hills file.
+
+	mpirun -np 1 plumed sum_hills --bin 255,255 --min 0,0 --max 5.0,13.1 --hills HILLS_SINGLEWALKER --mintozero --outfile fes_sumhills_original.dat
+	
+One can also generate the negative bias alone.
+
+	mpirun -np 1 plumed sum_hills --bin 255,255 --min 0,0 --max 5.0,13.1 --hills HILLS_SINGLEWALKER --mintozero --negbias --outfile fes_sumhills_negbias.dat
 
 
 # VMD tips and tricks (groan)
