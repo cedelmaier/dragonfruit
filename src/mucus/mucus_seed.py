@@ -8,7 +8,7 @@ import stat
 import sys
 import yaml
 
-import gsd.hoomd
+#import gsd.hoomd
 import numpy as np
 import pandas as pd
 
