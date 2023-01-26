@@ -81,6 +81,18 @@ class ClusterTopology(object):
             else:
                 print(f"ERROR: Partition {self.partition} not yet implemented for cluster: {self.cluster}, exiting")
                 sys.exit(1)
+        elif self.cluster == "dogwood":
+            if self.partition == "528_queue":
+                self.sbatch_options.append(f"#SBATCH --job-name={self.jobname}")
+                self.sbatch_options.append(f"#SBATCH --partition={self.partition}")
+                self.sbatch_options.append(f"#SBATCH --nodes={self.nnodes}")
+                self.sbatch_options.append(f"#SBATCH --ntasks-per-node={self.ntmpi}")
+                self.sbatch_options.append(f"#SBATCH --cpus-per-task={self.ntomp}")
+                self.sbatch_options.append(f"#SBATCH --time={self.time}")
+            else:
+                print(f"ERROR: Partition {self.partition} not yet implemented for cluster: {self.cluster}, exiting")
+                sys.exit(1)
+
 
         # Configure the cluster, header and all
         sh_str = (

@@ -13,8 +13,8 @@ import numpy as np
 import pandas as pd
 
 # Analysis imports
-import freud
-from freud import box
+#import freud
+#from freud import box
 
 # Magic to get the library directory properly
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'lib'))
@@ -298,7 +298,7 @@ class MucusSeed(SeedBase):
         sh_str += (
             f'\n'
             f'module purge\n'
-            f'module load lammps/20201029\n'
+            f'module load lammps\n'
             f'\n'
             f'export OMP_NUM_THREADS={self.cluster.ntomp}\n'
             f'\n'
@@ -358,7 +358,7 @@ class MucusSeed(SeedBase):
         sh_str += (
             f'\n'
             f'module purge\n'
-            f'module load lammps/20201029\n'
+            f'module load lammps\n'
             f'\n'
             f'export OMP_NUM_THREADS={self.cluster.ntomp}\n'
             f'\n'
