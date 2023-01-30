@@ -29,6 +29,8 @@ class ClusterTopology(object):
         """
         if self.verbose: print(f"ClusterTopology::ReadData")
 
+        # Sometimes the full node has a different NTMPI and NTOMP than we are requesting, this
+        # is handled in the ConfigureCluster script
         self.jobname    = self.default_yaml['jobname']
         self.cluster    = self.default_yaml['cluster']
         self.partition  = self.default_yaml['partition']
@@ -82,19 +84,20 @@ class ClusterTopology(object):
                 print(f"ERROR: Partition {self.partition} not yet implemented for cluster: {self.cluster}, exiting")
                 sys.exit(1)
         elif self.cluster == "dogwood":
+            # For the dogwood cluster, do not request anything other than the maximum per node, and then set some stuff ourselves
             if self.partition == "528_queue":
                 self.sbatch_options.append(f"#SBATCH --job-name={self.jobname}")
                 self.sbatch_options.append(f"#SBATCH --partition={self.partition}")
                 self.sbatch_options.append(f"#SBATCH --nodes={self.nnodes}")
-                self.sbatch_options.append(f"#SBATCH --ntasks-per-node={self.ntmpi}")
-                self.sbatch_options.append(f"#SBATCH --cpus-per-task={self.ntomp}")
+                self.sbatch_options.append(f"#SBATCH --ntasks-per-node=44")
+                self.sbatch_options.append(f"#SBATCH --cpus-per-task=1")
                 self.sbatch_options.append(f"#SBATCH --time={self.time}")
             elif self.partition == "skylake":
                 self.sbatch_options.append(f"#SBATCH --job-name={self.jobname}")
                 self.sbatch_options.append(f"#SBATCH --partition={self.partition}")
                 self.sbatch_options.append(f"#SBATCH --nodes={self.nnodes}")
-                self.sbatch_options.append(f"#SBATCH --ntasks-per-node={self.ntmpi}")
-                self.sbatch_options.append(f"#SBATCH --cpus-per-task={self.ntomp}")
+                self.sbatch_options.append(f"#SBATCH --ntasks-per-node=40")
+                self.sbatch_options.append(f"#SBATCH --cpus-per-task=1")
                 self.sbatch_options.append(f"#SBATCH --time={self.time}")
             else:
                 print(f"ERROR: Partition {self.partition} not yet implemented for cluster: {self.cluster}, exiting")
