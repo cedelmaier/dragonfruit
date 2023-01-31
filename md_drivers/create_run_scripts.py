@@ -108,8 +108,17 @@ def configure_cluster(mcluster, mruntype, mpartition, ntmpi, ntomp):
 
     elif mcluster == "rusty":
         if mruntype == "cpu":
-            print(f"Simple CPU run not enabled, exiting")
-            sys.exit(1)
+            gmx_exec = "mpirun --map-by socket:pe=$OMP_NUM_THREADS -np {} gmx_mpi".format(ntmpi*nnodes)
+            gmx_grompp = "mpirun -np 1 gmx_mpi"
+            gmx_options = "-ntomp $OMP_NUM_THREADS"
+            module_list.append('module purge')
+            module_list.append('export MODULEPATH=/mnt/home/gkrawezik/modules/rocky8:$MODULEPATH')
+            module_list.append('module load modules/2.1-alpha2')
+            module_list.append('module load cuda')
+            module_list.append('module load openmpi/cuda-4')
+            module_list.append('module load plumed/mpi-2.8.1')
+            module_list.append('module load fftw')
+            module_list.append('module load gromacs/mpi-plumed-2022.3')
         elif mruntype == "cpuplumed":
             gmx_exec = "mpirun gmx_mpi"
             gmx_grompp = "mpirun -np 1 gmx_mpi"
@@ -174,7 +183,7 @@ module purge
     return outstr
 
 # Create a header for FI rusty cluster
-def create_header_rusty(mpartition, nnodes, ntmpi, module_list, gmx_src):
+def create_header_rusty(mpartition, nnodes, ntomp, module_list, gmx_src):
     r"""Create a header for FI rusty cluster
     """
     # Slurm control parameters
@@ -183,14 +192,15 @@ def create_header_rusty(mpartition, nnodes, ntmpi, module_list, gmx_src):
 
 # Comments for running on the FI rusty cluster
 #SBATCH --job-name=grun
-#SBATCH --partition=ccb
-#SBATCH --reservation=rocky8
-#SBATCH -N {}
-#SBATCH --ntasks-per-node={}
+#SBATCH --nodes={}
+#SBATCH --cpus-per-task={}
 #SBATCH --constraint={}
+#SBATCH --partition=ccb
+
+export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
 
 module purge
-'''.format(nnodes, ntmpi, mpartition)
+'''.format(nnodes, ntomp, mpartition)
 
     # Module information
     for module in module_list:
@@ -334,7 +344,7 @@ if __name__ == "__main__":
     if mcluster == "longleaf":
         rsh = create_header_longleaf(mpartition, ntmpi, ntomp, ngpu, total_time_hr, module_list, gmx_src)
     elif mcluster == "rusty":
-        rsh = create_header_rusty(mpartition, nnodes, ntmpi, module_list, gmx_src)
+        rsh = create_header_rusty(mpartition, nnodes, ntomp, module_list, gmx_src)
     elif mcluster == "popeye":
         rsh = create_header_popeye(mpartition, nnodes, ntomp, module_list, gmx_src)
 
