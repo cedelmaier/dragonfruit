@@ -39,6 +39,10 @@ class ClusterTopology(object):
         self.ntomp      = np.int32(np.float64(self.default_yaml['n_omp']))
         self.time       = self.default_yaml['total_time']
 
+        # Check to see if we are GPU computing
+        if self.partition == "volta-gpu" or self.partition == "beta-gpu":
+            self.ngpu   = np.int32(np.float64(self.default_yaml['n_gpu']))
+
         if self.verbose: print(f"ClusterTopology::ReadData return")
 
     def PrintInformation(self):
@@ -54,6 +58,8 @@ class ClusterTopology(object):
         print(f"N Nodes                 = {self.nnodes}")
         print(f"N MPI threads           = {self.ntmpi}")
         print(f"N OpenMP threads/tMPI   = {self.ntomp}")
+        if self.partition == "volta-gpu" or self.partition == "beta-gpu":
+            print(f"N GPU                   = {self.ngpu}")
         print(f"Total time              = {self.time}")
 
         if self.verbose: print(f"ClusterTopology::PrintInformation return")

@@ -38,6 +38,10 @@ class MucusSeed(SeedBase):
         # Set the RNG state
         random.seed(self.nseed)
 
+        # Set up if we are initialized or not
+        self.is_init = False
+        self.getTypebyName = {}
+
         if self.verbose: print(f"MucusSeed::__init__ return")
 
     def ReadData(self):
@@ -46,6 +50,15 @@ class MucusSeed(SeedBase):
         if self.verbose: print(f"MucusSeed::ReadData")
         # What engine are we going to be using?
         self.engine             = self.default_yaml['simulation']['engine']
+
+        # If we are using HOOMD, are we CPU or GPU computing?
+        # XXX Go back and make the lammps stuff use the init_type as well!
+        if self.engine == "HOOMD":
+            self.compute_mode   = self.default_yaml['simulation']['compute_mode']
+            self.init_type      = self.default_yaml['simulation']['init_type']
+            self.mucusbend      = np.float64(self.default_yaml['interactions']['mucus_bend'])
+            self.trajectory_file= self.default_yaml['simulation']['trajectory_file']
+            self.init_filename  = self.default_yaml['simulation']['init_filename']
 
         # Simulation parameters
         self.kT                 = np.float64(self.default_yaml['simulation']['kT'])
@@ -76,8 +89,8 @@ class MucusSeed(SeedBase):
         self.lennard_jones      = np.float64(self.default_yaml['interactions']['lennard_jones'])
         self.bmh                = np.float64(self.default_yaml['interactions']['born_mayer_huggins'])
 
-        if self.engine != "LAMMPS":
-            print(f"ERROR: Only LAMMPS implementation currently supported for mucus, exiting!")
+        if self.engine != "LAMMPS" and self.engine != "HOOMD":
+            print(f"ERROR: Only LAMMPS and HOOMD implementation currently supported for mucus, exiting!")
             sys.exit(1)
 
         # Set up the cluster topology
@@ -88,6 +101,11 @@ class MucusSeed(SeedBase):
     def PrintInformation(self, snap = None):
         r""" Print information about sim
         """
+        print(f"--------")
+        print(f"Engine information")
+        print(f"Engine                  = {self.engine}")
+        if self.engine == "HOOMD":
+            print(f"Init type               = {self.init_type}")
         print(f"--------")
         print(f"System information")
         print(f"kBT                     = {self.kT}")
@@ -166,19 +184,39 @@ class MucusSeed(SeedBase):
         self.nbondstypes        = 1
         self.nanglestypes       = 1
 
-        # Create the configuration file
-        self.CreateLAMMPSConfig()
+        # Master switch for running on LAMMPS vs HOOMD
+        # XXX Really the correct way to do this is to use inheritance or something, but for now, just do via a switch
+        if self.engine == "LAMMPS":
+            # Create the configuration file
+            self.CreateLAMMPSConfig()
 
-        # Create the header for the cluster
-        self.cluster.ConfigureCluster()
+            # Create the header for the cluster
+            self.cluster.ConfigureCluster()
 
-        # Create the equilibration runfile
-        self.CreateEquilibrationScript()
-        self.CreateEquilibrationControl()
+            # Create the equilibration runfile
+            self.CreateEquilibrationScript()
+            self.CreateEquilibrationControl()
 
-        # Create the production runs
-        self.CreateProductionScript()
-        self.CreateProductionControl()
+            # Create the production runs
+            self.CreateProductionScript()
+            self.CreateProductionControl()
+
+            if self.verbose: print(f"MucusSeed::Configure return (LAMMPS)")
+            return
+
+        elif self.engine == "HOOMD":
+            # Do the HOOMD stuff!
+            import gsd.hoomd
+            import freud
+            print(f"Configure detected HOOMD")
+
+            # Create a default configuration that is the size of the box
+            snap.configuration.box = [self.lbox, self.lbox, self.lbox, 0, 0, 0]
+            if self.init_type == 'create_equilibration':
+                self.InitMucus(snap)
+            elif self.init_type == 'production':
+                self.ReadMucus(snap)
+            self.is_init = True
 
         if self.verbose: print(f"MucusSeed::Configure return")
 
@@ -746,3 +784,115 @@ write_data ${OUTPUT_PREFIX}.final.data nocoeff
             stream.write(eq_str)
 
         if self.verbose: print(f"MucusSeed::CreateProductionControl return")
+
+    # Initialize a snapshot for the mucus simulations (based on membrane.py and the ah domain)
+    def InitMucus(self, snap):
+        if self.verbose: print(f"MucusSeed::InitMucus")
+
+        print(f"  Creating mucus simulation from scratch!") 
+        # Electrostatic ,cysteine, hydrophobic, positive(histonne)
+        self.getTypebyName = {'E': 0, 'C': 1, 'H': 2, 'P': 3}
+        self.getTypebyName['mucusbond'] = 0
+        self.getTypebyName['mucusbend'] = 0
+
+        # Start setting up the snapshot
+        snap.particles.N        = self.natoms
+        snap.particles.types    = ['E', 'C', 'H', 'P']
+        snap.bonds.N            = self.nbonds
+        snap.bonds.types        = ['mucusbond']
+        snap.bonds.typeid[:]    = 0
+        snap.angles.N           = self.nangles
+        snap.angles.types       = ['mucusbend']
+        snap.angles.typeid[:]   = 0
+
+        # Create a freud box to do some fancy wrapping stuff
+        import freud
+        box = freud.Box.cube(self.lbox)
+
+        # Now we can do the same thing as the LAMMPS config section
+        # The -1 are for keeping track with the lammps code as well
+        icount = -1
+        ichaincount = -1
+        dy1 = self.lbox/(2.0*self.nrowy)
+        dz1 = self.lbox/(2.0*self.nrowz)
+        for iz in range(self.nrowz):
+            z = dz1*(iz-self.nrowz/2.0 + 0.5)
+            for jy in range(self.nrowy):
+                y = dy1*(jy-self.nrowy/2.0 + 0.5)
+                x = -90.0
+                itype = 3-1
+                icount += 1
+                ichaincount += 1
+
+                # Every time we see a vector, wrap it using freud into a box
+                r = [x, y, z]
+                r_periodic = box.wrap(r)
+
+                snap.particles.position[icount] = r_periodic
+                snap.particles.typeid[icount] = itype
+                snap.particles.mass[icount] = 1.0
+
+                for k in range(1, self.nper_poly):
+                    icount += 1
+                    x = x + self.lbond
+                    itype = 1-1
+                    if ((k % self.nper_dimer) < self.n_term_length):
+                        itype = 3 -1
+                    if ((k % self.nper_dimer) > (self.nper_dimer - self.n_term_length - 1)):
+                        itype = 3 -1
+                    if (((k % self.nper_dimer) < self.monomer_length) and ((k % self.nper_dimer) >= (self.monomer_length - self.c_term_length))):
+                        itype = 3 -1
+                    for l in range(self.n_cysteine):
+                        if (k % self.nper_dimer == self.cysteine_locations[l]): itype = 2-1
+                        if ((self.nper_poly-k-1)%(self.nper_dimer) == self.cysteine_locations[l]): itype = 2-1
+
+                    r = [x, y, z]
+                    r_periodic = box.wrap(r)
+                    snap.particles.position[icount] = r_periodic
+                    snap.particles.typeid[icount] = itype
+                    snap.particles.mass[icount] = 1.0
+
+        beyondchaincount = ichaincount
+        for ihist in range(self.nhist):
+            icount += 1
+            beyondchaincount += 1
+            x = random.uniform(-self.lbox/2.0, self.lbox/2.0)
+            y = random.uniform(-self.lbox/2.0, self.lbox/2.0)
+            z = random.uniform(-self.lbox/2.0, self.lbox/2.0)
+            itype = 4-1
+            snap.particles.position[icount] = [x, y, z]
+            snap.particles.typeid[icount] = itype
+            snap.particles.mass[icount] = 1.0
+
+        # Bond information
+        icount1 = 1-1
+        icount2 = 1-1
+        for k in range(self.n_mucins):
+            for n in range(self.nper_poly):
+                if (n < self.nper_poly - 1):
+                    snap.bonds.typeid[icount2] = self.getTypebyName['mucusbond']
+                    snap.bonds.group[icount2] = [icount1, icount1+1]
+                    icount2 += 1
+                icount1 += 1
+
+        # Angle (bend) information
+        icount1 = 1-1
+        icount2 = 1-1
+        for k in range(self.n_mucins):
+            for n in range(self.nper_poly):
+                if (n < self.nper_poly - 2):
+                    snap.angles.typeid[icount2] = self.getTypebyName['mucusbend']
+                    snap.angles.group[icount2] = [icount1, icount1+1, icount1+2]
+                    icount2 += 1
+                icount1 += 1
+
+        if self.verbose: print(f"MucusSeed::InitMucus return")
+
+    def ReadMucus(self, snap):
+        if self.verbose: print(f"MucusSeed::ReadMucus")
+
+        print(f"  Reading mucus simulation from file {self.init_filename}!") 
+        for itype,ntype in enumerate(snap.particles.types):
+            self.getTypebyName[ntype] = itype
+
+        if self.verbose: print(f"MucusSeed::ReadMucus return")

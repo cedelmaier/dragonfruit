@@ -1,27 +1,32 @@
 # All units should be in simulation units, unless otherwise explicitly stated!!!!!!!!
 cluster:
-  cluster: dogwood
-  partition: 528_queue
-  n_nodes: 2
-  n_mpi: 2
-  n_omp: 20
+  cluster: longleaf
+  partition: volta-gpu
+  n_nodes: 1
+  n_mpi: 1
+  n_omp: 8
+  n_gpu: 1
   total_time: '1-12:00:00'
-  jobname: lammps_mucus_dogwood
+  jobname: hoomd_mucus_volta
 simulation:
-  engine: LAMMPS # What engine to use (LAMMPS or HOOMD)
+  engine: HOOMD # What engine to use (LAMMPS or HOOMD)
+  compute_mode: cpu # HOOMD context to use (cpu or gpu computing)
+  init_type: production # Initialization type (create_equilibration, production)
+  trajectory_file: production.gsd
+  init_filename: equilibration.gsd
   kT: 1.0 # Energy units
   t_damp: 1.0 # Tau damping for Langevin thermostat
   bead_size: 1.0 # Characteristic size of system
   deltatau: 0.005
   nsteps_equilibrate: 1e7 # Total number of steps for equilibration
   nwrite_equilibrate: 1e5 # Number of steps per write for equilibration
-  nsteps: 1e5  # Number of steps for production
+  nsteps: 1e7  # Number of steps for production
   nwrite: 20000 # Number of steps per write for production
-  lbox: 400.0
-  seed: ChiSeed(bounds = [1,2])
+  lbox: 100.0
+  seed: 1
 mucus:
-  nrowy: 27
-  nrowz: 27
+  nrowy: 1
+  nrowz: 1
   bond_length: 0.97
   monomer_length: 60
   n_term_length: 11
@@ -34,5 +39,6 @@ histones:
   n: 1
   charge: 1.0
 interactions:
-  lennard_jones: 0.0001
-  born_mayer_huggins: ChiParam(format_str = "A{}", exec_str = "[-0.3]")
+  lennard_jones: 1.0
+  born_mayer_huggins: -0.3
+  mucus_bend: 0.0

@@ -148,8 +148,8 @@ class EvaluatorPairBornMayerHuggins
 
             Scalar rexp = fast::exp((sigma - r)*rhoinv);
 
-            force_divr = (A*rhoinv*rexp*r - Scalar(6.0)*C*r6inv - Scalar(8.0)*D*r6inv*r2inv) * r2inv;
-            pair_eng = A*rexp - C*r6inv - D*r6inv*r2inv;
+            force_divr = (A*rhoinv*rexp*r - Scalar(6.0)*C*r6inv + Scalar(8.0)*D*r6inv*r2inv) * r2inv;
+            pair_eng = A*rexp - C*r6inv + D*r6inv*r2inv;
             return true;
             }
         else
