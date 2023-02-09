@@ -819,7 +819,7 @@ write_data ${OUTPUT_PREFIX}.final.data nocoeff
             z = dz1*(iz-self.nrowz/2.0 + 0.5)
             for jy in range(self.nrowy):
                 y = dy1*(jy-self.nrowy/2.0 + 0.5)
-                x = 10.0
+                x = random.uniform(0.0, self.lbox)
                 itype = 3-1
                 icount += 1
                 ichaincount += 1
