@@ -34,8 +34,8 @@ Load the correct modules to compile HOOMD.
     module load git
     module load cmake
     module load python/3.9.6
-    module load gcc/9.1.0
-    module load cuda/11.4
+    module load gcc/11.2.0
+    module load cuda/11.8
 
 Create a python virtual environment to load everything into with 'install' command later.
 NOTE: You can get away with doing this various ways. Just be sure you know what exactly
@@ -82,6 +82,8 @@ errors that are hard to track down. NOTE: This will take a long time to complete
 
     cmake --build ./ -j2
     cmake --install ./
+    
+After this, it is a good idea to run the tests recommended by the HOOMD website in order to make sure that everything is okay. Both the C++ and python tests are useful. See the main website for details.
 
 # Data I/O
 Here is an example of how to transfer entire directories between longleaf and a local machine.
