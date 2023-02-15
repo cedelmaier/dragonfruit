@@ -92,8 +92,11 @@ def graph_seed_zpos_wheads(sd,
                            ax,
                            color = 'b',
                            xlabel = True,
-                           dolegend = False):
+                           dolegend = False,
+                           docolvar = False):
     r""" Plot the center of mass distance between lipids and helix
+
+    docolvar controls whether to do the comparison with what plumed thinks of dz
     """
     z_protein   = sd.master_time_df['helix_z']
     z_leaf0     = sd.master_time_df['leaflet0_z']
@@ -109,6 +112,9 @@ def graph_seed_zpos_wheads(sd,
     #ydata = graph_seed_scatter(sd.label, sd.master_time_df.index/1000.0, z_protein, ax, mtitle = "Z-distance", xtitle = "Time (ns)", ytitle = r"Z ($\AA$)", color = color, smooth = True, smooth_window = 11, smooth_poly = 3)
     leaf0 = graph_seed_plot(sd.label, sd.master_time_df.index/1000.0, z_leaf0, ax, mtitle = "", xtitle = "", ytitle = r"", color = 'k', smooth = True, smooth_window = 11, smooth_poly = 3)
     leaf1 = graph_seed_plot(sd.label, sd.master_time_df.index/1000.0, z_leaf1, ax, mtitle = "", xtitle = "", ytitle = r"", color = 'k', smooth = True, smooth_window = 11, smooth_poly = 3)
+    if docolvar:
+        plumed_dz = sd.master_time_df['plumed_dz']
+        ydata2 = graph_seed_plot(sd.label, sd.master_time_df.index/1000.0, plumed_dz*10.0, ax, mtitle = "", xtitle = "", ytitle = r"", color = 'c', smooth = True, smooth_window = 11, smooth_poly = 3)
     ydata = graph_seed_plot(sd.label, sd.master_time_df.index/1000.0, z_protein, ax, mtitle = "Z-distance", xtitle = "Time (ns)", ytitle = r"Z ($\AA$)", color = color, smooth = True, smooth_window = 11, smooth_poly = 3)
 
     # Set the appropriate limits
@@ -123,17 +129,48 @@ def graph_seed_helicity(sd,
                         ax,
                         color = 'b',
                         xlabel = True,
-                        dolegend = False):
+                        dolegend = False,
+                        docolvar = False):
     r""" Plot the fractional helicity of the helix
+
+    docolvar controls whether to do the comparison with what plumed thinks of alpha_rmsd
     """
     helicity = sd.master_time_df['helicity']
 
     #graph_seed_scatter(sd.label, sd.master_time_df.index/1000.0, helicity, ax, mtitle = "Helicity", xtitle = "Time (ns)", ytitle = r"Helicity (AU)", color = color)
+    if docolvar:
+        alpha_rmsd = sd.master_time_df['plumed_alpha']/13.0
+        ydata2 = graph_seed_plot(sd.label, sd.master_time_df.index/1000.0, alpha_rmsd, ax, mtitle = "", xtitle = "", ytitle = r"", color = 'c', smooth = True, smooth_window = 11, smooth_poly = 3)
     ydata = graph_seed_plot(sd.label, sd.master_time_df.index/1000.0, helicity, ax, mtitle = "Helicity", xtitle = "Time (ns)", ytitle = r"Helicity (AU)", color = color, smooth = True, smooth_window = 11, smooth_poly = 3)
 
     # Set the appropriate limits
     ylow    = 0.0
     yhi     = 1.05
+    ax.set_ylim([ylow, yhi])
+
+    return [ylow, yhi, ydata]
+
+# Graph the raw alpha values, rather than fractional
+def graph_seed_alpha(sd,
+                     ax,
+                     color = 'b',
+                     xlabel = True,
+                     dolegend = False,
+                     docolvar = False):
+    r""" Plot the raw alpha values for the helix
+
+    docolvar controls whether or not to do the plumed version
+    """
+    alpha_dssp = sd.master_time_df['alpha_dssp']
+
+    if docolvar:
+        alpha_rmsd = sd.master_time_df['plumed_alpha']
+        ydata2 = graph_seed_plot(sd.label, sd.master_time_df.index/1000.0, alpha_rmsd, ax, mtitle = "", xtitle = "", ytitle = r"", color = 'c', smooth = True, smooth_window = 11, smooth_poly = 3)
+    ydata = graph_seed_plot(sd.label, sd.master_time_df.index/1000.0, alpha_dssp, ax, mtitle = "Alpha", xtitle = "Time (ns)", ytitle = r"Alpha (AU)", color = color, smooth = True, smooth_window = 11, smooth_poly = 3)
+
+    # Set the appropriate limits
+    ylow    = 0.0
+    yhi     = 19.0
     ax.set_ylim([ylow, yhi])
 
     return [ylow, yhi, ydata]

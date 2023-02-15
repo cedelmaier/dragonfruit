@@ -85,6 +85,10 @@ class MucusSeed(SeedBase):
 
         self.nhist              = np.int32(np.float64(self.default_yaml['histones']['n']))
         self.histone_charges    = np.float64(self.default_yaml['histones']['charge'])
+        if 'radius' in self.default_yaml['histones']:
+            self.r_histone      = np.float64(self.default_yaml['histones']['radius'])
+        else:
+            self.r_histone      = 0.5
 
         self.lennard_jones      = np.float64(self.default_yaml['interactions']['lennard_jones'])
         self.bmh                = np.float64(self.default_yaml['interactions']['born_mayer_huggins'])
@@ -105,6 +109,7 @@ class MucusSeed(SeedBase):
         print(f"Engine information")
         print(f"Engine                  = {self.engine}")
         if self.engine == "HOOMD":
+            print(f"Compute mode            = {self.compute_mode}")
             print(f"Init type               = {self.init_type}")
         print(f"--------")
         print(f"System information")
@@ -140,6 +145,7 @@ class MucusSeed(SeedBase):
         print(f"Free histone (PCLS) information")
         print(f"N histones              = {self.nhist}")
         print(f"Histone charges         = {self.histone_charges}")
+        print(f"Histone radius          = {self.r_histone}")
         print(f"--------")
         print(f"Interactions")
         print(f"Electrostatics (LJ)     = {self.lennard_jones}")

@@ -124,6 +124,12 @@ class GromacsAnalysis(object):
             fig.tight_layout()
             fig.savefig('gromacs_helicity.pdf', dpi=fig.dpi)
 
+            # Plot the raw alpha values
+            fig, axarr = plt.subplots(1, 1, figsize = (15, 10))
+            sd.GraphAlpha(axarr)
+            fig.tight_layout()
+            fig.savefig('gromacs_alpha.pdf', dpi=fig.dpi)
+
             ## Plot helix information
             #fig, axarr = plt.subplots(2, 1, figsize = (15, 10))
             #sd.graph_helix_analysis(axarr)

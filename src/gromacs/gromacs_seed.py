@@ -47,6 +47,7 @@ class GromacsSeed(SeedBase):
         self.logger = logging.getLogger('MDAnalysis')
 
         self.verbose = opts.verbose
+        self.trace = opts.trace
         if self.verbose: print("GromacsSeed::__init__")
 
         SeedBase.__init__(self, path, opts)
@@ -84,6 +85,16 @@ class GromacsSeed(SeedBase):
         self.trajectory_file    = self.default_yaml['trajectory']
         self.gromacs_file       = self.default_yaml['gromacs']
 
+        # Do some special stuff if we detect a plumed section, this is to not break backwards compatibility
+        if 'plumed' in self.default_yaml:
+            self.plumed_ref     = self.default_yaml['plumed']['reference_file']
+            self.plumed_file    = self.default_yaml['plumed']['plumed_file']
+            self.alpha_residues = self.default_yaml['plumed']['alpha_residues']
+            self.lipid_P_atoms  = self.default_yaml['plumed']['lipid_P_atoms']
+            self.helix_C_atoms  = self.default_yaml['plumed']['helix_C_atoms']
+            self.colvar_file    = self.default_yaml['plumed']['colvar_file']
+            self.mcfile         = self.default_yaml['plumed']['masscharge_file']
+
         # Harcoded information
         self.zbin_size          = 0.5   # Size of z-bins for calculations
         self.zbin_range         = 40.0  # Range of Z bins for calculations
@@ -111,6 +122,17 @@ class GromacsSeed(SeedBase):
         print(f"Z-bin size          = {self.zbin_size}")
         print(f"Z-range             = {self.zbin_range}")
         print(f"Nbins EM            = {self.zbin_nbins}")
+        if 'plumed' in self.default_yaml:
+            print(f"--------")
+            print(f"Plumed information")
+            print(f"PLUMED reference    = {self.plumed_ref}")
+            print(f"PLUMED file         = {self.plumed_file}")
+            print(f"Colvar file         = {self.colvar_file}")
+            print(f"Mass/charge file    = {self.mcfile}")
+            print(f"Alpha residues      = {self.alpha_residues}")
+            print(f"Lipid P atoms       = {self.lipid_P_atoms}")
+            print(f"Helix C atoms       = {self.helix_C_atoms}")
+
         print(f"--------")
 
     def CheckLoadAnalyze(self, force_analyze = False):
@@ -203,6 +225,7 @@ class GromacsSeed(SeedBase):
         self.AnalyzeTrajectory()
         self.AnalyzeCurvature()
         self.AnalyzeDSSP()
+        self.AnalyzeAlphaRMSD()
 
         # Put the master time dataframe together
         self.master_time_df = pd.concat(self.time_dfs, axis = 1)
@@ -473,7 +496,8 @@ class GromacsSeed(SeedBase):
 
         helicity_results = np.array(helicity_results)
 
-        self.helicity = np.zeros(helicity_results.shape[0])
+        self.helicity   = np.zeros(helicity_results.shape[0])
+        self.hel_alpha  = np.zeros(helicity_results.shape[0])
         for iframe,val in enumerate(helicity_results):
             # Get the helicity of the combined states
             h_count = (val == 'H').sum() + (val == 'G').sum() + (val == 'I').sum()
@@ -481,14 +505,49 @@ class GromacsSeed(SeedBase):
 
             current_helicity = h_count / h_total
             self.helicity[iframe] = current_helicity[0]
+            self.hel_alpha[iframe] = h_count
 
         # Add the helicity to the master DF
         helicity_df = pd.DataFrame(self.helicity, columns = ['helicity'], index=self.times)
         helicity_df.index.name = 'Time(ps)'
+        hel_alpha_df = pd.DataFrame(self.hel_alpha, columns = ['alpha_dssp'], index = self.times)
+        hel_alpha_df.index.name = 'Time(ps)'
 
         self.time_dfs.append(helicity_df)
+        self.time_dfs.append(hel_alpha_df)
 
         if self.verbose: print(f"GromacsSeed::AnalyzeDSSP return")
+
+    def AnalyzeAlphaRMSD(self):
+        r""" Analyze alpha_rmsd measurement from PLUMED
+        """
+        if self.verbose: print(f"GromacsSeed::AnalyzeAlphaRMSD")
+
+        # Have to create a plumed file and run it, seek inspiration from gromacs_electrostatics package
+        # Write the plumed file
+        self.WritePLUMEDAlphaRMSD()
+
+        # Run the plumed file
+        import subprocess
+        plumed_p = subprocess.Popen(["plumed", "driver", "--mf_xtc", self.trajectory_file, "--plumed", self.plumed_file, "--kt", "2.494339", "--mc", self.mcfile], stdin = subprocess.PIPE, stdout = subprocess.PIPE, stderr = subprocess.PIPE)
+        plumed_output, plumed_errors = plumed_p.communicate()
+        plumed_p.wait()
+        if self.trace: print(plumed_errors.decode("utf-8"))
+        if self.trace: print(plumed_output.decode("utf-8"))
+
+        # Now that we have a colvar file, read it in via plumed
+        import plumed
+        pdata = plumed.read_as_pandas("./{}".format(self.colvar_file))
+        # Set the times to the time_dataframe stuff
+        pdata.rename(columns={"dz": "plumed_dz", "alpha": "plumed_alpha"}, inplace=True)
+        pdata['time'] = self.times
+        pdata.set_index('time', inplace=True)
+        pdata.index.name = 'Time(ps)'
+
+        # Add to the dataframe list
+        self.time_dfs.append(pdata)
+
+        if self.verbose: print(f"GromacsSeed::AnalyzeAlphaRMSD return")
 
     def AnalyzeCurvature(self):
         r""" Analyze the curvature of the membrane
@@ -672,6 +731,41 @@ class GromacsSeed(SeedBase):
 
         if self.verbose: print(f"GromacsSeed::WriteData return")
 
+    def WritePLUMEDAlphaRMSD(self):
+        r""" Write the alpha_rmsd file for plumed to use
+        """
+        if self.verbose: print(f"GromacsSeed::WritePLUMEDAlphaRMSD")
+        # Create the plumed file
+        with open(os.path.join(self.path, self.plumed_file), "w") as fhandle:
+            fstring = r'''# vim:ft=plumed
+MOLINFO STRUCTURE={}
+
+# Get detailed timing
+DEBUG DETAILED_TIMERS
+
+# Figure out the lipid and helix COM coordinates
+# lipid: center of mass of phosphorus only
+lipid_com: COM ATOMS={}
+helix_com: COM ATOMS={}
+
+# Get the Z distance
+z_dist: DISTANCE ATOMS=lipid_com,helix_com COMPONENTS NOPBC
+dz: COMBINE ARG=z_dist.z PERIODIC=NO
+
+# Get the alpha value
+alpha: ALPHARMSD RESIDUES={}
+
+# Print to a file
+PRINT ARG=dz,alpha FILE={} STRIDE=1
+'''.format(self.plumed_ref,
+           ','.join(str(x) for x in self.lipid_P_atoms),
+           ','.join(str(x) for x in self.helix_C_atoms),
+           self.alpha_residues,
+           self.colvar_file)
+            fhandle.write(fstring)
+
+        if self.verbose: print(f"GromacsSeed::WritePLUMEDAlphaRMSD return")
+
     def GraphZdist(self, ax, color = 'b'):
         r""" Plot the absolute Z position of the helix
         """
@@ -680,12 +774,17 @@ class GromacsSeed(SeedBase):
     def GraphZpos(self, ax, color = 'b'):
         r""" Plot the Z position of the lipid headgroups and protein
         """
-        graph_seed_zpos_wheads(self, ax, color = color)
+        graph_seed_zpos_wheads(self, ax, color = color, docolvar = True)
 
     def GraphHelicity(self, ax, color = 'b'):
         r""" Plot the fractional helicity of the helix
         """
-        graph_seed_helicity(self, ax, color = 'b') 
+        graph_seed_helicity(self, ax, color = 'b', docolvar = True) 
+
+    def GraphAlpha(self, ax, color = 'b'):
+        r""" Plot the raw alpha (DSSP and RMSD) values for the helix
+        """
+        graph_seed_alpha(self, ax, color = 'b', docolvar = True)
 
     def GraphGlobalTilt(self, ax, color = 'b'):
         r""" Plot the global tilt of the helix

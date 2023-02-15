@@ -96,4 +96,23 @@ can use the following command to download everything else.
 
     rsync -avh -e ssh --exclude='*.gsd' edelmaie@longleaf.unc.edu:/pine/scr/e/d/edelmaie/dragonfruit/20220227 .
 
+# Flatiron
+Modules you might want to compile with both GPU and MPI support!
+
+As of 20230209:
+
+	module load modules/2.1
+	module load cuda/11.8
+	module load gcc/11.3.0
+	module load python/3.10.8
+	module load openmpi/cuda-4.0.7
+	module load cmake/3.25.1
+
+
+
+
+    
+    
+    
+
 
