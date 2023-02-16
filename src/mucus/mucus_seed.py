@@ -90,6 +90,10 @@ class MucusSeed(SeedBase):
         else:
             self.r_histone      = 0.5
 
+        if 'lennard_jones_ee' in self.default_yaml['interactions']:
+            self.lennard_jones_ee   = np.float64(self.default_yaml['interactions']['lennard_jones_ee'])
+        else:
+            self.lennard_jones_ee   = 0.0
         self.lennard_jones      = np.float64(self.default_yaml['interactions']['lennard_jones'])
         self.bmh                = np.float64(self.default_yaml['interactions']['born_mayer_huggins'])
 
@@ -148,6 +152,7 @@ class MucusSeed(SeedBase):
         print(f"Histone radius          = {self.r_histone}")
         print(f"--------")
         print(f"Interactions")
+        print(f"Electrostatics (brush)  = {self.lennard_jones_ee}")
         print(f"Electrostatics (LJ)     = {self.lennard_jones}")
         print(f"Hydrophobic (BMH)       = {self.bmh}")
         print(f"--------")
@@ -797,13 +802,13 @@ write_data ${OUTPUT_PREFIX}.final.data nocoeff
 
         print(f"  Creating mucus simulation from scratch!") 
         # Electrostatic ,cysteine, hydrophobic, positive(histonne)
-        self.getTypebyName = {'E': 0, 'C': 1, 'H': 2, 'P': 3}
+        self.getTypebyName = {'muc_e': 0, 'muc_c': 1, 'muc_h': 2, 'muc_p': 3}
         self.getTypebyName['mucusbond'] = 0
         self.getTypebyName['mucusbend'] = 0
 
         # Start setting up the snapshot
         snap.particles.N        = self.natoms
-        snap.particles.types    = ['E', 'C', 'H', 'P']
+        snap.particles.types    = ['muc_e', 'muc_c', 'muc_h', 'muc_p']
         snap.bonds.N            = self.nbonds
         snap.bonds.types        = ['mucusbond']
         snap.bonds.typeid[:]    = 0

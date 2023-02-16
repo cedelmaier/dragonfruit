@@ -124,6 +124,16 @@ def graph_seed_zpos_wheads(sd,
 
     return [ylow, yhi, [leaf0, leaf1, ydata]]
 
+# Plot the self-correlation of the Z-position of the heads
+def graph_seed_zcorr(sd,
+                     ax,
+                     color = 'b',
+                     xlabel = True,
+                     dolegend = False):
+    r""" Plot the dz correlation time-wise for some block
+    """
+    plumed_dz = sd.master_time_df['plumed_dz']
+
 # Graph the fracitonal helicity
 def graph_seed_helicity(sd,
                         ax,

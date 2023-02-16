@@ -134,16 +134,16 @@ if __name__ == "__main__":
 
         # Set up a default gauss potential so we can use it
         gauss = md.pair.Gauss(nlist=cell, default_r_cut=3.5, default_r_on=0.0)
-        gauss.params[('E', 'E')] = {'epsilon': 0.0, 'sigma': 1.0}
-        gauss.params[('E', 'C')] = {'epsilon': 0.0, 'sigma': 1.0}
-        gauss.params[('E', 'H')] = {'epsilon': 0.0, 'sigma': 1.0}
-        gauss.params[('E', 'P')] = {'epsilon': 0.0, 'sigma': 1.0}
-        gauss.params[('C', 'C')] = {'epsilon': 0.0, 'sigma': 1.0}
-        gauss.params[('C', 'H')] = {'epsilon': 0.0, 'sigma': 1.0}
-        gauss.params[('C', 'P')] = {'epsilon': 0.0, 'sigma': 1.0}
-        gauss.params[('H', 'H')] = {'epsilon': 0.0, 'sigma': 1.0}
-        gauss.params[('H', 'P')] = {'epsilon': 0.0, 'sigma': 1.0}
-        gauss.params[('P', 'P')] = {'epsilon': 0.0, 'sigma': 1.0}
+        gauss.params[('muc_e', 'muc_e')] = {'epsilon': 0.0, 'sigma': 1.0}
+        gauss.params[('muc_e', 'muc_c')] = {'epsilon': 0.0, 'sigma': 1.0}
+        gauss.params[('muc_e', 'muc_h')] = {'epsilon': 0.0, 'sigma': 1.0}
+        gauss.params[('muc_e', 'muc_p')] = {'epsilon': 0.0, 'sigma': 1.0}
+        gauss.params[('muc_c', 'muc_c')] = {'epsilon': 0.0, 'sigma': 1.0}
+        gauss.params[('muc_c', 'muc_h')] = {'epsilon': 0.0, 'sigma': 1.0}
+        gauss.params[('muc_c', 'muc_p')] = {'epsilon': 0.0, 'sigma': 1.0}
+        gauss.params[('muc_h', 'muc_h')] = {'epsilon': 0.0, 'sigma': 1.0}
+        gauss.params[('muc_h', 'muc_p')] = {'epsilon': 0.0, 'sigma': 1.0}
+        gauss.params[('muc_p', 'muc_p')] = {'epsilon': 0.0, 'sigma': 1.0}
 
 
     else:
@@ -151,100 +151,244 @@ if __name__ == "__main__":
         wca = md.pair.LJ(nlist=cell)
         wca.mode='shift'
 
-        # LJ interaction for the attractive EM stuff
+        # LJ interaction of a general form
         lje = md.pair.LJ(nlist=cell)
+        # LJ interaction for the attraction between muc_e and muc_p, which might have a different radius!
+        ljp = md.pair.LJ(nlist=cell)
 
         # Born mayer huggins potential for hydrophobic interactions
         bmh = md.pair.BornMayerHuggins(nlist=cell)
 
         ###############################
-        # Excluded volume interactions
+        # Figure out what combination of interactions the system has
         ###############################
         # Set r_cut = 0 to disable interactions
-        # Internal switches for disabling the lennard_jones and BMH interactions
-        print(f"Detected WCA interaction for all <--> all")
-        wca.params[('E', 'E')] = {'epsilon': 1.0, 'sigma': 1.0}
-        wca.params[('E', 'C')] = {'epsilon': 1.0, 'sigma': 1.0}
-        wca.params[('E', 'H')] = {'epsilon': 1.0, 'sigma': 1.0}
-        wca.params[('E', 'P')] = {'epsilon': 1.0, 'sigma': 1.0} # Disabled?
-        wca.params[('C', 'C')] = {'epsilon': 1.0, 'sigma': 1.0}
-        wca.params[('C', 'H')] = {'epsilon': 1.0, 'sigma': 1.0}
-        wca.params[('C', 'P')] = {'epsilon': 1.0, 'sigma': 1.0}
-        wca.params[('H', 'H')] = {'epsilon': 1.0, 'sigma': 1.0} # Disabled?
-        wca.params[('H', 'P')] = {'epsilon': 1.0, 'sigma': 1.0}
-        wca.params[('P', 'P')] = {'epsilon': 1.0, 'sigma': 1.0}
-        wca.r_cut[('E', 'E')] = np.power(2.0, 1/6)*1.0
-        wca.r_cut[('E', 'C')] = np.power(2.0, 1/6)*1.0
-        wca.r_cut[('E', 'H')] = np.power(2.0, 1/6)*1.0
-        # Disable WCA if Lennard Jones present
-        if configurator.lennard_jones <= 0.0:
-            wca.r_cut[('E', 'P')] = np.power(2.0, 1/6*1.0)
-        else:
-            wca.r_cut[('E', 'P')] = 0.0
-        wca.r_cut[('C', 'C')] = np.power(2.0, 1/6)*1.0
-        wca.r_cut[('C', 'H')] = np.power(2.0, 1/6)*1.0
-        wca.r_cut[('C', 'P')] = np.power(2.0, 1/6)*1.0
-        # Disable WCA if BMH present
-        if configurator.bmh >= 0.0:
-            wca.r_cut[('H', 'H')] = np.power(2.0, 1/6)*1.0
-        else:
-            wca.r_cut[('H', 'H')] = 0.0
-        wca.r_cut[('H', 'P')] = np.power(2.0, 1/6)*1.0
-        wca.r_cut[('P', 'P')] = np.power(2.0, 1/6)*1.0
+        print(f"Setting interactions")
 
-        ###############################
-        # Attractive Lennard Jones type interactions
-        ###############################
-        # Only inlucde lennard jones if it is enabled
+        # muc_e <--> muc_e
+        if configurator.lennard_jones_ee > 0.0:
+            print(f"  muc_e <--> muc_e: LJ")
+            wca.params[('muc_e', 'muc_e')] = {'epsilon': 1.0, 'sigma': 1.0}
+            lje.params[('muc_e', 'muc_e')] = {'epsilon': configurator.lennard_jones_ee, 'sigma': 1.0}
+            wca.r_cut[('muc_e', 'muc_e')] = 0.0
+            lje.r_cut[('muc_e', 'muc_e')] = 2.5
+        else:
+            print(f"  muc_e <--> muc_e: WCA")
+            wca.params[('muc_e', 'muc_e')] = {'epsilon': 1.0, 'sigma': 1.0}
+            lje.params[('muc_e', 'muc_e')] = {'epsilon': 1.0, 'sigma': 1.0}
+            wca.r_cut[('muc_e', 'muc_e')] = np.power(2.0, 1/6)*1.0
+            lje.r_cut[('muc_e', 'muc_e')] = 0.0
+        ljp.params[('muc_e', 'muc_e')] = {'epsilon': 1.0, 'sigma': 1.0}
+        bmh.params[('muc_e', 'muc_e')] = {'A': 0.0, 'sigma': 1.0, 'rho': 1.0/9.0, 'C': 1.0, 'D': 1.0}
+        ljp.r_cut[('muc_e', 'muc_e')] = 0.0
+        bmh.r_cut[('muc_e', 'muc_e')] = 0.0
+
+        # muc_e <--> muc_c
+        print(f"  muc_e <--> muc_c: WCA (default)")
+        wca.params[('muc_e', 'muc_c')] = {'epsilon': 1.0, 'sigma': 1.0}
+        lje.params[('muc_e', 'muc_c')] = {'epsilon': 1.0, 'sigma': 1.0}
+        ljp.params[('muc_e', 'muc_c')] = {'epsilon': 1.0, 'sigma': 1.0}
+        bmh.params[('muc_e', 'muc_c')] = {'A': 0.0, 'sigma': 1.0, 'rho': 1.0/9.0, 'C': 1.0, 'D': 1.0}
+        wca.r_cut[('muc_e', 'muc_c')] = np.power(2.0, 1/6)*1.0
+        lje.r_cut[('muc_e', 'muc_c')] = 0.0
+        ljp.r_cut[('muc_e', 'muc_c')] = 0.0
+        bmh.r_cut[('muc_e', 'muc_c')] = 0.0
+
+        # muc_e <--> muc_h
+        print(f"  muc_e <--> muc_h: WCA (default)")
+        wca.params[('muc_e', 'muc_h')] = {'epsilon': 1.0, 'sigma': 1.0}
+        lje.params[('muc_e', 'muc_h')] = {'epsilon': 1.0, 'sigma': 1.0}
+        ljp.params[('muc_e', 'muc_h')] = {'epsilon': 1.0, 'sigma': 1.0}
+        bmh.params[('muc_e', 'muc_h')] = {'A': 0.0, 'sigma': 1.0, 'rho': 1.0/9.0, 'C': 1.0, 'D': 1.0}
+        wca.r_cut[('muc_e', 'muc_h')] = np.power(2.0, 1/6)*1.0
+        lje.r_cut[('muc_e', 'muc_h')] = 0.0
+        ljp.r_cut[('muc_e', 'muc_h')] = 0.0
+        bmh.r_cut[('muc_e', 'muc_h')] = 0.0
+
+        # muc_e <--> muc_p
+        # This is the first time we see an adjusted radius based on the size of the muc_e and muc_p beads
+        adj_radius = 0.5 + configurator.r_histone
         if configurator.lennard_jones > 0.0:
-            print(f"Detected Lennard-Jones attractive interaction for E <--> P")
-            lje.params[('E', 'E')] = {'epsilon': configurator.lennard_jones, 'sigma': 1.0} # Disabled
-            lje.params[('E', 'C')] = {'epsilon': configurator.lennard_jones, 'sigma': 1.0} # Disabled
-            lje.params[('E', 'H')] = {'epsilon': configurator.lennard_jones, 'sigma': 1.0} # Disabled
-            lje.params[('E', 'P')] = {'epsilon': configurator.lennard_jones, 'sigma': 1.0} 
-            lje.params[('C', 'C')] = {'epsilon': configurator.lennard_jones, 'sigma': 1.0} # Disabled
-            lje.params[('C', 'H')] = {'epsilon': configurator.lennard_jones, 'sigma': 1.0} # Disabled
-            lje.params[('C', 'P')] = {'epsilon': configurator.lennard_jones, 'sigma': 1.0} # Disabled
-            lje.params[('H', 'H')] = {'epsilon': configurator.lennard_jones, 'sigma': 1.0} # Disabled
-            lje.params[('H', 'P')] = {'epsilon': configurator.lennard_jones, 'sigma': 1.0} # Disabled
-            lje.params[('P', 'P')] = {'epsilon': configurator.lennard_jones, 'sigma': 1.0} # Disabled
-            lje.r_cut[('E', 'E')] = 0.0
-            lje.r_cut[('E', 'C')] = 0.0
-            lje.r_cut[('E', 'H')] = 0.0
-            lje.r_cut[('E', 'P')] = 2.5
-            lje.r_cut[('C', 'C')] = 0.0
-            lje.r_cut[('C', 'H')] = 0.0
-            lje.r_cut[('C', 'P')] = 0.0
-            lje.r_cut[('H', 'H')] = 0.0
-            lje.r_cut[('H', 'P')] = 0.0
-            lje.r_cut[('P', 'P')] = 0.0
+            print(f"  muc_e <--> muc_p: LJ")
+            wca.params[('muc_e', 'muc_p')] = {'epsilon': 1.0, 'sigma': 1.0}
+            ljp.params[('muc_e', 'muc_p')] = {'epsilon': configurator.lennard_jones, 'sigma': adj_radius}
+            wca.r_cut[('muc_e', 'muc_p')] = 0.0
+            ljp.r_cut[('muc_e', 'muc_p')] = 2.5*adj_radius
+        else:
+            print(f"  muc_e <--> muc_p: WCA")
+            wca.params[('muc_e', 'muc_p')] = {'epsilon': 1.0, 'sigma': adj_radius}
+            ljp.params[('muc_e', 'muc_p')] = {'epsilon': 1.0, 'sigma': 1.0}
+            wca.r_cut[('muc_e', 'muc_p')] = np.power(2.0, 1/6)*adj_radius
+            ljp.r_cut[('muc_e', 'muc_p')] = 0.0
+        lje.params[('muc_e', 'muc_p')] = {'epsilon': 1.0, 'sigma': 1.0}
+        bmh.params[('muc_e', 'muc_p')] = {'A': 0.0, 'sigma': 1.0, 'rho': 1.0/9.0, 'C': 1.0, 'D': 1.0}
+        lje.r_cut[('muc_e', 'muc_p')] = 0.0
+        bmh.r_cut[('muc_e', 'muc_p')] = 0.0
 
-        ###############################
-        # Attractive Born-Mayer-Huggins interactions
-        ###############################
-        # Only inlucde if used (attractive)
+        # muc_c <--> muc_c
+        print(f"  muc_c <--> muc_c: WCA (default)")
+        wca.params[('muc_c', 'muc_c')] = {'epsilon': 1.0, 'sigma': 1.0}
+        lje.params[('muc_c', 'muc_c')] = {'epsilon': 1.0, 'sigma': 1.0}
+        ljp.params[('muc_c', 'muc_c')] = {'epsilon': 1.0, 'sigma': 1.0}
+        bmh.params[('muc_c', 'muc_c')] = {'A': 0.0, 'sigma': 1.0, 'rho': 1.0/9.0, 'C': 1.0, 'D': 1.0}
+        wca.r_cut[('muc_c', 'muc_c')] = np.power(2.0, 1/6)*1.0
+        lje.r_cut[('muc_c', 'muc_c')] = 0.0
+        ljp.r_cut[('muc_c', 'muc_c')] = 0.0
+        bmh.r_cut[('muc_c', 'muc_c')] = 0.0
+
+        # muc_c <--> muc_h
+        print(f"  muc_c <--> muc_h: WCA (default)")
+        wca.params[('muc_c', 'muc_h')] = {'epsilon': 1.0, 'sigma': 1.0}
+        lje.params[('muc_c', 'muc_h')] = {'epsilon': 1.0, 'sigma': 1.0}
+        ljp.params[('muc_c', 'muc_h')] = {'epsilon': 1.0, 'sigma': 1.0}
+        bmh.params[('muc_c', 'muc_h')] = {'A': 0.0, 'sigma': 1.0, 'rho': 1.0/9.0, 'C': 1.0, 'D': 1.0}
+        wca.r_cut[('muc_c', 'muc_h')] = np.power(2.0, 1/6)*1.0
+        lje.r_cut[('muc_c', 'muc_h')] = 0.0
+        ljp.r_cut[('muc_c', 'muc_h')] = 0.0
+        bmh.r_cut[('muc_c', 'muc_h')] = 0.0
+
+        # muc_c <--> muc_p
+        print(f"  muc_c <--> muc_p: WCA (default)")
+        wca.params[('muc_c', 'muc_p')] = {'epsilon': 1.0, 'sigma': adj_radius}
+        lje.params[('muc_c', 'muc_p')] = {'epsilon': 1.0, 'sigma': 1.0}
+        ljp.params[('muc_c', 'muc_p')] = {'epsilon': 1.0, 'sigma': 1.0}
+        bmh.params[('muc_c', 'muc_p')] = {'A': 0.0, 'sigma': 1.0, 'rho': 1.0/9.0, 'C': 1.0, 'D': 1.0}
+        wca.r_cut[('muc_c', 'muc_p')] = np.power(2.0, 1/6)*adj_radius
+        lje.r_cut[('muc_c', 'muc_p')] = 0.0
+        ljp.r_cut[('muc_c', 'muc_p')] = 0.0
+        bmh.r_cut[('muc_c', 'muc_p')] = 0.0
+
+        # muc_h <--> muc_h
         if configurator.bmh < 0.0:
-            print(f"Detected Born-Mayer-Huggins attractive interaction for H <--> H")
-            bmh.params[('E', 'E')] = {'A': 0.0, 'sigma': 1.0, 'rho': 1.0/9.0, 'C': 1.0, 'D': 1.0}
-            bmh.params[('E', 'C')] = {'A': 0.0, 'sigma': 1.0, 'rho': 1.0/9.0, 'C': 1.0, 'D': 1.0}
-            bmh.params[('E', 'H')] = {'A': 0.0, 'sigma': 1.0, 'rho': 1.0/9.0, 'C': 1.0, 'D': 1.0}
-            bmh.params[('E', 'P')] = {'A': 0.0, 'sigma': 1.0, 'rho': 1.0/9.0, 'C': 1.0, 'D': 1.0}
-            bmh.params[('C', 'C')] = {'A': 0.0, 'sigma': 1.0, 'rho': 1.0/9.0, 'C': 1.0, 'D': 1.0}
-            bmh.params[('C', 'H')] = {'A': 0.0, 'sigma': 1.0, 'rho': 1.0/9.0, 'C': 1.0, 'D': 1.0}
-            bmh.params[('C', 'P')] = {'A': 0.0, 'sigma': 1.0, 'rho': 1.0/9.0, 'C': 1.0, 'D': 1.0}
-            bmh.params[('H', 'H')] = {'A': configurator.bmh, 'sigma': 1.0, 'rho': 1.0/9.0, 'C': 1.0, 'D': 1.0}
-            bmh.params[('H', 'P')] = {'A': 0.0, 'sigma': 1.0, 'rho': 1.0/9.0, 'C': 1.0, 'D': 1.0}
-            bmh.params[('P', 'P')] = {'A': 0.0, 'sigma': 1.0, 'rho': 1.0/9.0, 'C': 1.0, 'D': 1.0}
-            bmh.r_cut[('E', 'E')] = 0.0
-            bmh.r_cut[('E', 'C')] = 0.0
-            bmh.r_cut[('E', 'H')] = 0.0
-            bmh.r_cut[('E', 'P')] = 0.0
-            bmh.r_cut[('C', 'C')] = 0.0
-            bmh.r_cut[('C', 'H')] = 0.0
-            bmh.r_cut[('C', 'P')] = 0.0
-            bmh.r_cut[('H', 'H')] = 2.5
-            bmh.r_cut[('H', 'P')] = 0.0
-            bmh.r_cut[('P', 'P')] = 0.0
+            print(f"  muc_h <--> muc_h: BMH")
+            wca.params[('muc_h', 'muc_h')] = {'epsilon': 1.0, 'sigma': 1.0}
+            bmh.params[('muc_h', 'muc_h')] = {'A': configurator.bmh, 'sigma': 1.0, 'rho': 1.0/9.0, 'C': 1.0, 'D': 1.0}
+            wca.r_cut[('muc_h', 'muc_h')] = 0.0
+            bmh.r_cut[('muc_h', 'muc_h')] = 2.5
+        else:
+            print(f"  muc_h <--> muc_h: WCA")
+            wca.params[('muc_h', 'muc_h')] = {'epsilon': 1.0, 'sigma': 1.0}
+            bmh.params[('muc_h', 'muc_h')] = {'A': 0.0, 'sigma': 1.0, 'rho': 1.0/9.0, 'C': 1.0, 'D': 1.0}
+            wca.r_cut[('muc_h', 'muc_h')] = np.power(2.0, 1/6)*1.0
+            bmh.r_cut[('muc_h', 'muc_h')] = 0.0
+        lje.params[('muc_h', 'muc_h')] = {'epsilon': 1.0, 'sigma': 1.0}
+        ljp.params[('muc_h', 'muc_h')] = {'epsilon': 1.0, 'sigma': 1.0}
+        lje.r_cut[('muc_h', 'muc_h')] = 0.0
+        ljp.r_cut[('muc_h', 'muc_h')] = 0.0
+
+        # muc_c <--> muc_p
+        print(f"  muc_h <--> muc_p: WCA (default)")
+        wca.params[('muc_h', 'muc_p')] = {'epsilon': 1.0, 'sigma': adj_radius}
+        lje.params[('muc_h', 'muc_p')] = {'epsilon': 1.0, 'sigma': 1.0}
+        ljp.params[('muc_h', 'muc_p')] = {'epsilon': 1.0, 'sigma': 1.0}
+        bmh.params[('muc_h', 'muc_p')] = {'A': 0.0, 'sigma': 1.0, 'rho': 1.0/9.0, 'C': 1.0, 'D': 1.0}
+        wca.r_cut[('muc_h', 'muc_p')] = np.power(2.0, 1/6)*adj_radius
+        lje.r_cut[('muc_h', 'muc_p')] = 0.0
+        ljp.r_cut[('muc_h', 'muc_p')] = 0.0
+        bmh.r_cut[('muc_h', 'muc_p')] = 0.0
+
+        # muc_c <--> muc_p
+        print(f"  muc_p <--> muc_p: WCA (default)")
+        wca.params[('muc_p', 'muc_p')] = {'epsilon': 1.0, 'sigma': 2.0*configurator.r_histone}
+        lje.params[('muc_p', 'muc_p')] = {'epsilon': 1.0, 'sigma': 1.0}
+        ljp.params[('muc_p', 'muc_p')] = {'epsilon': 1.0, 'sigma': 1.0}
+        bmh.params[('muc_p', 'muc_p')] = {'A': 0.0, 'sigma': 1.0, 'rho': 1.0/9.0, 'C': 1.0, 'D': 1.0}
+        wca.r_cut[('muc_p', 'muc_p')] = np.power(2.0, 1/6)*2.0*configurator.r_histone
+        lje.r_cut[('muc_p', 'muc_p')] = 0.0
+        ljp.r_cut[('muc_p', 'muc_p')] = 0.0
+        bmh.r_cut[('muc_p', 'muc_p')] = 0.0
+
+        #print(f"Working here for now CJE, updating names of things, and then changing to a better initialization structure for the potentials")
+        #sys.exit(1)
+
+        ################################
+        ## Excluded volume interactions
+        ################################
+        ## Set r_cut = 0 to disable interactions
+        ## Internal switches for disabling the lennard_jones and BMH interactions
+        #print(f"Detected WCA interaction for all <--> all")
+        #wca.params[('muc_e', 'muc_e')] = {'epsilon': 1.0, 'sigma': 1.0}
+        #wca.params[('muc_e', 'muc_c')] = {'epsilon': 1.0, 'sigma': 1.0}
+        #wca.params[('muc_e', 'muc_h')] = {'epsilon': 1.0, 'sigma': 1.0}
+        #wca.params[('muc_e', 'muc_p')] = {'epsilon': 1.0, 'sigma': 1.0} # Disabled?
+        #wca.params[('muc_c', 'muc_c')] = {'epsilon': 1.0, 'sigma': 1.0}
+        #wca.params[('muc_c', 'muc_h')] = {'epsilon': 1.0, 'sigma': 1.0}
+        #wca.params[('muc_c', 'muc_p')] = {'epsilon': 1.0, 'sigma': 1.0}
+        #wca.params[('muc_h', 'muc_h')] = {'epsilon': 1.0, 'sigma': 1.0} # Disabled?
+        #wca.params[('muc_h', 'muc_p')] = {'epsilon': 1.0, 'sigma': 1.0}
+        #wca.params[('muc_p', 'muc_p')] = {'epsilon': 1.0, 'sigma': 1.0}
+        #wca.r_cut[('muc_e', 'muc_e')] = np.power(2.0, 1/6)*1.0
+        #wca.r_cut[('muc_e', 'muc_c')] = np.power(2.0, 1/6)*1.0
+        #wca.r_cut[('muc_e', 'muc_h')] = np.power(2.0, 1/6)*1.0
+        ## Disable WCA if Lennard Jones present
+        #if configurator.lennard_jones <= 0.0:
+        #    wca.r_cut[('muc_e', 'muc_p')] = np.power(2.0, 1/6*1.0)
+        #else:
+        #    wca.r_cut[('muc_e', 'muc_p')] = 0.0
+        #wca.r_cut[('muc_c', 'muc_c')] = np.power(2.0, 1/6)*1.0
+        #wca.r_cut[('muc_c', 'muc_h')] = np.power(2.0, 1/6)*1.0
+        #wca.r_cut[('muc_c', 'muc_p')] = np.power(2.0, 1/6)*1.0
+        ## Disable WCA if BMH present
+        #if configurator.bmh >= 0.0:
+        #    wca.r_cut[('H', 'H')] = np.power(2.0, 1/6)*1.0
+        #else:
+        #    wca.r_cut[('H', 'H')] = 0.0
+        #wca.r_cut[('H', 'P')] = np.power(2.0, 1/6)*1.0
+        #wca.r_cut[('P', 'P')] = np.power(2.0, 1/6)*1.0
+
+        ################################
+        ## Attractive Lennard Jones type interactions
+        ################################
+        ## Only inlucde lennard jones if it is enabled
+        #if configurator.lennard_jones > 0.0:
+        #    print(f"Detected Lennard-Jones attractive interaction for E <--> P")
+        #    lje.params[('E', 'E')] = {'epsilon': configurator.lennard_jones, 'sigma': 1.0} # Disabled
+        #    lje.params[('E', 'C')] = {'epsilon': configurator.lennard_jones, 'sigma': 1.0} # Disabled
+        #    lje.params[('E', 'H')] = {'epsilon': configurator.lennard_jones, 'sigma': 1.0} # Disabled
+        #    lje.params[('E', 'P')] = {'epsilon': configurator.lennard_jones, 'sigma': 1.0} 
+        #    lje.params[('C', 'C')] = {'epsilon': configurator.lennard_jones, 'sigma': 1.0} # Disabled
+        #    lje.params[('C', 'H')] = {'epsilon': configurator.lennard_jones, 'sigma': 1.0} # Disabled
+        #    lje.params[('C', 'P')] = {'epsilon': configurator.lennard_jones, 'sigma': 1.0} # Disabled
+        #    lje.params[('H', 'H')] = {'epsilon': configurator.lennard_jones, 'sigma': 1.0} # Disabled
+        #    lje.params[('H', 'P')] = {'epsilon': configurator.lennard_jones, 'sigma': 1.0} # Disabled
+        #    lje.params[('P', 'P')] = {'epsilon': configurator.lennard_jones, 'sigma': 1.0} # Disabled
+        #    lje.r_cut[('E', 'E')] = 0.0
+        #    lje.r_cut[('E', 'C')] = 0.0
+        #    lje.r_cut[('E', 'H')] = 0.0
+        #    lje.r_cut[('E', 'P')] = 2.5
+        #    lje.r_cut[('C', 'C')] = 0.0
+        #    lje.r_cut[('C', 'H')] = 0.0
+        #    lje.r_cut[('C', 'P')] = 0.0
+        #    lje.r_cut[('H', 'H')] = 0.0
+        #    lje.r_cut[('H', 'P')] = 0.0
+        #    lje.r_cut[('P', 'P')] = 0.0
+
+        ################################
+        ## Attractive Born-Mayer-Huggins interactions
+        ################################
+        ## Only inlucde if used (attractive)
+        #if configurator.bmh < 0.0:
+        #    print(f"Detected Born-Mayer-Huggins attractive interaction for H <--> H")
+        #    bmh.params[('E', 'E')] = {'A': 0.0, 'sigma': 1.0, 'rho': 1.0/9.0, 'C': 1.0, 'D': 1.0}
+        #    bmh.params[('E', 'C')] = {'A': 0.0, 'sigma': 1.0, 'rho': 1.0/9.0, 'C': 1.0, 'D': 1.0}
+        #    bmh.params[('E', 'H')] = {'A': 0.0, 'sigma': 1.0, 'rho': 1.0/9.0, 'C': 1.0, 'D': 1.0}
+        #    bmh.params[('E', 'P')] = {'A': 0.0, 'sigma': 1.0, 'rho': 1.0/9.0, 'C': 1.0, 'D': 1.0}
+        #    bmh.params[('C', 'C')] = {'A': 0.0, 'sigma': 1.0, 'rho': 1.0/9.0, 'C': 1.0, 'D': 1.0}
+        #    bmh.params[('C', 'H')] = {'A': 0.0, 'sigma': 1.0, 'rho': 1.0/9.0, 'C': 1.0, 'D': 1.0}
+        #    bmh.params[('C', 'P')] = {'A': 0.0, 'sigma': 1.0, 'rho': 1.0/9.0, 'C': 1.0, 'D': 1.0}
+        #    bmh.params[('H', 'H')] = {'A': configurator.bmh, 'sigma': 1.0, 'rho': 1.0/9.0, 'C': 1.0, 'D': 1.0}
+        #    bmh.params[('H', 'P')] = {'A': 0.0, 'sigma': 1.0, 'rho': 1.0/9.0, 'C': 1.0, 'D': 1.0}
+        #    bmh.params[('P', 'P')] = {'A': 0.0, 'sigma': 1.0, 'rho': 1.0/9.0, 'C': 1.0, 'D': 1.0}
+        #    bmh.r_cut[('E', 'E')] = 0.0
+        #    bmh.r_cut[('E', 'C')] = 0.0
+        #    bmh.r_cut[('E', 'H')] = 0.0
+        #    bmh.r_cut[('E', 'P')] = 0.0
+        #    bmh.r_cut[('C', 'C')] = 0.0
+        #    bmh.r_cut[('C', 'H')] = 0.0
+        #    bmh.r_cut[('C', 'P')] = 0.0
+        #    bmh.r_cut[('H', 'H')] = 2.5
+        #    bmh.r_cut[('H', 'P')] = 0.0
+        #    bmh.r_cut[('P', 'P')] = 0.0
         
 
     ###############################
@@ -264,10 +408,10 @@ if __name__ == "__main__":
     langevin = md.methods.Langevin(hoomd.filter.All(),
                                    kT = configurator.kT)
     # Gamma for every particle is mass/t_damp
-    langevin.gamma['E'] = 1.0/configurator.t_damp
-    langevin.gamma['C'] = 1.0/configurator.t_damp
-    langevin.gamma['H'] = 1.0/configurator.t_damp
-    langevin.gamma['P'] = 1.0/configurator.t_damp
+    langevin.gamma['muc_e'] = 1.0/configurator.t_damp
+    langevin.gamma['muc_c'] = 1.0/configurator.t_damp
+    langevin.gamma['muc_h'] = 1.0/configurator.t_damp
+    langevin.gamma['muc_p'] = 1.0/configurator.t_damp
 
     integrator.methods.append(langevin)
 
@@ -276,8 +420,10 @@ if __name__ == "__main__":
         integrator.forces.append(gauss)
     elif configurator.init_type == 'production':
         integrator.forces.append(wca)
-        if configurator.lennard_jones > 0.0:
+        if configurator.lennard_jones_ee > 0.0:
             integrator.forces.append(lje)
+        if configurator.lennard_jones > 0.0:
+            integrator.forces.append(ljp)
         if configurator.bmh < 0.0:
             integrator.forces.append(bmh)
     integrator.forces.append(fenewca)
@@ -352,16 +498,16 @@ if __name__ == "__main__":
         nblock_size = np.int32(configurator.nsteps_equilibrate / nblocks)
         for iblock in range(1000):
             print(f"  Block {iblock}")
-            gauss.params[('E', 'E')] = {'epsilon': (iblock/nblocks*100.0), 'sigma': 1.0}
-            gauss.params[('E', 'C')] = {'epsilon': (iblock/nblocks*100.0), 'sigma': 1.0}
-            gauss.params[('E', 'H')] = {'epsilon': (iblock/nblocks*100.0), 'sigma': 1.0}
-            gauss.params[('E', 'P')] = {'epsilon': (iblock/nblocks*100.0), 'sigma': 1.0}
-            gauss.params[('C', 'C')] = {'epsilon': (iblock/nblocks*100.0), 'sigma': 1.0}
-            gauss.params[('C', 'H')] = {'epsilon': (iblock/nblocks*100.0), 'sigma': 1.0}
-            gauss.params[('C', 'P')] = {'epsilon': (iblock/nblocks*100.0), 'sigma': 1.0}
-            gauss.params[('H', 'H')] = {'epsilon': (iblock/nblocks*100.0), 'sigma': 1.0}
-            gauss.params[('H', 'P')] = {'epsilon': (iblock/nblocks*100.0), 'sigma': 1.0}
-            gauss.params[('P', 'P')] = {'epsilon': (iblock/nblocks*100.0), 'sigma': 1.0}
+            gauss.params[('muc_e', 'muc_e')] = {'epsilon': (iblock/nblocks*100.0), 'sigma': 1.0}
+            gauss.params[('muc_e', 'muc_c')] = {'epsilon': (iblock/nblocks*100.0), 'sigma': 1.0}
+            gauss.params[('muc_e', 'muc_h')] = {'epsilon': (iblock/nblocks*100.0), 'sigma': 1.0}
+            gauss.params[('muc_e', 'muc_p')] = {'epsilon': (iblock/nblocks*100.0), 'sigma': 1.0}
+            gauss.params[('muc_c', 'muc_c')] = {'epsilon': (iblock/nblocks*100.0), 'sigma': 1.0}
+            gauss.params[('muc_c', 'muc_h')] = {'epsilon': (iblock/nblocks*100.0), 'sigma': 1.0}
+            gauss.params[('muc_c', 'muc_p')] = {'epsilon': (iblock/nblocks*100.0), 'sigma': 1.0}
+            gauss.params[('muc_h', 'muc_h')] = {'epsilon': (iblock/nblocks*100.0), 'sigma': 1.0}
+            gauss.params[('muc_h', 'muc_p')] = {'epsilon': (iblock/nblocks*100.0), 'sigma': 1.0}
+            gauss.params[('muc_p', 'muc_p')] = {'epsilon': (iblock/nblocks*100.0), 'sigma': 1.0}
             sim.run(nblock_size)
 
     elif configurator.init_type == 'production':

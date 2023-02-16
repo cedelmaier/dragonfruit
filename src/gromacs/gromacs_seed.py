@@ -776,6 +776,11 @@ PRINT ARG=dz,alpha FILE={} STRIDE=1
         """
         graph_seed_zpos_wheads(self, ax, color = color, docolvar = True)
 
+    def GraphZcorr(self, ax, color = 'b'):
+        r""" Plot the Z self-correlation (time lag) for a given deltaT
+        """
+        graph_seed_zcorr(self, ax, color = color)
+
     def GraphHelicity(self, ax, color = 'b'):
         r""" Plot the fractional helicity of the helix
         """

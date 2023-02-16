@@ -111,24 +111,35 @@ class GromacsAnalysis(object):
             sd.GraphZdist(axarr)
             fig.tight_layout()
             fig.savefig('gromacs_zdist.pdf', dpi=fig.dpi)
+            plt.close(fig)
 
             # Try doing a plot with the lipid head groups included
             fig, axarr = plt.subplots(1, 1, figsize=(15,10))
             sd.GraphZpos(axarr)
             fig.tight_layout()
             fig.savefig('gromacs_zpos.pdf', dpi=fig.dpi)
+            plt.close(fig)
+
+            # Try doing the self-correlation of the z-position
+            fig, axarr = plt.subplots(1, 1, figsize=(15,10))
+            sd.GraphZcorr(axarr)
+            fig.tight_layout()
+            fig.savefig('gromacs_zcorr.pdf', dpi=fig.dpi)
+            plt.close(fig)
 
             # Plot the helicity of the protein
             fig, axarr = plt.subplots(1, 1, figsize = (15, 10))
             sd.GraphHelicity(axarr)
             fig.tight_layout()
             fig.savefig('gromacs_helicity.pdf', dpi=fig.dpi)
+            plt.close(fig)
 
             # Plot the raw alpha values
             fig, axarr = plt.subplots(1, 1, figsize = (15, 10))
             sd.GraphAlpha(axarr)
             fig.tight_layout()
             fig.savefig('gromacs_alpha.pdf', dpi=fig.dpi)
+            plt.close(fig)
 
             ## Plot helix information
             #fig, axarr = plt.subplots(2, 1, figsize = (15, 10))
@@ -141,54 +152,63 @@ class GromacsAnalysis(object):
             sd.GraphGlobalTilt(axarr)
             fig.tight_layout()
             fig.savefig('gromacs_global_tilt.pdf', dpi=fig.dpi)
+            plt.close(fig)
 
             # Plot the mean location of the upper leaflet
             fig, axarr = plt.subplots(1, 2, figsize = (15, 10))
             sd.graph_avg_z_surface(axarr)
             fig.tight_layout()
             fig.savefig('gromacs_avg_zsurf.pdf', dpi=fig.dpi)
+            plt.close(fig)
 
             # Plot the average mean curvature
             fig, axarr = plt.subplots(1, 2, figsize = (15, 10))
             sd.graph_avg_mean_curvature(axarr)
             fig.tight_layout()
             fig.savefig('gromacs_avg_meancurv.pdf', dpi = fig.dpi)
+            plt.close(fig)
 
             # Plot the average gaussian curvature
             fig, axarr = plt.subplots(1, 2, figsize = (15, 10))
             sd.graph_avg_gaussian_curvature(axarr)
             fig.tight_layout()
             fig.savefig('gromacs_avg_gausscurv.pdf', dpi = fig.dpi)
+            plt.close(fig)
 
             # Plot the angle of the dipole moment with the Z-axis
             fig, axarr = plt.subplots(1, 1, figsize = (15, 10))
             sd.GraphPDipoleTilt(axarr)
             fig.tight_layout()
             fig.savefig('gromacs_pdipole_tilt.pdf', dpi=fig.dpi)
+            plt.close(fig)
 
             # Plot the angle of the dipole moment with the Z-axis
             fig, axarr = plt.subplots(1, 1, figsize = (15, 10))
             sd.GraphHelixPDipoleAngle(axarr)
             fig.tight_layout()
             fig.savefig('gromacs_helixpdipole_angle.pdf', dpi=fig.dpi)
+            plt.close(fig)
 
             # Plot the magnitude of the electric dipole moment
             fig, axarr = plt.subplots(1, 1, figsize = (15, 10))
             sd.GraphPDipoleMoment(axarr)
             fig.tight_layout()
             fig.savefig('gromacs_pdipolemoment.pdf', dpi = fig.dpi)
+            plt.close(fig)
 
             # Plot the Z component of the force
             fig, axarr = plt.subplots(1, 1, figsize = (15, 10))
             sd.GraphZForce(axarr)
             fig.tight_layout()
             fig.savefig('gromacs_zforce.pdf', dpi = fig.dpi)
+            plt.close(fig)
 
             # Plot the perpendicular torque to the helix
             fig, axarr = plt.subplots(1, 1, figsize = (15, 10))
             sd.GraphPerpTorque(axarr)
             fig.tight_layout()
             fig.savefig('gromacs_perptorque.pdf', dpi = fig.dpi)
+            plt.close(fig)
 
     def AnalyzeSimulation(self):
         r""" Analyze a simulation (collection of seeds)
