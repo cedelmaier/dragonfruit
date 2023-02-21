@@ -1,4 +1,4 @@
-// Copyright (c) 2009-2022 The Regents of the University of Michigan.
+// Copyright (c) 2009-2023 The Regents of the University of Michigan.
 // Part of HOOMD-blue, released under the BSD 3-Clause License.
 
 #include <pybind11/pybind11.h>
@@ -45,11 +45,11 @@ void export_LocalNeighborListDataHost(pybind11::module& m);
 
 void export_PotentialPairBuckingham(pybind11::module& m);
 void export_PotentialPairBornMayerHuggins(pybind11::module& m);
-void export_PotentialPairGrimeLipid(pybind11::module& m);
 void export_PotentialPairLJ(pybind11::module& m);
 void export_PotentialPairLJ1208(pybind11::module& m);
 void export_PotentialPairLJ0804(pybind11::module& m);
 void export_PotentialPairGauss(pybind11::module& m);
+void export_PotentialPairGrimeLipid(pybind11::module& m);
 void export_PotentialPairExpandedLJ(pybind11::module& m);
 void export_PotentialPairExpandedMie(pybind11::module& m);
 void export_PotentialPairYukawa(pybind11::module& m);
@@ -183,11 +183,11 @@ void export_LocalNeighborListDataGPU(pybind11::module& m);
 
 void export_PotentialPairBuckinghamGPU(pybind11::module& m);
 void export_PotentialPairBornMayerHugginsGPU(pybind11::module& m);
-void export_PotentialPairGrimeLipidHugginsGPU(pybind11::module& m);
 void export_PotentialPairLJGPU(pybind11::module& m);
 void export_PotentialPairLJ1208GPU(pybind11::module& m);
 void export_PotentialPairLJ0804GPU(pybind11::module& m);
 void export_PotentialPairGaussGPU(pybind11::module& m);
+void export_PotentialPairGrimeLipidGPU(pybind11::module& m);
 void export_PotentialPairExpandedLJGPU(pybind11::module& m);
 void export_PotentialPairExpandedMieGPU(pybind11::module& m);
 void export_PotentialPairYukawaGPU(pybind11::module& m);
@@ -309,11 +309,11 @@ PYBIND11_MODULE(_md, m)
 
     export_PotentialPairBuckingham(m);
     export_PotentialPairBornMayerHuggins(m);
-    export_PotentialPairGrimeLipid(m);
     export_PotentialPairLJ(m);
     export_PotentialPairLJ1208(m);
     export_PotentialPairLJ0804(m);
     export_PotentialPairGauss(m);
+    export_PotentialPairGrimeLipid(m);
     export_PotentialPairExpandedLJ(m);
     export_PotentialPairExpandedMie(m);
     export_PotentialPairYukawa(m);
@@ -391,11 +391,11 @@ PYBIND11_MODULE(_md, m)
 
     export_PotentialPairBuckinghamGPU(m);
     export_PotentialPairBornMayerHugginsGPU(m);
-    export_PotentialPairGrimeLipidGPU(m);
     export_PotentialPairLJGPU(m);
     export_PotentialPairLJ1208GPU(m);
     export_PotentialPairLJ0804GPU(m);
     export_PotentialPairGaussGPU(m);
+    export_PotentialPairGrimeLipidGPU(m);
     export_PotentialPairExpandedLJGPU(m);
     export_PotentialPairExpandedMieGPU(m);
     export_PotentialPairYukawaGPU(m);

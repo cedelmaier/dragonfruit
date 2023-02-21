@@ -90,8 +90,8 @@ set(_md_headers ActiveForceComputeGPU.h
                 EvaluatorExternalElectricField.h
                 EvaluatorExternalPeriodic.h
                 EvaluatorPairALJ.h
-                EvaluatorPairBuckingham.h
                 EvaluatorPairBornMayerHuggins.h
+                EvaluatorPairBuckingham.h
                 EvaluatorPairDipole.h
                 EvaluatorPairDLVO.h
                 EvaluatorPairDPDThermoLJ.h
@@ -99,8 +99,8 @@ set(_md_headers ActiveForceComputeGPU.h
                 EvaluatorPairEwald.h
                 EvaluatorPairForceShiftedLJ.h
                 EvaluatorPairGauss.h
-                EvaluatorPairGrimeLipid.h
                 EvaluatorPairGB.h
+                EvaluatorPairGrimeLipid.h
                 EvaluatorPairLJ.h
                 EvaluatorPairLJ1208.h
                 EvaluatorPairLJ0804.h

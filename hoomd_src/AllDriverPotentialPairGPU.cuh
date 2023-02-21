@@ -1,4 +1,4 @@
-// Copyright (c) 2009-2022 The Regents of the University of Michigan.
+// Copyright (c) 2009-2023 The Regents of the University of Michigan.
 // Part of HOOMD-blue, released under the BSD 3-Clause License.
 
 /*! \file AllDriverPotentialPairGPU.cuh
@@ -62,8 +62,8 @@ gpu_compute_yukawa_forces(const pair_args_t& pair_args,
 
 //! Compute bornmayerhuggins pair forces on the GPU with PairEvaluatorBornMayerHuggins
 hipError_t __attribute__((visibility("default")))
-gpu_compute_bornmayerhuggins(const pair_args_t& pair_args,
-                             const EvaluatorPairBornMayerHuggins::param_type* d_params);
+gpu_compute_bornmayerhuggins_forces(const pair_args_t& pair_args,
+                                    const EvaluatorPairBornMayerHuggins::param_type* d_params);
 
 //! Compute grimelipid pair forces on the GPU with PairEvaluatorGrimeLipid
 hipError_t __attribute__((visibility("default")))
