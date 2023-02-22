@@ -123,7 +123,9 @@ if __name__ == "__main__":
     sim.create_state_from_snapshot(snap)
 
     # Set up a common adjusted radius if we have size differences
-    adj_radius = 0.5 + configurator.r_histone
+    r_sphere    = 0.5
+    r_histone   = configurator.r_histone
+    adj_diameter = 0.5 + configurator.r_histone
 
     # Figure out which (and how many) neighbor lists to start up
     print(f"Creating neighbor lists")
@@ -149,16 +151,16 @@ if __name__ == "__main__":
         gauss.params[('muc_e', 'muc_e')] = {'epsilon': 0.0, 'sigma': 1.0}
         gauss.params[('muc_e', 'muc_c')] = {'epsilon': 0.0, 'sigma': 1.0}
         gauss.params[('muc_e', 'muc_h')] = {'epsilon': 0.0, 'sigma': 1.0}
-        gauss.params[('muc_e', 'muc_p')] = {'epsilon': 0.0, 'sigma': 1.0*adj_radius}
+        gauss.params[('muc_e', 'muc_p')] = {'epsilon': 0.0, 'sigma': 1.0*adj_diameter}
         gauss.params[('muc_c', 'muc_c')] = {'epsilon': 0.0, 'sigma': 1.0}
         gauss.params[('muc_c', 'muc_h')] = {'epsilon': 0.0, 'sigma': 1.0}
-        gauss.params[('muc_c', 'muc_p')] = {'epsilon': 0.0, 'sigma': 1.0*adj_radius}
+        gauss.params[('muc_c', 'muc_p')] = {'epsilon': 0.0, 'sigma': 1.0*adj_diameter}
         gauss.params[('muc_h', 'muc_h')] = {'epsilon': 0.0, 'sigma': 1.0}
-        gauss.params[('muc_h', 'muc_p')] = {'epsilon': 0.0, 'sigma': 1.0*adj_radius}
+        gauss.params[('muc_h', 'muc_p')] = {'epsilon': 0.0, 'sigma': 1.0*adj_diameter}
         gauss.params[('muc_p', 'muc_p')] = {'epsilon': 0.0, 'sigma': 2.0*configurator.r_histone}
-        gauss.r_cut[('muc_e', 'muc_p')] = 3.5*adj_radius
-        gauss.r_cut[('muc_c', 'muc_p')] = 3.5*adj_radius
-        gauss.r_cut[('muc_h', 'muc_p')] = 3.5*adj_radius
+        gauss.r_cut[('muc_e', 'muc_p')] = 3.5*adj_diameter
+        gauss.r_cut[('muc_c', 'muc_p')] = 3.5*adj_diameter
+        gauss.r_cut[('muc_h', 'muc_p')] = 3.5*adj_diameter
         gauss.r_cut[('muc_p', 'muc_p')] = 3.5*2.0*configurator.r_histone
 
         # If we have a second neighbor list, we know that it goes to the muc_p group
@@ -169,16 +171,16 @@ if __name__ == "__main__":
             gauss_large.params[('muc_e', 'muc_e')] = {'epsilon': 0.0, 'sigma': 1.0}
             gauss_large.params[('muc_e', 'muc_c')] = {'epsilon': 0.0, 'sigma': 1.0}
             gauss_large.params[('muc_e', 'muc_h')] = {'epsilon': 0.0, 'sigma': 1.0}
-            gauss_large.params[('muc_e', 'muc_p')] = {'epsilon': 0.0, 'sigma': 1.0*adj_radius}
+            gauss_large.params[('muc_e', 'muc_p')] = {'epsilon': 0.0, 'sigma': 1.0*adj_diameter}
             gauss_large.params[('muc_c', 'muc_c')] = {'epsilon': 0.0, 'sigma': 1.0}
             gauss_large.params[('muc_c', 'muc_h')] = {'epsilon': 0.0, 'sigma': 1.0}
-            gauss_large.params[('muc_c', 'muc_p')] = {'epsilon': 0.0, 'sigma': 1.0*adj_radius}
+            gauss_large.params[('muc_c', 'muc_p')] = {'epsilon': 0.0, 'sigma': 1.0*adj_diameter}
             gauss_large.params[('muc_h', 'muc_h')] = {'epsilon': 0.0, 'sigma': 1.0}
-            gauss_large.params[('muc_h', 'muc_p')] = {'epsilon': 0.0, 'sigma': 1.0*adj_radius}
+            gauss_large.params[('muc_h', 'muc_p')] = {'epsilon': 0.0, 'sigma': 1.0*adj_diameter}
             gauss_large.params[('muc_p', 'muc_p')] = {'epsilon': 0.0, 'sigma': 2.0*configurator.r_histone}
-            gauss_large.r_cut[('muc_e', 'muc_p')] = 3.5*adj_radius
-            gauss_large.r_cut[('muc_c', 'muc_p')] = 3.5*adj_radius
-            gauss_large.r_cut[('muc_h', 'muc_p')] = 3.5*adj_radius
+            gauss_large.r_cut[('muc_e', 'muc_p')] = 3.5*adj_diameter
+            gauss_large.r_cut[('muc_c', 'muc_p')] = 3.5*adj_diameter
+            gauss_large.r_cut[('muc_h', 'muc_p')] = 3.5*adj_diameter
             gauss_large.r_cut[('muc_p', 'muc_p')] = 3.5*2.0*configurator.r_histone
 
             # Disable the excluded volume interactions from the original list
@@ -187,133 +189,153 @@ if __name__ == "__main__":
             gauss.r_cut[('muc_h', 'muc_p')] = 0.0
             gauss.r_cut[('muc_p', 'muc_p')] = 0.0
 
-    ## Early termination for Chris to work on neighbor list stuff
-    #print(f"Early termination for CJE to work on neighbor list structures")
-    #sys.exit(1)
-
-    ## Create a neighbor list for the system for the monodispese cutoffs
-    #nlist_cell_monodisperse = hoomd.md.nlist.Cell(buffer = 0.4, exclusions = ['bond'])
-
-    ## Create a second neighbor list for the system for the larger (histone) cutoffs
-    #if configurator.size_asymmetry:
-    #    print(f"  Configuration has detected a large size asymmetry, creating secondary neighbor list")
-    #    nlist_cell_monodisperse_large = hoomd.md.nlist.Cell(buffer = 0.4, exclusions = ['bond'])
-
-    ## If we are initializing, different stuff to do than if we are running 'production'
-    #if configurator.init_type == 'create_equilibration':
-    #    # We have to ramp the potential by hand, which is annoying, so this is a completely different
-    #    # sequence to do this
-
-    #    # Set up a default gauss potential so we can use it
-    #    gauss = md.pair.Gauss(nlist=nlist_cell_monodisperse, default_r_cut=3.5, default_r_on=0.0)
-    #    gauss.params[('muc_e', 'muc_e')] = {'epsilon': 0.0, 'sigma': 1.0}
-    #    gauss.params[('muc_e', 'muc_c')] = {'epsilon': 0.0, 'sigma': 1.0}
-    #    gauss.params[('muc_e', 'muc_h')] = {'epsilon': 0.0, 'sigma': 1.0}
-    #    gauss.params[('muc_e', 'muc_p')] = {'epsilon': 0.0, 'sigma': 1.0}
-    #    gauss.params[('muc_c', 'muc_c')] = {'epsilon': 0.0, 'sigma': 1.0}
-    #    gauss.params[('muc_c', 'muc_h')] = {'epsilon': 0.0, 'sigma': 1.0}
-    #    gauss.params[('muc_c', 'muc_p')] = {'epsilon': 0.0, 'sigma': 1.0}
-    #    gauss.params[('muc_h', 'muc_h')] = {'epsilon': 0.0, 'sigma': 1.0}
-    #    gauss.params[('muc_h', 'muc_p')] = {'epsilon': 0.0, 'sigma': 1.0}
-    #    gauss.params[('muc_p', 'muc_p')] = {'epsilon': 0.0, 'sigma': 1.0}
-    #    if configurator.size_asymmetry:
-    #        # Create a second interaction potential for just the muc_p <--> anything, and set the default r_cut to 0.0 to disable all interactions unless needed
-    #        # Also create a default version of the parameter control to make hoomd happy
-    #        gauss_large = md.pair.Gauss(nlist=nlist_cell_monodisperse_large, default_r_cut=0.0, default_r_on=0.0)
-    #        gauss_large.params[('muc_e', 'muc_e')] = {'epsilon': 0.0, 'sigma': 1.0}
-    #        gauss_large.params[('muc_e', 'muc_c')] = {'epsilon': 0.0, 'sigma': 1.0}
-    #        gauss_large.params[('muc_e', 'muc_h')] = {'epsilon': 0.0, 'sigma': 1.0}
-    #        gauss_large.params[('muc_e', 'muc_p')] = {'epsilon': 0.0, 'sigma': 1.0*adj_radius}
-    #        gauss_large.params[('muc_c', 'muc_c')] = {'epsilon': 0.0, 'sigma': 1.0}
-    #        gauss_large.params[('muc_c', 'muc_h')] = {'epsilon': 0.0, 'sigma': 1.0}
-    #        gauss_large.params[('muc_c', 'muc_p')] = {'epsilon': 0.0, 'sigma': 1.0*adj_radius}
-    #        gauss_large.params[('muc_h', 'muc_h')] = {'epsilon': 0.0, 'sigma': 1.0}
-    #        gauss_large.params[('muc_h', 'muc_p')] = {'epsilon': 0.0, 'sigma': 1.0*adj_radius}
-    #        gauss_large.params[('muc_p', 'muc_p')] = {'epsilon': 0.0, 'sigma': 1.0*adj_radius}
-    #        gauss_large.r_cut[('muc_e', 'muc_p')] = 3.5*adj_radius
-    #        gauss_large.r_cut[('muc_c', 'muc_p')] = 3.5*adj_radius
-    #        gauss_large.r_cut[('muc_h', 'muc_p')] = 3.5*adj_radius
-    #        gauss_large.r_cut[('muc_p', 'muc_p')] = 3.5*adj_radius
-
-    #        # Disable the excluded volume interactions from the original list
-    #        gauss.r_cut[('muc_e', 'muc_p')] = 0.0
-    #        gauss.r_cut[('muc_c', 'muc_p')] = 0.0
-    #        gauss.r_cut[('muc_h', 'muc_p')] = 0.0
-    #        gauss.r_cut[('muc_p', 'muc_p')] = 0.0
-
     else:
-        # WCA potential for the excluded volume interactions
-        wca = md.pair.LJ(nlist=nlist_cell_monodisperse)
+        print(f"Setting interactions")
+
+        wca = None
+        ewca = None
+        lje = None
+        ljp = None
+        eljp = None
+        bmh = None
+
+        # WCA potential for the excluded volume interactions of like-sized beads
+        wca = md.pair.LJ(nlist = nlists[0])
         wca.mode='shift'
 
-        # LJ interaction of a general form
-        lje = md.pair.LJ(nlist=nlist_cell_monodisperse)
-        # LJ interaction for the attraction between muc_e and muc_p, which might have a different radius!
-        ljp = md.pair.LJ(nlist=nlist_cell_monodisperse)
+        # WCA interaction for excluded volume interaction of differently sized beads
+        if configurator.nlist_n == 1:
+            ewca = md.pair.ExpandedLJ(nlist = nlists[0])
+            ewca.mode = 'shift'
+        elif configurator.nlist_n > 1:
+            ewca = md.pair.ExpandedLJ(nlist = nlists[1])
+            ewca.mode = 'shift'
+        else:
+            print(f"ERROR: Something has gone wrong in the number of neighbor lists we are presented with, exiting!")
+            sys.exit(1)
+
+        # LJ interaction of a general form (muc_e -- muc_e)
+        lje = md.pair.LJ(nlist = nlists[0])
+
+        # LJ interaction for the attraction between muc_e and muc_p when they have the same radius
+        ljp = md.pair.LJ(nlist = nlists[0])
+
+        # Shifted LJ interaction for the attraction between muc_e and muc_p when they have different radii
+        if configurator.nlist_n == 1:
+            eljp = md.pair.ExpandedLJ(nlist = nlists[0])
+        elif configurator.nlist_n > 1:
+            eljp = md.pair.ExpandedLJ(nlist = nlists[1])
 
         # Born mayer huggins potential for hydrophobic interactions
-        bmh = md.pair.BornMayerHuggins(nlist=nlist_cell_monodisperse)
+        bmh = md.pair.BornMayerHuggins(nlist = nlists[0])
+
+        # Shifted zero of a lennard jones potential so that the edge acts like a WCA or lennard jones
+        deltashift = 0.0
+        if configurator.size_asymmetry:
+            deltashift = r_histone - r_sphere
 
         ###############################
         # Figure out what combination of interactions the system has
         ###############################
         # Set r_cut = 0 to disable interactions
-        print(f"Setting interactions")
 
         # muc_e <--> muc_e
         if configurator.lennard_jones_ee > 0.0:
-            print(f"  muc_e <--> muc_e: LJ")
-            wca.params[('muc_e', 'muc_e')] = {'epsilon': 1.0, 'sigma': 1.0}
-            lje.params[('muc_e', 'muc_e')] = {'epsilon': configurator.lennard_jones_ee, 'sigma': 1.0}
-            wca.r_cut[('muc_e', 'muc_e')] = 0.0
-            lje.r_cut[('muc_e', 'muc_e')] = 2.5
+            print(f"  muc_e <--> muc_e: LJ: epsilon={configurator.lennard_jones_ee}")
+            wca.params[('muc_e', 'muc_e')]  = {'epsilon': 1.0, 'sigma': 1.0}
+            lje.params[('muc_e', 'muc_e')]  = {'epsilon': configurator.lennard_jones_ee, 'sigma': 1.0}
+            wca.r_cut[('muc_e', 'muc_e')]   = 0.0
+            lje.r_cut[('muc_e', 'muc_e')]   = 2.5
         else:
             print(f"  muc_e <--> muc_e: WCA")
-            wca.params[('muc_e', 'muc_e')] = {'epsilon': 1.0, 'sigma': 1.0}
-            lje.params[('muc_e', 'muc_e')] = {'epsilon': 1.0, 'sigma': 1.0}
-            wca.r_cut[('muc_e', 'muc_e')] = np.power(2.0, 1/6)*1.0
-            lje.r_cut[('muc_e', 'muc_e')] = 0.0
-        ljp.params[('muc_e', 'muc_e')] = {'epsilon': 1.0, 'sigma': 1.0}
-        bmh.params[('muc_e', 'muc_e')] = {'A': 0.0, 'sigma': 1.0, 'rho': 1.0/9.0, 'C': 1.0, 'D': 1.0}
-        ljp.r_cut[('muc_e', 'muc_e')] = 0.0
-        bmh.r_cut[('muc_e', 'muc_e')] = 0.0
+            wca.params[('muc_e', 'muc_e')]  = {'epsilon': 1.0, 'sigma': 1.0}
+            lje.params[('muc_e', 'muc_e')]  = {'epsilon': 1.0, 'sigma': 1.0}
+            wca.r_cut[('muc_e', 'muc_e')]   = np.power(2.0, 1/6)*1.0
+            lje.r_cut[('muc_e', 'muc_e')]   = 0.0
+        ewca.params[('muc_e', 'muc_e')] = {'epsilon': 1.0, 'sigma': 1.0, 'delta': 0.0}
+        ljp.params[('muc_e', 'muc_e')]  = {'epsilon': 1.0, 'sigma': 1.0}
+        eljp.params[('muc_e', 'muc_e')] = {'epsilon': 1.0, 'sigma': 1.0, 'delta': 0.0}
+        bmh.params[('muc_e', 'muc_e')]  = {'A': 0.0, 'sigma': 1.0, 'rho': 1.0/9.0, 'C': 1.0, 'D': 1.0}
+        ewca.r_cut[('muc_e', 'muc_e')]  = 0.0
+        ljp.r_cut[('muc_e', 'muc_e')]   = 0.0
+        eljp.r_cut[('muc_e', 'muc_e')]  = 0.0
+        bmh.r_cut[('muc_e', 'muc_e')]   = 0.0
 
         # muc_e <--> muc_c
         print(f"  muc_e <--> muc_c: WCA (default)")
-        wca.params[('muc_e', 'muc_c')] = {'epsilon': 1.0, 'sigma': 1.0}
-        lje.params[('muc_e', 'muc_c')] = {'epsilon': 1.0, 'sigma': 1.0}
-        ljp.params[('muc_e', 'muc_c')] = {'epsilon': 1.0, 'sigma': 1.0}
-        bmh.params[('muc_e', 'muc_c')] = {'A': 0.0, 'sigma': 1.0, 'rho': 1.0/9.0, 'C': 1.0, 'D': 1.0}
-        wca.r_cut[('muc_e', 'muc_c')] = np.power(2.0, 1/6)*1.0
-        lje.r_cut[('muc_e', 'muc_c')] = 0.0
-        ljp.r_cut[('muc_e', 'muc_c')] = 0.0
-        bmh.r_cut[('muc_e', 'muc_c')] = 0.0
+        wca.params[('muc_e', 'muc_c')]      = {'epsilon': 1.0, 'sigma': 1.0}
+        ewca.params[('muc_e', 'muc_c')]     = {'epsilon': 1.0, 'sigma': 1.0, 'delta': 0.0}
+        lje.params[('muc_e', 'muc_c')]      = {'epsilon': 1.0, 'sigma': 1.0}
+        ljp.params[('muc_e', 'muc_c')]      = {'epsilon': 1.0, 'sigma': 1.0}
+        eljp.params[('muc_e', 'muc_c')]     = {'epsilon': 1.0, 'sigma': 1.0, 'delta': 0.0}
+        bmh.params[('muc_e', 'muc_c')]      = {'A': 0.0, 'sigma': 1.0, 'rho': 1.0/9.0, 'C': 1.0, 'D': 1.0}
+        wca.r_cut[('muc_e', 'muc_c')]   = np.power(2.0, 1/6)*1.0
+        ewca.r_cut[('muc_e', 'muc_c')]  = 0.0
+        lje.r_cut[('muc_e', 'muc_c')]   = 0.0
+        ljp.r_cut[('muc_e', 'muc_c')]   = 0.0
+        eljp.r_cut[('muc_e', 'muc_c')]  = 0.0
+        bmh.r_cut[('muc_e', 'muc_c')]   = 0.0
 
         # muc_e <--> muc_h
         print(f"  muc_e <--> muc_h: WCA (default)")
-        wca.params[('muc_e', 'muc_h')] = {'epsilon': 1.0, 'sigma': 1.0}
-        lje.params[('muc_e', 'muc_h')] = {'epsilon': 1.0, 'sigma': 1.0}
-        ljp.params[('muc_e', 'muc_h')] = {'epsilon': 1.0, 'sigma': 1.0}
-        bmh.params[('muc_e', 'muc_h')] = {'A': 0.0, 'sigma': 1.0, 'rho': 1.0/9.0, 'C': 1.0, 'D': 1.0}
-        wca.r_cut[('muc_e', 'muc_h')] = np.power(2.0, 1/6)*1.0
-        lje.r_cut[('muc_e', 'muc_h')] = 0.0
-        ljp.r_cut[('muc_e', 'muc_h')] = 0.0
-        bmh.r_cut[('muc_e', 'muc_h')] = 0.0
+        wca.params[('muc_e', 'muc_h')]      = {'epsilon': 1.0, 'sigma': 1.0}
+        ewca.params[('muc_e', 'muc_h')]     = {'epsilon': 1.0, 'sigma': 1.0, 'delta': 0.0}
+        lje.params[('muc_e', 'muc_h')]      = {'epsilon': 1.0, 'sigma': 1.0}
+        ljp.params[('muc_e', 'muc_h')]      = {'epsilon': 1.0, 'sigma': 1.0}
+        eljp.params[('muc_e', 'muc_h')]     = {'epsilon': 1.0, 'sigma': 1.0, 'delta': 0.0}
+        bmh.params[('muc_e', 'muc_h')]      = {'A': 0.0, 'sigma': 1.0, 'rho': 1.0/9.0, 'C': 1.0, 'D': 1.0}
+        wca.r_cut[('muc_e', 'muc_h')]   = np.power(2.0, 1/6)*1.0
+        ewca.r_cut[('muc_e', 'muc_h')]  = 0.0
+        lje.r_cut[('muc_e', 'muc_h')]   = 0.0
+        ljp.r_cut[('muc_e', 'muc_h')]   = 0.0
+        eljp.r_cut[('muc_e', 'muc_h')]  = 0.0
+        bmh.r_cut[('muc_e', 'muc_h')]   = 0.0
 
         # muc_e <--> muc_p
         # This is the first time we see an adjusted radius based on the size of the muc_e and muc_p beads
         if configurator.lennard_jones > 0.0:
-            print(f"  muc_e <--> muc_p: LJ")
-            wca.params[('muc_e', 'muc_p')] = {'epsilon': 1.0, 'sigma': 1.0}
-            ljp.params[('muc_e', 'muc_p')] = {'epsilon': configurator.lennard_jones, 'sigma': adj_radius}
-            wca.r_cut[('muc_e', 'muc_p')] = 0.0
-            ljp.r_cut[('muc_e', 'muc_p')] = 2.5*adj_radius
+            if not configurator.size_asymmetry:
+                print(f"  muc_e <--> muc_p: LJ: epsilon = {configurator.lennard_jones}, sigma = 1.0")
+                wca.params[('muc_e', 'muc_p')]  = {'epsilon': 1.0, 'sigma': 1.0}
+                ewca.params[('muc_e', 'muc_p')] = {'epsilon': 1.0, 'sigma': 1.0, 'delta': 0.0}
+                ljp.params[('muc_e', 'muc_p')]  = {'epsilon': configurator.lennard_jones, 'sigma': 1.0}
+                eljp.params[('muc_e', 'muc_p')] = {'epsilon': 1.0, 'sigma': 1.0, 'delta': 0.0}
+                wca.r_cut[('muc_e', 'muc_p')]   = 0.0
+                ewca.r_cut[('muc_e', 'muc_p')]  = 0.0
+                ljp.r_cut[('muc_e', 'muc_p')]   = 2.5
+                eljp.r_cut[('muc_e', 'muc_p')]  = 0.0
+            else:
+                print(f"  muc_e <--> muc_p: ELJ: epsilon = {configurator.lennard_jones}, sigma = 1.0, delta = {deltashift}")
+                wca.params[('muc_e', 'muc_p')]  = {'epsilon': 1.0, 'sigma': 1.0}
+                ewca.params[('muc_e', 'muc_p')] = {'epsilon': 1.0, 'sigma': 1.0, 'delta': 0.0}
+                ljp.params[('muc_e', 'muc_p')]  = {'epsilon': 1.0, 'sigma': 1.0}
+                eljp.params[('muc_e', 'muc_p')] = {'epsilon': configurator.lennard_jones, 'sigma': 1.0, 'delta': deltashift}
+                wca.r_cut[('muc_e', 'muc_p')]   = 0.0
+                ewca.r_cut[('muc_e', 'muc_p')]  = 0.0
+                ljp.r_cut[('muc_e', 'muc_p')]   = 0.0
+                eljp.r_cut[('muc_e', 'muc_p')]  = deltashift + 2.5
         else:
-            print(f"  muc_e <--> muc_p: WCA")
-            wca.params[('muc_e', 'muc_p')] = {'epsilon': 1.0, 'sigma': adj_radius}
-            ljp.params[('muc_e', 'muc_p')] = {'epsilon': 1.0, 'sigma': 1.0}
-            wca.r_cut[('muc_e', 'muc_p')] = np.power(2.0, 1/6)*adj_radius
-            ljp.r_cut[('muc_e', 'muc_p')] = 0.0
+            # All WCA interactions
+            if not configurator.size_asymmetry:
+                print(f"  muc_e <--> muc_p: WCA")
+                wca.params[('muc_e', 'muc_p')]  = {'epsilon': 1.0, 'sigma': 1.0}
+                ewca.params[('muc_e', 'muc_p')] = {'epsilon': 1.0, 'sigma': 1.0, 'delta': 0.0}
+                ljp.params[('muc_e', 'muc_p')]  = {'epsilon': 1.0, 'sigma': 1.0}
+                eljp.params[('muc_e', 'muc_p')] = {'epsilon': 1.0, 'sigma': 1.0, 'delta': 0.0}
+                wca.r_cut[('muc_e', 'muc_p')]   = np.power(2.0, 1/6)*1.0
+                ewca.r_cut[('muc_e', 'muc_p')]  = 0.0
+                ljp.r_cut[('muc_e', 'muc_p')]   = 0.0
+                eljp.r_cut[('muc_e', 'muc_p')]  = 0.0
+            else:
+                print(f"  muc_e <--> muc_p: EWCA: delta = {deltashift}")
+                wca.params[('muc_e', 'muc_p')]  = {'epsilon': 1.0, 'sigma': 1.0}
+                ewca.params[('muc_e', 'muc_p')] = {'epsilon': 1.0, 'sigma': 1.0, 'delta': deltashift}
+                ljp.params[('muc_e', 'muc_p')]  = {'epsilon': 1.0, 'sigma': 1.0}
+                eljp.params[('muc_e', 'muc_p')] = {'epsilon': 1.0, 'sigma': 1.0, 'delta': 0.0}
+                wca.r_cut[('muc_e', 'muc_p')]   = 0.0
+                ewca.r_cut[('muc_e', 'muc_p')]  = deltashift + np.power(2.0, 1/6)
+                ljp.r_cut[('muc_e', 'muc_p')]   = 0.0
+                eljp.r_cut[('muc_e', 'muc_p')]  = 0.0
         lje.params[('muc_e', 'muc_p')] = {'epsilon': 1.0, 'sigma': 1.0}
         bmh.params[('muc_e', 'muc_p')] = {'A': 0.0, 'sigma': 1.0, 'rho': 1.0/9.0, 'C': 1.0, 'D': 1.0}
         lje.r_cut[('muc_e', 'muc_p')] = 0.0
@@ -321,36 +343,63 @@ if __name__ == "__main__":
 
         # muc_c <--> muc_c
         print(f"  muc_c <--> muc_c: WCA (default)")
-        wca.params[('muc_c', 'muc_c')] = {'epsilon': 1.0, 'sigma': 1.0}
-        lje.params[('muc_c', 'muc_c')] = {'epsilon': 1.0, 'sigma': 1.0}
-        ljp.params[('muc_c', 'muc_c')] = {'epsilon': 1.0, 'sigma': 1.0}
-        bmh.params[('muc_c', 'muc_c')] = {'A': 0.0, 'sigma': 1.0, 'rho': 1.0/9.0, 'C': 1.0, 'D': 1.0}
-        wca.r_cut[('muc_c', 'muc_c')] = np.power(2.0, 1/6)*1.0
-        lje.r_cut[('muc_c', 'muc_c')] = 0.0
-        ljp.r_cut[('muc_c', 'muc_c')] = 0.0
-        bmh.r_cut[('muc_c', 'muc_c')] = 0.0
+        wca.params[('muc_c', 'muc_c')]  = {'epsilon': 1.0, 'sigma': 1.0}
+        ewca.params[('muc_c', 'muc_c')] = {'epsilon': 1.0, 'sigma': 1.0, 'delta': 0.0}
+        lje.params[('muc_c', 'muc_c')]  = {'epsilon': 1.0, 'sigma': 1.0}
+        ljp.params[('muc_c', 'muc_c')]  = {'epsilon': 1.0, 'sigma': 1.0}
+        eljp.params[('muc_c', 'muc_c')] = {'epsilon': 1.0, 'sigma': 1.0, 'delta': 0.0}
+        bmh.params[('muc_c', 'muc_c')]  = {'A': 0.0, 'sigma': 1.0, 'rho': 1.0/9.0, 'C': 1.0, 'D': 1.0}
+        wca.r_cut[('muc_c', 'muc_c')]   = np.power(2.0, 1/6)*1.0
+        ewca.r_cut[('muc_c', 'muc_c')]  = 0.0
+        lje.r_cut[('muc_c', 'muc_c')]   = 0.0
+        ljp.r_cut[('muc_c', 'muc_c')]   = 0.0
+        eljp.r_cut[('muc_c', 'muc_c')]  = 0.0
+        bmh.r_cut[('muc_c', 'muc_c')]   = 0.0
 
         # muc_c <--> muc_h
         print(f"  muc_c <--> muc_h: WCA (default)")
-        wca.params[('muc_c', 'muc_h')] = {'epsilon': 1.0, 'sigma': 1.0}
-        lje.params[('muc_c', 'muc_h')] = {'epsilon': 1.0, 'sigma': 1.0}
-        ljp.params[('muc_c', 'muc_h')] = {'epsilon': 1.0, 'sigma': 1.0}
-        bmh.params[('muc_c', 'muc_h')] = {'A': 0.0, 'sigma': 1.0, 'rho': 1.0/9.0, 'C': 1.0, 'D': 1.0}
-        wca.r_cut[('muc_c', 'muc_h')] = np.power(2.0, 1/6)*1.0
-        lje.r_cut[('muc_c', 'muc_h')] = 0.0
-        ljp.r_cut[('muc_c', 'muc_h')] = 0.0
-        bmh.r_cut[('muc_c', 'muc_h')] = 0.0
+        wca.params[('muc_c', 'muc_h')]  = {'epsilon': 1.0, 'sigma': 1.0}
+        ewca.params[('muc_c', 'muc_h')] = {'epsilon': 1.0, 'sigma': 1.0, 'delta': 0.0}
+        lje.params[('muc_c', 'muc_h')]  = {'epsilon': 1.0, 'sigma': 1.0}
+        ljp.params[('muc_c', 'muc_h')]  = {'epsilon': 1.0, 'sigma': 1.0}
+        eljp.params[('muc_c', 'muc_h')] = {'epsilon': 1.0, 'sigma': 1.0, 'delta': 0.0}
+        bmh.params[('muc_c', 'muc_h')]  = {'A': 0.0, 'sigma': 1.0, 'rho': 1.0/9.0, 'C': 1.0, 'D': 1.0}
+        wca.r_cut[('muc_c', 'muc_h')]   = np.power(2.0, 1/6)*1.0
+        ewca.r_cut[('muc_c', 'muc_h')]  = 0.0
+        lje.r_cut[('muc_c', 'muc_h')]   = 0.0
+        ljp.r_cut[('muc_c', 'muc_h')]   = 0.0
+        eljp.r_cut[('muc_c', 'muc_h')]  = 0.0
+        bmh.r_cut[('muc_c', 'muc_h')]   = 0.0
 
         # muc_c <--> muc_p
-        print(f"  muc_c <--> muc_p: WCA (default)")
-        wca.params[('muc_c', 'muc_p')] = {'epsilon': 1.0, 'sigma': adj_radius}
-        lje.params[('muc_c', 'muc_p')] = {'epsilon': 1.0, 'sigma': 1.0}
-        ljp.params[('muc_c', 'muc_p')] = {'epsilon': 1.0, 'sigma': 1.0}
-        bmh.params[('muc_c', 'muc_p')] = {'A': 0.0, 'sigma': 1.0, 'rho': 1.0/9.0, 'C': 1.0, 'D': 1.0}
-        wca.r_cut[('muc_c', 'muc_p')] = np.power(2.0, 1/6)*adj_radius
-        lje.r_cut[('muc_c', 'muc_p')] = 0.0
-        ljp.r_cut[('muc_c', 'muc_p')] = 0.0
-        bmh.r_cut[('muc_c', 'muc_p')] = 0.0
+        if not configurator.size_asymmetry:
+            print(f"  muc_c <--> muc_p: WCA")
+            wca.params[('muc_c', 'muc_p')]  = {'epsilon': 1.0, 'sigma': 1.0}
+            ewca.params[('muc_c', 'muc_p')] = {'epsilon': 1.0, 'sigma': 1.0, 'delta': 0.0}
+            lje.params[('muc_c', 'muc_p')]  = {'epsilon': 1.0, 'sigma': 1.0}
+            ljp.params[('muc_c', 'muc_p')]  = {'epsilon': 1.0, 'sigma': 1.0}
+            eljp.params[('muc_c', 'muc_p')] = {'epsilon': 1.0, 'sigma': 1.0, 'delta': 0.0}
+            bmh.params[('muc_c', 'muc_p')]  = {'A': 0.0, 'sigma': 1.0, 'rho': 1.0/9.0, 'C': 1.0, 'D': 1.0}
+            wca.r_cut[('muc_c', 'muc_p')]   = np.power(2.0, 1/6)*1.0
+            ewca.r_cut[('muc_c', 'muc_p')]  = 0.0
+            lje.r_cut[('muc_c', 'muc_p')]   = 0.0
+            ljp.r_cut[('muc_c', 'muc_p')]   = 0.0
+            eljp.r_cut[('muc_c', 'muc_p')]  = 0.0
+            bmh.r_cut[('muc_c', 'muc_p')]   = 0.0
+        else:
+            print(f"  muc_c <--> muc_p: EWCA: delta = {deltashift}")
+            wca.params[('muc_c', 'muc_p')]  = {'epsilon': 1.0, 'sigma': 1.0}
+            ewca.params[('muc_c', 'muc_p')] = {'epsilon': 1.0, 'sigma': 1.0, 'delta': deltashift}
+            lje.params[('muc_c', 'muc_p')]  = {'epsilon': 1.0, 'sigma': 1.0}
+            ljp.params[('muc_c', 'muc_p')]  = {'epsilon': 1.0, 'sigma': 1.0}
+            eljp.params[('muc_c', 'muc_p')] = {'epsilon': 1.0, 'sigma': 1.0, 'delta': 0.0}
+            bmh.params[('muc_c', 'muc_p')]  = {'A': 0.0, 'sigma': 1.0, 'rho': 1.0/9.0, 'C': 1.0, 'D': 1.0}
+            wca.r_cut[('muc_c', 'muc_p')]   = 0.0
+            ewca.r_cut[('muc_c', 'muc_p')]  = deltashift + np.power(2.0, 1/6)
+            lje.r_cut[('muc_c', 'muc_p')]   = 0.0
+            ljp.r_cut[('muc_c', 'muc_p')]   = 0.0
+            eljp.r_cut[('muc_c', 'muc_p')]  = 0.0
+            bmh.r_cut[('muc_c', 'muc_p')]   = 0.0
 
         # muc_h <--> muc_h
         if configurator.bmh < 0.0:
@@ -365,32 +414,74 @@ if __name__ == "__main__":
             bmh.params[('muc_h', 'muc_h')] = {'A': 0.0, 'sigma': 1.0, 'rho': 1.0/9.0, 'C': 1.0, 'D': 1.0}
             wca.r_cut[('muc_h', 'muc_h')] = np.power(2.0, 1/6)*1.0
             bmh.r_cut[('muc_h', 'muc_h')] = 0.0
-        lje.params[('muc_h', 'muc_h')] = {'epsilon': 1.0, 'sigma': 1.0}
-        ljp.params[('muc_h', 'muc_h')] = {'epsilon': 1.0, 'sigma': 1.0}
-        lje.r_cut[('muc_h', 'muc_h')] = 0.0
-        ljp.r_cut[('muc_h', 'muc_h')] = 0.0
+        ewca.params[('muc_h', 'muc_h')] = {'epsilon': 1.0, 'sigma': 1.0, 'delta': 0.0}
+        lje.params[('muc_h', 'muc_h')]  = {'epsilon': 1.0, 'sigma': 1.0}
+        ljp.params[('muc_h', 'muc_h')]  = {'epsilon': 1.0, 'sigma': 1.0}
+        eljp.params[('muc_h', 'muc_h')] = {'epsilon': 1.0, 'sigma': 1.0, 'delta': 0.0}
+        ewca.r_cut[('muc_h', 'muc_h')]  = 0.0
+        lje.r_cut[('muc_h', 'muc_h')]   = 0.0
+        ljp.r_cut[('muc_h', 'muc_h')]   = 0.0
+        eljp.r_cut[('muc_h', 'muc_h')]  = 0.0
+
+        # muc_h <--> muc_p
+        if not configurator.size_asymmetry:
+            print(f"  muc_h <--> muc_p: WCA")
+            wca.params[('muc_h', 'muc_p')]  = {'epsilon': 1.0, 'sigma': 1.0}
+            ewca.params[('muc_h', 'muc_p')] = {'epsilon': 1.0, 'sigma': 1.0, 'delta': 0.0}
+            lje.params[('muc_h', 'muc_p')]  = {'epsilon': 1.0, 'sigma': 1.0}
+            ljp.params[('muc_h', 'muc_p')]  = {'epsilon': 1.0, 'sigma': 1.0}
+            eljp.params[('muc_h', 'muc_p')] = {'epsilon': 1.0, 'sigma': 1.0, 'delta': 0.0}
+            bmh.params[('muc_h', 'muc_p')]  = {'A': 0.0, 'sigma': 1.0, 'rho': 1.0/9.0, 'C': 1.0, 'D': 1.0}
+            wca.r_cut[('muc_h', 'muc_p')]   = np.power(2.0, 1/6)*1.0
+            ewca.r_cut[('muc_h', 'muc_p')]  = 0.0
+            lje.r_cut[('muc_h', 'muc_p')]   = 0.0
+            ljp.r_cut[('muc_h', 'muc_p')]   = 0.0
+            eljp.r_cut[('muc_h', 'muc_p')]  = 0.0
+            bmh.r_cut[('muc_h', 'muc_p')]   = 0.0
+        else:
+            print(f"  muc_h <--> muc_p: EWCA: delta = {deltashift}")
+            wca.params[('muc_h', 'muc_p')]  = {'epsilon': 1.0, 'sigma': 1.0}
+            ewca.params[('muc_h', 'muc_p')] = {'epsilon': 1.0, 'sigma': 1.0, 'delta': deltashift}
+            lje.params[('muc_h', 'muc_p')]  = {'epsilon': 1.0, 'sigma': 1.0}
+            ljp.params[('muc_h', 'muc_p')]  = {'epsilon': 1.0, 'sigma': 1.0}
+            eljp.params[('muc_h', 'muc_p')] = {'epsilon': 1.0, 'sigma': 1.0, 'delta': 0.0}
+            bmh.params[('muc_h', 'muc_p')]  = {'A': 0.0, 'sigma': 1.0, 'rho': 1.0/9.0, 'C': 1.0, 'D': 1.0}
+            wca.r_cut[('muc_h', 'muc_p')]   = 0.0
+            ewca.r_cut[('muc_h', 'muc_p')]  = deltashift + np.power(2.0, 1/6)
+            lje.r_cut[('muc_h', 'muc_p')]   = 0.0
+            ljp.r_cut[('muc_h', 'muc_p')]   = 0.0
+            eljp.r_cut[('muc_h', 'muc_p')]  = 0.0
+            bmh.r_cut[('muc_h', 'muc_p')]   = 0.0
 
         # muc_c <--> muc_p
-        print(f"  muc_h <--> muc_p: WCA (default)")
-        wca.params[('muc_h', 'muc_p')] = {'epsilon': 1.0, 'sigma': adj_radius}
-        lje.params[('muc_h', 'muc_p')] = {'epsilon': 1.0, 'sigma': 1.0}
-        ljp.params[('muc_h', 'muc_p')] = {'epsilon': 1.0, 'sigma': 1.0}
-        bmh.params[('muc_h', 'muc_p')] = {'A': 0.0, 'sigma': 1.0, 'rho': 1.0/9.0, 'C': 1.0, 'D': 1.0}
-        wca.r_cut[('muc_h', 'muc_p')] = np.power(2.0, 1/6)*adj_radius
-        lje.r_cut[('muc_h', 'muc_p')] = 0.0
-        ljp.r_cut[('muc_h', 'muc_p')] = 0.0
-        bmh.r_cut[('muc_h', 'muc_p')] = 0.0
-
-        # muc_c <--> muc_p
-        print(f"  muc_p <--> muc_p: WCA (default)")
-        wca.params[('muc_p', 'muc_p')] = {'epsilon': 1.0, 'sigma': 2.0*configurator.r_histone}
-        lje.params[('muc_p', 'muc_p')] = {'epsilon': 1.0, 'sigma': 1.0}
-        ljp.params[('muc_p', 'muc_p')] = {'epsilon': 1.0, 'sigma': 1.0}
-        bmh.params[('muc_p', 'muc_p')] = {'A': 0.0, 'sigma': 1.0, 'rho': 1.0/9.0, 'C': 1.0, 'D': 1.0}
-        wca.r_cut[('muc_p', 'muc_p')] = np.power(2.0, 1/6)*2.0*configurator.r_histone
-        lje.r_cut[('muc_p', 'muc_p')] = 0.0
-        ljp.r_cut[('muc_p', 'muc_p')] = 0.0
-        bmh.r_cut[('muc_p', 'muc_p')] = 0.0
+        if configurator.size_asymmetry:
+            print(f"  muc_p <--> muc_p: WCA")
+            wca.params[('muc_p', 'muc_p')]  = {'epsilon': 1.0, 'sigma': 1.0}
+            ewca.params[('muc_p', 'muc_p')] = {'epsilon': 1.0, 'sigma': 1.0, 'delta': 0.0}
+            lje.params[('muc_p', 'muc_p')]  = {'epsilon': 1.0, 'sigma': 1.0}
+            ljp.params[('muc_p', 'muc_p')]  = {'epsilon': 1.0, 'sigma': 1.0}
+            eljp.params[('muc_p', 'muc_p')] = {'epsilon': 1.0, 'sigma': 1.0, 'delta': 0.0}
+            bmh.params[('muc_p', 'muc_p')]  = {'A': 0.0, 'sigma': 1.0, 'rho': 1.0/9.0, 'C': 1.0, 'D': 1.0}
+            wca.r_cut[('muc_p', 'muc_p')]   = np.power(2.0, 1/6)*1.0
+            ewca.r_cut[('muc_p', 'muc_p')]  = 0.0
+            lje.r_cut[('muc_p', 'muc_p')]   = 0.0
+            ljp.r_cut[('muc_p', 'muc_p')]   = 0.0
+            eljp.r_cut[('muc_p', 'muc_p')]  = 0.0
+            bmh.r_cut[('muc_p', 'muc_p')]   = 0.0
+        else:
+            print(f"  muc_p <--> muc_p: EWCA: delta = {2.0*r_histone}")
+            wca.params[('muc_p', 'muc_p')]  = {'epsilon': 1.0, 'sigma': 1.0}
+            ewca.params[('muc_p', 'muc_p')] = {'epsilon': 1.0, 'sigma': 1.0, 'delta': 2.0*r_histone-1.0}
+            lje.params[('muc_p', 'muc_p')]  = {'epsilon': 1.0, 'sigma': 1.0}
+            ljp.params[('muc_p', 'muc_p')]  = {'epsilon': 1.0, 'sigma': 1.0}
+            eljp.params[('muc_p', 'muc_p')] = {'epsilon': 1.0, 'sigma': 1.0, 'delta': 0.0}
+            bmh.params[('muc_p', 'muc_p')]  = {'A': 0.0, 'sigma': 1.0, 'rho': 1.0/9.0, 'C': 1.0, 'D': 1.0}
+            wca.r_cut[('muc_p', 'muc_p')]   = 0.0
+            ewca.r_cut[('muc_p', 'muc_p')]  = 2.0*r_histone - 1.0 + np.power(2.0, 1/6)
+            lje.r_cut[('muc_p', 'muc_p')]   = 0.0
+            ljp.r_cut[('muc_p', 'muc_p')]   = 0.0
+            eljp.r_cut[('muc_p', 'muc_p')]  = 0.0
+            bmh.r_cut[('muc_p', 'muc_p')]   = 0.0
 
     ###############################
     # Bonded and angle interactions
@@ -417,19 +508,31 @@ if __name__ == "__main__":
     integrator.methods.append(langevin)
 
     # Append the forces that we need
+    # Pairwise forces
     if configurator.init_type == 'create_equilibration':
         integrator.forces.append(gauss)
         if configurator.nlist_n > 1:
             integrator.forces.append(gauss_large)
     elif configurator.init_type == 'production':
         integrator.forces.append(wca)
+        if configurator.size_asymmetry:
+            integrator.forces.append(ewca)
+
         if configurator.lennard_jones_ee > 0.0:
             integrator.forces.append(lje)
+
         if configurator.lennard_jones > 0.0:
             integrator.forces.append(ljp)
+            if configurator.size_asymmetry:
+                integrator.forces.append(eljp)
+
         if configurator.bmh < 0.0:
             integrator.forces.append(bmh)
+
+    # FENE bond potential
     integrator.forces.append(fenewca)
+
+    # Bending potential
     if configurator.mucusbend > 0.0:
         integrator.forces.append(angleharmonic)
 
@@ -506,19 +609,19 @@ if __name__ == "__main__":
             gauss.params[('muc_e', 'muc_e')] = {'epsilon': (iblock/nblocks*100.0), 'sigma': 1.0}
             gauss.params[('muc_e', 'muc_c')] = {'epsilon': (iblock/nblocks*100.0), 'sigma': 1.0}
             gauss.params[('muc_e', 'muc_h')] = {'epsilon': (iblock/nblocks*100.0), 'sigma': 1.0}
-            gauss.params[('muc_e', 'muc_p')] = {'epsilon': (iblock/nblocks*100.0), 'sigma': 1.0*adj_radius}
+            gauss.params[('muc_e', 'muc_p')] = {'epsilon': (iblock/nblocks*100.0), 'sigma': 1.0*adj_diameter}
             gauss.params[('muc_c', 'muc_c')] = {'epsilon': (iblock/nblocks*100.0), 'sigma': 1.0}
             gauss.params[('muc_c', 'muc_h')] = {'epsilon': (iblock/nblocks*100.0), 'sigma': 1.0}
-            gauss.params[('muc_c', 'muc_p')] = {'epsilon': (iblock/nblocks*100.0), 'sigma': 1.0*adj_radius}
+            gauss.params[('muc_c', 'muc_p')] = {'epsilon': (iblock/nblocks*100.0), 'sigma': 1.0*adj_diameter}
             gauss.params[('muc_h', 'muc_h')] = {'epsilon': (iblock/nblocks*100.0), 'sigma': 1.0}
-            gauss.params[('muc_h', 'muc_p')] = {'epsilon': (iblock/nblocks*100.0), 'sigma': 1.0*adj_radius}
+            gauss.params[('muc_h', 'muc_p')] = {'epsilon': (iblock/nblocks*100.0), 'sigma': 1.0*adj_diameter}
             gauss.params[('muc_p', 'muc_p')] = {'epsilon': (iblock/nblocks*100.0), 'sigma': 2.0*configurator.r_histone}
 
             # If we have a size asymmetry, deal with it now
             if configurator.nlist_n > 1:
-                gauss_large.params[('muc_e', 'muc_p')] = {'epsilon': (iblock/nblocks*100.0), 'sigma': 1.0*adj_radius}
-                gauss_large.params[('muc_c', 'muc_p')] = {'epsilon': (iblock/nblocks*100.0), 'sigma': 1.0*adj_radius}
-                gauss_large.params[('muc_h', 'muc_p')] = {'epsilon': (iblock/nblocks*100.0), 'sigma': 1.0*adj_radius}
+                gauss_large.params[('muc_e', 'muc_p')] = {'epsilon': (iblock/nblocks*100.0), 'sigma': 1.0*adj_diameter}
+                gauss_large.params[('muc_c', 'muc_p')] = {'epsilon': (iblock/nblocks*100.0), 'sigma': 1.0*adj_diameter}
+                gauss_large.params[('muc_h', 'muc_p')] = {'epsilon': (iblock/nblocks*100.0), 'sigma': 1.0*adj_diameter}
                 gauss_large.params[('muc_p', 'muc_p')] = {'epsilon': (iblock/nblocks*100.0), 'sigma': 2.0*configurator.r_histone}
 
             sim.run(nblock_size)

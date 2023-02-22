@@ -131,7 +131,7 @@ class MucusSeed(SeedBase):
         self.cluster = ClusterTopology(self.default_yaml['cluster'], self.opts)
 
         # Detect if we have a large size asymmetry for things like histones
-        if self.nhist > 0 and self.r_histone > 2.0:
+        if self.nhist > 0 and self.r_histone > 0.5:
             print(f"  Detected large size asymmetry in configuration")
             self.size_asymmetry = True
         else:
