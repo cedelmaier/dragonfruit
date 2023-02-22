@@ -12,7 +12,7 @@ from scipy.signal import savgol_filter
 
 # Magic to get the library directory properly
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'lib'))
-from common import moving_average
+from common import moving_average, autocorrelation_block_1d
 
 # General scatter plotting function
 def graph_seed_scatter(sdlabel,
@@ -74,6 +74,40 @@ def graph_seed_plot(sdlabel,
 
     return ydata_new
 
+# General errorbar plotting function
+def graph_seed_error(sdlabel,
+                     xdata,
+                     ydata,
+                     yerr,
+                     ax,
+                     mtitle = '',
+                     xtitle = '',
+                     ytitle = '',
+                     color = 'b',
+                     smooth = False,
+                     smooth_window = 10,
+                     smooth_poly = 3,
+                     xlabel = True,
+                     alpha = 1.0,
+                     linestyle = 'solid'):
+    r""" Generic 1d errorbar function
+    """
+    ax.set_title(mtitle)
+    ax.set_ylabel(ytitle)
+    if xlabel: ax.set_xlabel(xtitle)
+
+    # Check for smoothing options
+    ydata_new = ydata.to_numpy().flatten()
+    ydata_err = yerr.to_numpy().flatten()
+    if smooth:
+        ydata_new = savgol_filter(ydata, smooth_window, smooth_poly)
+        ydata_err = savgol_filter(yerr, smooth_window, smooth_poly)
+
+    ax.scatter(xdata, ydata_new, zorder = 100, s = 30, marker = 's', facecolors = 'none', color = color, label = sdlabel, alpha = alpha, linestyle = linestyle)
+    ax.errorbar(xdata, ydata_new, yerr = ydata_err, ecolor = color, elinewidth = 2, capsize = 5, capthick = 1, zorder = 0, fmt = 'none', marker = 's')
+
+    return [ydata_new, ydata_err]
+
 # Graph the absolute Z distance
 def graph_seed_zdist(sd,
                      ax,
@@ -133,6 +167,30 @@ def graph_seed_zcorr(sd,
     r""" Plot the dz correlation time-wise for some block
     """
     plumed_dz = sd.master_time_df['plumed_dz']
+
+    # Get some subblocks of the data, as right now it's really hard to see what is going on
+    plumed_dz_rolling = plumed_dz.rolling(10).mean()
+    plumed_dz_rolling = plumed_dz_rolling.iloc[::10].dropna()
+
+    # Get the correlation measure, which includes the average
+    blocksize = 200
+    times, result_dz = autocorrelation_block_1d(plumed_dz_rolling.to_numpy(), blocksize)
+
+    #print(plumed_dz_rolling)
+    #print(result_dz.shape)
+
+    dz_mean = np.mean(result_dz, axis=0)
+    dz_std  = np.std(result_dz, axis=0, ddof=1)
+
+    dz_mean_series = pd.Series(dz_mean)
+    dz_std_series = pd.Series(dz_std)
+    #ydata = graph_seed_plot(sd.label, sd.master_time_df.index[:blocksize]/1000.0, dz_mean_series, ax, mtitle = "Z correlation", xtitle = "Time (ns)", ytitle = r"$\langle Z(0) Z(t) \rangle$ (nm$^2$)", color = color, smooth = True, smooth_window = 11, smooth_poly = 3)
+    [ydata, yerr] = graph_seed_error(sd.label, sd.master_time_df.index[:blocksize:10]/1000.0, dz_mean_series, dz_std_series, ax, mtitle = "Z correlation", xtitle = "Time (ns)", ytitle = r"$\langle Z(0) Z(t) \rangle$ (nm$^2$)", color = color, smooth = True, smooth_window = 11, smooth_poly = 3)
+
+    ylow = 0.0
+    yhi = 0.0
+
+    return [ylow, yhi, ydata]
 
 # Graph the fracitonal helicity
 def graph_seed_helicity(sd,

@@ -122,42 +122,137 @@ if __name__ == "__main__":
     ###############################################################################
     sim.create_state_from_snapshot(snap)
 
-    # Create the pair potentials for the system
-    cell = hoomd.md.nlist.Cell(buffer = 0.4, exclusions = ['bond'])
+    # Set up a common adjusted radius if we have size differences
+    adj_radius = 0.5 + configurator.r_histone
+
+    # Figure out which (and how many) neighbor lists to start up
+    print(f"Creating neighbor lists")
+    # Create a variable number no matter what
+    nlists = []
+    for ilist in range(configurator.nlist_n):
+        print(f"  Creating neighbor list {ilist}: {configurator.nlist_type[ilist]}, buffer: {configurator.nlist_buffer[ilist]}")
+        nl = None
+        if configurator.nlist_type[ilist] == 'cell':
+            nl = hoomd.md.nlist.Cell(buffer = 0.4, exclusions = ['bond'])
+        elif configurator.nlist_type[ilist] == 'tree':
+            nl = hoomd.md.nlist.Tree(buffer = 0.4, exclusions = ['bond'])
+        else:
+            print(f"ERROR: Neighbor list type {configurator.nlist_type[ilist]} not currently supported, exiting!")
+            sys.exit(1)
+        nlists.append(nl)
 
     # If we are initializing, different stuff to do than if we are running 'production'
     if configurator.init_type == 'create_equilibration':
         # We have to ramp the potential by hand, which is annoying, so this is a completely different
-        # sequence to do this
-        # XXX Check if ramping or the soft potential is implemented in hoomd, as right now this sucks to do
-        #v_prefactor = hoomd.variant.Ramp(0.0, 100.0, 0, configurator.nsteps_equilibrate)
-
-        # Set up a default gauss potential so we can use it
-        gauss = md.pair.Gauss(nlist=cell, default_r_cut=3.5, default_r_on=0.0)
+        # sequence to do this. Set up a default gaussian potential to use
+        gauss = md.pair.Gauss(nlist = nlists[0], default_r_cut = 3.5, default_r_on = 0.0)
         gauss.params[('muc_e', 'muc_e')] = {'epsilon': 0.0, 'sigma': 1.0}
         gauss.params[('muc_e', 'muc_c')] = {'epsilon': 0.0, 'sigma': 1.0}
         gauss.params[('muc_e', 'muc_h')] = {'epsilon': 0.0, 'sigma': 1.0}
-        gauss.params[('muc_e', 'muc_p')] = {'epsilon': 0.0, 'sigma': 1.0}
+        gauss.params[('muc_e', 'muc_p')] = {'epsilon': 0.0, 'sigma': 1.0*adj_radius}
         gauss.params[('muc_c', 'muc_c')] = {'epsilon': 0.0, 'sigma': 1.0}
         gauss.params[('muc_c', 'muc_h')] = {'epsilon': 0.0, 'sigma': 1.0}
-        gauss.params[('muc_c', 'muc_p')] = {'epsilon': 0.0, 'sigma': 1.0}
+        gauss.params[('muc_c', 'muc_p')] = {'epsilon': 0.0, 'sigma': 1.0*adj_radius}
         gauss.params[('muc_h', 'muc_h')] = {'epsilon': 0.0, 'sigma': 1.0}
-        gauss.params[('muc_h', 'muc_p')] = {'epsilon': 0.0, 'sigma': 1.0}
-        gauss.params[('muc_p', 'muc_p')] = {'epsilon': 0.0, 'sigma': 1.0}
+        gauss.params[('muc_h', 'muc_p')] = {'epsilon': 0.0, 'sigma': 1.0*adj_radius}
+        gauss.params[('muc_p', 'muc_p')] = {'epsilon': 0.0, 'sigma': 2.0*configurator.r_histone}
+        gauss.r_cut[('muc_e', 'muc_p')] = 3.5*adj_radius
+        gauss.r_cut[('muc_c', 'muc_p')] = 3.5*adj_radius
+        gauss.r_cut[('muc_h', 'muc_p')] = 3.5*adj_radius
+        gauss.r_cut[('muc_p', 'muc_p')] = 3.5*2.0*configurator.r_histone
 
+        # If we have a second neighbor list, we know that it goes to the muc_p group
+        if configurator.nlist_n > 1:
+            # Create a second interaction potential for just the muc_p <--> anything, and set the default r_cut to 0.0 to disable all interactions unless needed
+            # Also create a default version of the parameter control to make hoomd happy
+            gauss_large = md.pair.Gauss(nlist = nlists[1], default_r_cut = 0.0, default_r_on = 0.0)
+            gauss_large.params[('muc_e', 'muc_e')] = {'epsilon': 0.0, 'sigma': 1.0}
+            gauss_large.params[('muc_e', 'muc_c')] = {'epsilon': 0.0, 'sigma': 1.0}
+            gauss_large.params[('muc_e', 'muc_h')] = {'epsilon': 0.0, 'sigma': 1.0}
+            gauss_large.params[('muc_e', 'muc_p')] = {'epsilon': 0.0, 'sigma': 1.0*adj_radius}
+            gauss_large.params[('muc_c', 'muc_c')] = {'epsilon': 0.0, 'sigma': 1.0}
+            gauss_large.params[('muc_c', 'muc_h')] = {'epsilon': 0.0, 'sigma': 1.0}
+            gauss_large.params[('muc_c', 'muc_p')] = {'epsilon': 0.0, 'sigma': 1.0*adj_radius}
+            gauss_large.params[('muc_h', 'muc_h')] = {'epsilon': 0.0, 'sigma': 1.0}
+            gauss_large.params[('muc_h', 'muc_p')] = {'epsilon': 0.0, 'sigma': 1.0*adj_radius}
+            gauss_large.params[('muc_p', 'muc_p')] = {'epsilon': 0.0, 'sigma': 2.0*configurator.r_histone}
+            gauss_large.r_cut[('muc_e', 'muc_p')] = 3.5*adj_radius
+            gauss_large.r_cut[('muc_c', 'muc_p')] = 3.5*adj_radius
+            gauss_large.r_cut[('muc_h', 'muc_p')] = 3.5*adj_radius
+            gauss_large.r_cut[('muc_p', 'muc_p')] = 3.5*2.0*configurator.r_histone
+
+            # Disable the excluded volume interactions from the original list
+            gauss.r_cut[('muc_e', 'muc_p')] = 0.0
+            gauss.r_cut[('muc_c', 'muc_p')] = 0.0
+            gauss.r_cut[('muc_h', 'muc_p')] = 0.0
+            gauss.r_cut[('muc_p', 'muc_p')] = 0.0
+
+    ## Early termination for Chris to work on neighbor list stuff
+    #print(f"Early termination for CJE to work on neighbor list structures")
+    #sys.exit(1)
+
+    ## Create a neighbor list for the system for the monodispese cutoffs
+    #nlist_cell_monodisperse = hoomd.md.nlist.Cell(buffer = 0.4, exclusions = ['bond'])
+
+    ## Create a second neighbor list for the system for the larger (histone) cutoffs
+    #if configurator.size_asymmetry:
+    #    print(f"  Configuration has detected a large size asymmetry, creating secondary neighbor list")
+    #    nlist_cell_monodisperse_large = hoomd.md.nlist.Cell(buffer = 0.4, exclusions = ['bond'])
+
+    ## If we are initializing, different stuff to do than if we are running 'production'
+    #if configurator.init_type == 'create_equilibration':
+    #    # We have to ramp the potential by hand, which is annoying, so this is a completely different
+    #    # sequence to do this
+
+    #    # Set up a default gauss potential so we can use it
+    #    gauss = md.pair.Gauss(nlist=nlist_cell_monodisperse, default_r_cut=3.5, default_r_on=0.0)
+    #    gauss.params[('muc_e', 'muc_e')] = {'epsilon': 0.0, 'sigma': 1.0}
+    #    gauss.params[('muc_e', 'muc_c')] = {'epsilon': 0.0, 'sigma': 1.0}
+    #    gauss.params[('muc_e', 'muc_h')] = {'epsilon': 0.0, 'sigma': 1.0}
+    #    gauss.params[('muc_e', 'muc_p')] = {'epsilon': 0.0, 'sigma': 1.0}
+    #    gauss.params[('muc_c', 'muc_c')] = {'epsilon': 0.0, 'sigma': 1.0}
+    #    gauss.params[('muc_c', 'muc_h')] = {'epsilon': 0.0, 'sigma': 1.0}
+    #    gauss.params[('muc_c', 'muc_p')] = {'epsilon': 0.0, 'sigma': 1.0}
+    #    gauss.params[('muc_h', 'muc_h')] = {'epsilon': 0.0, 'sigma': 1.0}
+    #    gauss.params[('muc_h', 'muc_p')] = {'epsilon': 0.0, 'sigma': 1.0}
+    #    gauss.params[('muc_p', 'muc_p')] = {'epsilon': 0.0, 'sigma': 1.0}
+    #    if configurator.size_asymmetry:
+    #        # Create a second interaction potential for just the muc_p <--> anything, and set the default r_cut to 0.0 to disable all interactions unless needed
+    #        # Also create a default version of the parameter control to make hoomd happy
+    #        gauss_large = md.pair.Gauss(nlist=nlist_cell_monodisperse_large, default_r_cut=0.0, default_r_on=0.0)
+    #        gauss_large.params[('muc_e', 'muc_e')] = {'epsilon': 0.0, 'sigma': 1.0}
+    #        gauss_large.params[('muc_e', 'muc_c')] = {'epsilon': 0.0, 'sigma': 1.0}
+    #        gauss_large.params[('muc_e', 'muc_h')] = {'epsilon': 0.0, 'sigma': 1.0}
+    #        gauss_large.params[('muc_e', 'muc_p')] = {'epsilon': 0.0, 'sigma': 1.0*adj_radius}
+    #        gauss_large.params[('muc_c', 'muc_c')] = {'epsilon': 0.0, 'sigma': 1.0}
+    #        gauss_large.params[('muc_c', 'muc_h')] = {'epsilon': 0.0, 'sigma': 1.0}
+    #        gauss_large.params[('muc_c', 'muc_p')] = {'epsilon': 0.0, 'sigma': 1.0*adj_radius}
+    #        gauss_large.params[('muc_h', 'muc_h')] = {'epsilon': 0.0, 'sigma': 1.0}
+    #        gauss_large.params[('muc_h', 'muc_p')] = {'epsilon': 0.0, 'sigma': 1.0*adj_radius}
+    #        gauss_large.params[('muc_p', 'muc_p')] = {'epsilon': 0.0, 'sigma': 1.0*adj_radius}
+    #        gauss_large.r_cut[('muc_e', 'muc_p')] = 3.5*adj_radius
+    #        gauss_large.r_cut[('muc_c', 'muc_p')] = 3.5*adj_radius
+    #        gauss_large.r_cut[('muc_h', 'muc_p')] = 3.5*adj_radius
+    #        gauss_large.r_cut[('muc_p', 'muc_p')] = 3.5*adj_radius
+
+    #        # Disable the excluded volume interactions from the original list
+    #        gauss.r_cut[('muc_e', 'muc_p')] = 0.0
+    #        gauss.r_cut[('muc_c', 'muc_p')] = 0.0
+    #        gauss.r_cut[('muc_h', 'muc_p')] = 0.0
+    #        gauss.r_cut[('muc_p', 'muc_p')] = 0.0
 
     else:
         # WCA potential for the excluded volume interactions
-        wca = md.pair.LJ(nlist=cell)
+        wca = md.pair.LJ(nlist=nlist_cell_monodisperse)
         wca.mode='shift'
 
         # LJ interaction of a general form
-        lje = md.pair.LJ(nlist=cell)
+        lje = md.pair.LJ(nlist=nlist_cell_monodisperse)
         # LJ interaction for the attraction between muc_e and muc_p, which might have a different radius!
-        ljp = md.pair.LJ(nlist=cell)
+        ljp = md.pair.LJ(nlist=nlist_cell_monodisperse)
 
         # Born mayer huggins potential for hydrophobic interactions
-        bmh = md.pair.BornMayerHuggins(nlist=cell)
+        bmh = md.pair.BornMayerHuggins(nlist=nlist_cell_monodisperse)
 
         ###############################
         # Figure out what combination of interactions the system has
@@ -207,7 +302,6 @@ if __name__ == "__main__":
 
         # muc_e <--> muc_p
         # This is the first time we see an adjusted radius based on the size of the muc_e and muc_p beads
-        adj_radius = 0.5 + configurator.r_histone
         if configurator.lennard_jones > 0.0:
             print(f"  muc_e <--> muc_p: LJ")
             wca.params[('muc_e', 'muc_p')] = {'epsilon': 1.0, 'sigma': 1.0}
@@ -298,99 +392,6 @@ if __name__ == "__main__":
         ljp.r_cut[('muc_p', 'muc_p')] = 0.0
         bmh.r_cut[('muc_p', 'muc_p')] = 0.0
 
-        #print(f"Working here for now CJE, updating names of things, and then changing to a better initialization structure for the potentials")
-        #sys.exit(1)
-
-        ################################
-        ## Excluded volume interactions
-        ################################
-        ## Set r_cut = 0 to disable interactions
-        ## Internal switches for disabling the lennard_jones and BMH interactions
-        #print(f"Detected WCA interaction for all <--> all")
-        #wca.params[('muc_e', 'muc_e')] = {'epsilon': 1.0, 'sigma': 1.0}
-        #wca.params[('muc_e', 'muc_c')] = {'epsilon': 1.0, 'sigma': 1.0}
-        #wca.params[('muc_e', 'muc_h')] = {'epsilon': 1.0, 'sigma': 1.0}
-        #wca.params[('muc_e', 'muc_p')] = {'epsilon': 1.0, 'sigma': 1.0} # Disabled?
-        #wca.params[('muc_c', 'muc_c')] = {'epsilon': 1.0, 'sigma': 1.0}
-        #wca.params[('muc_c', 'muc_h')] = {'epsilon': 1.0, 'sigma': 1.0}
-        #wca.params[('muc_c', 'muc_p')] = {'epsilon': 1.0, 'sigma': 1.0}
-        #wca.params[('muc_h', 'muc_h')] = {'epsilon': 1.0, 'sigma': 1.0} # Disabled?
-        #wca.params[('muc_h', 'muc_p')] = {'epsilon': 1.0, 'sigma': 1.0}
-        #wca.params[('muc_p', 'muc_p')] = {'epsilon': 1.0, 'sigma': 1.0}
-        #wca.r_cut[('muc_e', 'muc_e')] = np.power(2.0, 1/6)*1.0
-        #wca.r_cut[('muc_e', 'muc_c')] = np.power(2.0, 1/6)*1.0
-        #wca.r_cut[('muc_e', 'muc_h')] = np.power(2.0, 1/6)*1.0
-        ## Disable WCA if Lennard Jones present
-        #if configurator.lennard_jones <= 0.0:
-        #    wca.r_cut[('muc_e', 'muc_p')] = np.power(2.0, 1/6*1.0)
-        #else:
-        #    wca.r_cut[('muc_e', 'muc_p')] = 0.0
-        #wca.r_cut[('muc_c', 'muc_c')] = np.power(2.0, 1/6)*1.0
-        #wca.r_cut[('muc_c', 'muc_h')] = np.power(2.0, 1/6)*1.0
-        #wca.r_cut[('muc_c', 'muc_p')] = np.power(2.0, 1/6)*1.0
-        ## Disable WCA if BMH present
-        #if configurator.bmh >= 0.0:
-        #    wca.r_cut[('H', 'H')] = np.power(2.0, 1/6)*1.0
-        #else:
-        #    wca.r_cut[('H', 'H')] = 0.0
-        #wca.r_cut[('H', 'P')] = np.power(2.0, 1/6)*1.0
-        #wca.r_cut[('P', 'P')] = np.power(2.0, 1/6)*1.0
-
-        ################################
-        ## Attractive Lennard Jones type interactions
-        ################################
-        ## Only inlucde lennard jones if it is enabled
-        #if configurator.lennard_jones > 0.0:
-        #    print(f"Detected Lennard-Jones attractive interaction for E <--> P")
-        #    lje.params[('E', 'E')] = {'epsilon': configurator.lennard_jones, 'sigma': 1.0} # Disabled
-        #    lje.params[('E', 'C')] = {'epsilon': configurator.lennard_jones, 'sigma': 1.0} # Disabled
-        #    lje.params[('E', 'H')] = {'epsilon': configurator.lennard_jones, 'sigma': 1.0} # Disabled
-        #    lje.params[('E', 'P')] = {'epsilon': configurator.lennard_jones, 'sigma': 1.0} 
-        #    lje.params[('C', 'C')] = {'epsilon': configurator.lennard_jones, 'sigma': 1.0} # Disabled
-        #    lje.params[('C', 'H')] = {'epsilon': configurator.lennard_jones, 'sigma': 1.0} # Disabled
-        #    lje.params[('C', 'P')] = {'epsilon': configurator.lennard_jones, 'sigma': 1.0} # Disabled
-        #    lje.params[('H', 'H')] = {'epsilon': configurator.lennard_jones, 'sigma': 1.0} # Disabled
-        #    lje.params[('H', 'P')] = {'epsilon': configurator.lennard_jones, 'sigma': 1.0} # Disabled
-        #    lje.params[('P', 'P')] = {'epsilon': configurator.lennard_jones, 'sigma': 1.0} # Disabled
-        #    lje.r_cut[('E', 'E')] = 0.0
-        #    lje.r_cut[('E', 'C')] = 0.0
-        #    lje.r_cut[('E', 'H')] = 0.0
-        #    lje.r_cut[('E', 'P')] = 2.5
-        #    lje.r_cut[('C', 'C')] = 0.0
-        #    lje.r_cut[('C', 'H')] = 0.0
-        #    lje.r_cut[('C', 'P')] = 0.0
-        #    lje.r_cut[('H', 'H')] = 0.0
-        #    lje.r_cut[('H', 'P')] = 0.0
-        #    lje.r_cut[('P', 'P')] = 0.0
-
-        ################################
-        ## Attractive Born-Mayer-Huggins interactions
-        ################################
-        ## Only inlucde if used (attractive)
-        #if configurator.bmh < 0.0:
-        #    print(f"Detected Born-Mayer-Huggins attractive interaction for H <--> H")
-        #    bmh.params[('E', 'E')] = {'A': 0.0, 'sigma': 1.0, 'rho': 1.0/9.0, 'C': 1.0, 'D': 1.0}
-        #    bmh.params[('E', 'C')] = {'A': 0.0, 'sigma': 1.0, 'rho': 1.0/9.0, 'C': 1.0, 'D': 1.0}
-        #    bmh.params[('E', 'H')] = {'A': 0.0, 'sigma': 1.0, 'rho': 1.0/9.0, 'C': 1.0, 'D': 1.0}
-        #    bmh.params[('E', 'P')] = {'A': 0.0, 'sigma': 1.0, 'rho': 1.0/9.0, 'C': 1.0, 'D': 1.0}
-        #    bmh.params[('C', 'C')] = {'A': 0.0, 'sigma': 1.0, 'rho': 1.0/9.0, 'C': 1.0, 'D': 1.0}
-        #    bmh.params[('C', 'H')] = {'A': 0.0, 'sigma': 1.0, 'rho': 1.0/9.0, 'C': 1.0, 'D': 1.0}
-        #    bmh.params[('C', 'P')] = {'A': 0.0, 'sigma': 1.0, 'rho': 1.0/9.0, 'C': 1.0, 'D': 1.0}
-        #    bmh.params[('H', 'H')] = {'A': configurator.bmh, 'sigma': 1.0, 'rho': 1.0/9.0, 'C': 1.0, 'D': 1.0}
-        #    bmh.params[('H', 'P')] = {'A': 0.0, 'sigma': 1.0, 'rho': 1.0/9.0, 'C': 1.0, 'D': 1.0}
-        #    bmh.params[('P', 'P')] = {'A': 0.0, 'sigma': 1.0, 'rho': 1.0/9.0, 'C': 1.0, 'D': 1.0}
-        #    bmh.r_cut[('E', 'E')] = 0.0
-        #    bmh.r_cut[('E', 'C')] = 0.0
-        #    bmh.r_cut[('E', 'H')] = 0.0
-        #    bmh.r_cut[('E', 'P')] = 0.0
-        #    bmh.r_cut[('C', 'C')] = 0.0
-        #    bmh.r_cut[('C', 'H')] = 0.0
-        #    bmh.r_cut[('C', 'P')] = 0.0
-        #    bmh.r_cut[('H', 'H')] = 2.5
-        #    bmh.r_cut[('H', 'P')] = 0.0
-        #    bmh.r_cut[('P', 'P')] = 0.0
-        
-
     ###############################
     # Bonded and angle interactions
     ###############################
@@ -418,6 +419,8 @@ if __name__ == "__main__":
     # Append the forces that we need
     if configurator.init_type == 'create_equilibration':
         integrator.forces.append(gauss)
+        if configurator.nlist_n > 1:
+            integrator.forces.append(gauss_large)
     elif configurator.init_type == 'production':
         integrator.forces.append(wca)
         if configurator.lennard_jones_ee > 0.0:
@@ -460,6 +463,8 @@ if __name__ == "__main__":
     logger = hoomd.logging.Logger()
     if configurator.init_type == 'create_equilibration':
         logger.add(gauss, quantities=['energies', 'forces'])
+        if configurator.nlist_n > 1:
+            logger.add(gauss_large, quantities=['energies', 'forces'])
     logger.add(sim, quantities=['timestep', 'walltime', 'tps'])
     logger.add(thermodynamic_properties)
     
@@ -501,13 +506,21 @@ if __name__ == "__main__":
             gauss.params[('muc_e', 'muc_e')] = {'epsilon': (iblock/nblocks*100.0), 'sigma': 1.0}
             gauss.params[('muc_e', 'muc_c')] = {'epsilon': (iblock/nblocks*100.0), 'sigma': 1.0}
             gauss.params[('muc_e', 'muc_h')] = {'epsilon': (iblock/nblocks*100.0), 'sigma': 1.0}
-            gauss.params[('muc_e', 'muc_p')] = {'epsilon': (iblock/nblocks*100.0), 'sigma': 1.0}
+            gauss.params[('muc_e', 'muc_p')] = {'epsilon': (iblock/nblocks*100.0), 'sigma': 1.0*adj_radius}
             gauss.params[('muc_c', 'muc_c')] = {'epsilon': (iblock/nblocks*100.0), 'sigma': 1.0}
             gauss.params[('muc_c', 'muc_h')] = {'epsilon': (iblock/nblocks*100.0), 'sigma': 1.0}
-            gauss.params[('muc_c', 'muc_p')] = {'epsilon': (iblock/nblocks*100.0), 'sigma': 1.0}
+            gauss.params[('muc_c', 'muc_p')] = {'epsilon': (iblock/nblocks*100.0), 'sigma': 1.0*adj_radius}
             gauss.params[('muc_h', 'muc_h')] = {'epsilon': (iblock/nblocks*100.0), 'sigma': 1.0}
-            gauss.params[('muc_h', 'muc_p')] = {'epsilon': (iblock/nblocks*100.0), 'sigma': 1.0}
-            gauss.params[('muc_p', 'muc_p')] = {'epsilon': (iblock/nblocks*100.0), 'sigma': 1.0}
+            gauss.params[('muc_h', 'muc_p')] = {'epsilon': (iblock/nblocks*100.0), 'sigma': 1.0*adj_radius}
+            gauss.params[('muc_p', 'muc_p')] = {'epsilon': (iblock/nblocks*100.0), 'sigma': 2.0*configurator.r_histone}
+
+            # If we have a size asymmetry, deal with it now
+            if configurator.nlist_n > 1:
+                gauss_large.params[('muc_e', 'muc_p')] = {'epsilon': (iblock/nblocks*100.0), 'sigma': 1.0*adj_radius}
+                gauss_large.params[('muc_c', 'muc_p')] = {'epsilon': (iblock/nblocks*100.0), 'sigma': 1.0*adj_radius}
+                gauss_large.params[('muc_h', 'muc_p')] = {'epsilon': (iblock/nblocks*100.0), 'sigma': 1.0*adj_radius}
+                gauss_large.params[('muc_p', 'muc_p')] = {'epsilon': (iblock/nblocks*100.0), 'sigma': 2.0*configurator.r_histone}
+
             sim.run(nblock_size)
 
     elif configurator.init_type == 'production':

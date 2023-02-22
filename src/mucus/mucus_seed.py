@@ -72,6 +72,7 @@ class MucusSeed(SeedBase):
         self.lbox               = np.float64(self.default_yaml['simulation']['lbox'])
         self.nseed              = np.int32(np.float64(self.default_yaml['simulation']['seed']))
 
+        # Mucus parameters
         self.nrowy              = np.int32(np.float64(self.default_yaml['mucus']['nrowy']))
         self.nrowz              = np.int32(np.float64(self.default_yaml['mucus']['nrowz']))
         self.lbond              = np.float64(self.default_yaml['mucus']['bond_length'])
@@ -83,6 +84,7 @@ class MucusSeed(SeedBase):
         self.mucin_charges      = self.default_yaml['mucus']['charges']
         self.dimers_per_poly    = np.int32(np.float64(self.default_yaml['mucus']['dimers_per_polymer']))
 
+        # Histone information
         self.nhist              = np.int32(np.float64(self.default_yaml['histones']['n']))
         self.histone_charges    = np.float64(self.default_yaml['histones']['charge'])
         if 'radius' in self.default_yaml['histones']:
@@ -90,12 +92,36 @@ class MucusSeed(SeedBase):
         else:
             self.r_histone      = 0.5
 
+        if 'mass' in self.default_yaml['histones']:
+            self.m_histone      = np.float64(self.default_yaml['histones']['mass'])
+        else:
+            self.m_histone      = 1.0
+
+        # Interactions
         if 'lennard_jones_ee' in self.default_yaml['interactions']:
             self.lennard_jones_ee   = np.float64(self.default_yaml['interactions']['lennard_jones_ee'])
         else:
             self.lennard_jones_ee   = 0.0
         self.lennard_jones      = np.float64(self.default_yaml['interactions']['lennard_jones'])
         self.bmh                = np.float64(self.default_yaml['interactions']['born_mayer_huggins'])
+        # Detect what kind of neighbor list schenanigans we are up to, always store as a list
+        if 'nlist' in self.default_yaml['interactions']:
+            if type(self.default_yaml['interactions']['nlist_buffer']) is list:
+                self.nlist_n        = len(self.default_yaml['interactions']['nlist_buffer'])
+                self.nlist_type     = []
+                self.nlist_buffer   = []
+                for idx in range(self.nlist_n):
+                    self.nlist_type.append(self.default_yaml['interactions']['nlist'][idx])
+                    self.nlist_buffer.append(np.float64(self.default_yaml['interactions']['nlist_buffer'][idx]))
+            else:
+                self.nlist_n        = 1
+                self.nlist_type     = [self.default_yaml['interactions']['nlist']]
+                self.nlist_buffer   = [np.float64(self.default_yaml['interactions']['nlist_buffer'])]
+        else:
+            # Default nlist information
+            self.nlist_n        = 1
+            self.nlist_type     = ['cell']
+            self.nlist_buffer   = [0.4]
 
         if self.engine != "LAMMPS" and self.engine != "HOOMD":
             print(f"ERROR: Only LAMMPS and HOOMD implementation currently supported for mucus, exiting!")
@@ -103,6 +129,13 @@ class MucusSeed(SeedBase):
 
         # Set up the cluster topology
         self.cluster = ClusterTopology(self.default_yaml['cluster'], self.opts)
+
+        # Detect if we have a large size asymmetry for things like histones
+        if self.nhist > 0 and self.r_histone > 2.0:
+            print(f"  Detected large size asymmetry in configuration")
+            self.size_asymmetry = True
+        else:
+            self.size_asymmetry = False
 
         if self.verbose: print(f"MucusSeed::ReadData return")
 
@@ -128,6 +161,7 @@ class MucusSeed(SeedBase):
         print(f"Simulation time (tau)   = {self.deltatau*self.nsteps}")
         print(f"Box size                = {self.lbox}")
         print(f"Seed                    = {self.nseed}")
+        print(f"Size asymmetry          = {self.size_asymmetry}")
         print(f"--------")
         print(f"Mucus polymer information")
         print(f"N polymers              = {self.n_mucins}")
@@ -150,11 +184,16 @@ class MucusSeed(SeedBase):
         print(f"N histones              = {self.nhist}")
         print(f"Histone charges         = {self.histone_charges}")
         print(f"Histone radius          = {self.r_histone}")
+        print(f"Histone mass            = {self.m_histone}")
         print(f"--------")
         print(f"Interactions")
         print(f"Electrostatics (brush)  = {self.lennard_jones_ee}")
         print(f"Electrostatics (LJ)     = {self.lennard_jones}")
         print(f"Hydrophobic (BMH)       = {self.bmh}")
+        print(f"Neighbor list acceleration")
+        print(f"Neighbor list number    = {self.nlist_n}")
+        print(f"Neighbor list type(s)   = {self.nlist_type}")
+        print(f"Neighbor list buffer(s) = {self.nlist_buffer}")
         print(f"--------")
         print(f"Total configured system")
         print(f"N types                 = {self.ntypes}")
@@ -227,6 +266,8 @@ class MucusSeed(SeedBase):
                 self.InitMucus(snap)
             elif self.init_type == 'production':
                 self.ReadMucus(snap)
+
+
             self.is_init = True
 
         if self.verbose: print(f"MucusSeed::Configure return")
@@ -873,7 +914,7 @@ write_data ${OUTPUT_PREFIX}.final.data nocoeff
             itype = 4-1
             snap.particles.position[icount] = [x, y, z]
             snap.particles.typeid[icount] = itype
-            snap.particles.mass[icount] = 1.0
+            snap.particles.mass[icount] = self.m_histone
 
         # Bond information
         icount1 = 1-1

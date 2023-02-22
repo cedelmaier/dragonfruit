@@ -97,3 +97,29 @@ def hist_prob_density_convert(mid_points = [], hist = [], n_points = 1):
     bin_mids = mid_points
     hist = np.divide(hist, (bin_mids[1]-bin_mids[0])*n_points)
     return bin_mids, hist, n_points
+
+def autocorrelation_1d(X):
+    r""" Self-correlation of a signal
+    """
+    result = np.correlate(X, X, mode='full')
+    return result[len(X)-1:]
+
+def autocorrelation_block_1d(data, blocksize):
+    r""" Autocorrelation of a signal with blocksize for ensemble averaging (1D)
+    """
+    # Figure out how many blocks to use
+    nblocks = np.int32(len(data)/blocksize)
+
+    # Create a result structure for this
+    result = np.zeros((nblocks, blocksize), dtype=np.float32)
+
+    # Loop over blocks for ensemble averaging
+    for iblock in range(nblocks):
+        start_block = iblock*blocksize
+        end_block   = (iblock+1)*blocksize
+        result[iblock,:] = autocorrelation_1d(data[start_block:end_block])
+
+    # Get the X-axis block version
+    x = np.arange(blocksize)
+    return x, result
+
