@@ -135,36 +135,55 @@ if __name__ == "__main__":
         print(f"  Creating neighbor list {ilist}: {configurator.nlist_type[ilist]}, buffer: {configurator.nlist_buffer[ilist]}")
         nl = None
         if configurator.nlist_type[ilist] == 'cell':
-            nl = hoomd.md.nlist.Cell(buffer = 0.4, exclusions = ['bond'])
+            nl = hoomd.md.nlist.Cell(buffer = configurator.nlist_buffer[ilist], exclusions = ['bond'])
         elif configurator.nlist_type[ilist] == 'tree':
-            nl = hoomd.md.nlist.Tree(buffer = 0.4, exclusions = ['bond'])
+            nl = hoomd.md.nlist.Tree(buffer = configurator.nlist_buffer[ilist], exclusions = ['bond'])
         else:
             print(f"ERROR: Neighbor list type {configurator.nlist_type[ilist]} not currently supported, exiting!")
             sys.exit(1)
         nlists.append(nl)
 
+    print(f"Setting interactions")
     # If we are initializing, different stuff to do than if we are running 'production'
     if configurator.init_type == 'create_equilibration':
         # We have to ramp the potential by hand, which is annoying, so this is a completely different
         # sequence to do this. Set up a default gaussian potential to use
-        gauss = md.pair.Gauss(nlist = nlists[0], default_r_cut = 3.5, default_r_on = 0.0)
-        gauss.params[('muc_e', 'muc_e')] = {'epsilon': 0.0, 'sigma': 1.0}
-        gauss.params[('muc_e', 'muc_c')] = {'epsilon': 0.0, 'sigma': 1.0}
-        gauss.params[('muc_e', 'muc_h')] = {'epsilon': 0.0, 'sigma': 1.0}
-        gauss.params[('muc_e', 'muc_p')] = {'epsilon': 0.0, 'sigma': 1.0*adj_diameter}
-        gauss.params[('muc_c', 'muc_c')] = {'epsilon': 0.0, 'sigma': 1.0}
-        gauss.params[('muc_c', 'muc_h')] = {'epsilon': 0.0, 'sigma': 1.0}
-        gauss.params[('muc_c', 'muc_p')] = {'epsilon': 0.0, 'sigma': 1.0*adj_diameter}
-        gauss.params[('muc_h', 'muc_h')] = {'epsilon': 0.0, 'sigma': 1.0}
-        gauss.params[('muc_h', 'muc_p')] = {'epsilon': 0.0, 'sigma': 1.0*adj_diameter}
-        gauss.params[('muc_p', 'muc_p')] = {'epsilon': 0.0, 'sigma': 2.0*configurator.r_histone}
-        gauss.r_cut[('muc_e', 'muc_p')] = 3.5*adj_diameter
-        gauss.r_cut[('muc_c', 'muc_p')] = 3.5*adj_diameter
-        gauss.r_cut[('muc_h', 'muc_p')] = 3.5*adj_diameter
-        gauss.r_cut[('muc_p', 'muc_p')] = 3.5*2.0*configurator.r_histone
+        if configurator.equilibration_potential == 'gauss':
+            print(f"  Equilibration: gaussian")
+            gauss = md.pair.Gauss(nlist = nlists[0], default_r_cut = 3.5, default_r_on = 0.0)
+            gauss.params[('muc_e', 'muc_e')] = {'epsilon': 0.0, 'sigma': 1.0}
+            gauss.params[('muc_e', 'muc_c')] = {'epsilon': 0.0, 'sigma': 1.0}
+            gauss.params[('muc_e', 'muc_h')] = {'epsilon': 0.0, 'sigma': 1.0}
+            gauss.params[('muc_e', 'muc_p')] = {'epsilon': 0.0, 'sigma': 1.0*adj_diameter}
+            gauss.params[('muc_c', 'muc_c')] = {'epsilon': 0.0, 'sigma': 1.0}
+            gauss.params[('muc_c', 'muc_h')] = {'epsilon': 0.0, 'sigma': 1.0}
+            gauss.params[('muc_c', 'muc_p')] = {'epsilon': 0.0, 'sigma': 1.0*adj_diameter}
+            gauss.params[('muc_h', 'muc_h')] = {'epsilon': 0.0, 'sigma': 1.0}
+            gauss.params[('muc_h', 'muc_p')] = {'epsilon': 0.0, 'sigma': 1.0*adj_diameter}
+            gauss.params[('muc_p', 'muc_p')] = {'epsilon': 0.0, 'sigma': 2.0*configurator.r_histone}
+            gauss.r_cut[('muc_e', 'muc_p')] = 3.5*adj_diameter
+            gauss.r_cut[('muc_c', 'muc_p')] = 3.5*adj_diameter
+            gauss.r_cut[('muc_h', 'muc_p')] = 3.5*adj_diameter
+            gauss.r_cut[('muc_p', 'muc_p')] = 3.5*2.0*configurator.r_histone
+        else:
+            print(f"  Equilibration: GrimeLipid (custom)")
+            # Use our own grime-lipid potential, as that has a soft intraction, and a defined cutoff...
+            glf = md.pair.GrimeLipid(nlist = nlists[0], default_r_cut = 1.0)
+            glf.params[('muc_e', 'muc_e')] = {'A': 0.0, 'B': 0.0, 'r0': 1.0, 'rc': 2.0}
+            glf.params[('muc_e', 'muc_c')] = {'A': 0.0, 'B': 0.0, 'r0': 1.0, 'rc': 2.0}
+            glf.params[('muc_e', 'muc_h')] = {'A': 0.0, 'B': 0.0, 'r0': 1.0, 'rc': 2.0}
+            glf.params[('muc_e', 'muc_p')] = {'A': 0.0, 'B': 0.0, 'r0': adj_diameter, 'rc': 2.0*adj_diameter}
+            glf.params[('muc_c', 'muc_c')] = {'A': 0.0, 'B': 0.0, 'r0': 1.0, 'rc': 2.0}
+            glf.params[('muc_c', 'muc_h')] = {'A': 0.0, 'B': 0.0, 'r0': 1.0, 'rc': 2.0}
+            glf.params[('muc_c', 'muc_p')] = {'A': 0.0, 'B': 0.0, 'r0': adj_diameter, 'rc': 2.0*adj_diameter}
+            glf.params[('muc_h', 'muc_h')] = {'A': 0.0, 'B': 0.0, 'r0': 1.0, 'rc': 2.0}
+            glf.params[('muc_h', 'muc_p')] = {'A': 0.0, 'B': 0.0, 'r0': adj_diameter, 'rc': 2.0*adj_diameter}
+            glf.params[('muc_p', 'muc_p')] = {'A': 0.0, 'B': 0.0, 'r0': 2.0*r_histone, 'rc': 4.0*r_histone}
 
         # If we have a second neighbor list, we know that it goes to the muc_p group
         if configurator.nlist_n > 1:
+            print(f"ERROR: Currently only 1 neighbor list for equilibration, exiting!")
+            sys.exit(1)
             # Create a second interaction potential for just the muc_p <--> anything, and set the default r_cut to 0.0 to disable all interactions unless needed
             # Also create a default version of the parameter control to make hoomd happy
             gauss_large = md.pair.Gauss(nlist = nlists[1], default_r_cut = 0.0, default_r_on = 0.0)
@@ -190,7 +209,6 @@ if __name__ == "__main__":
             gauss.r_cut[('muc_p', 'muc_p')] = 0.0
 
     else:
-        print(f"Setting interactions")
 
         wca = None
         ewca = None
@@ -230,9 +248,10 @@ if __name__ == "__main__":
         bmh = md.pair.BornMayerHuggins(nlist = nlists[0])
 
         # Shifted zero of a lennard jones potential so that the edge acts like a WCA or lennard jones
+        # This should go to something like r == 1 at r-delta == 1, giving us the deltashift
         deltashift = 0.0
         if configurator.size_asymmetry:
-            deltashift = r_histone - r_sphere
+            deltashift = r_histone + r_sphere - 1.0
 
         ###############################
         # Figure out what combination of interactions the system has
@@ -403,7 +422,7 @@ if __name__ == "__main__":
 
         # muc_h <--> muc_h
         if configurator.bmh < 0.0:
-            print(f"  muc_h <--> muc_h: BMH")
+            print(f"  muc_h <--> muc_h: BMH: A = {configurator.bmh}, sigma = 1.0, rho = 1.0/9.0, C = 1.0, D = 1.0")
             wca.params[('muc_h', 'muc_h')] = {'epsilon': 1.0, 'sigma': 1.0}
             bmh.params[('muc_h', 'muc_h')] = {'A': configurator.bmh, 'sigma': 1.0, 'rho': 1.0/9.0, 'C': 1.0, 'D': 1.0}
             wca.r_cut[('muc_h', 'muc_h')] = 0.0
@@ -454,7 +473,7 @@ if __name__ == "__main__":
             bmh.r_cut[('muc_h', 'muc_p')]   = 0.0
 
         # muc_c <--> muc_p
-        if configurator.size_asymmetry:
+        if not configurator.size_asymmetry:
             print(f"  muc_p <--> muc_p: WCA")
             wca.params[('muc_p', 'muc_p')]  = {'epsilon': 1.0, 'sigma': 1.0}
             ewca.params[('muc_p', 'muc_p')] = {'epsilon': 1.0, 'sigma': 1.0, 'delta': 0.0}
@@ -469,7 +488,7 @@ if __name__ == "__main__":
             eljp.r_cut[('muc_p', 'muc_p')]  = 0.0
             bmh.r_cut[('muc_p', 'muc_p')]   = 0.0
         else:
-            print(f"  muc_p <--> muc_p: EWCA: delta = {2.0*r_histone}")
+            print(f"  muc_p <--> muc_p: EWCA: delta = {2.0*r_histone-1.0}")
             wca.params[('muc_p', 'muc_p')]  = {'epsilon': 1.0, 'sigma': 1.0}
             ewca.params[('muc_p', 'muc_p')] = {'epsilon': 1.0, 'sigma': 1.0, 'delta': 2.0*r_histone-1.0}
             lje.params[('muc_p', 'muc_p')]  = {'epsilon': 1.0, 'sigma': 1.0}
@@ -503,14 +522,20 @@ if __name__ == "__main__":
     langevin.gamma['muc_e'] = 1.0/configurator.t_damp
     langevin.gamma['muc_c'] = 1.0/configurator.t_damp
     langevin.gamma['muc_h'] = 1.0/configurator.t_damp
-    langevin.gamma['muc_p'] = 1.0/configurator.t_damp
+    if not configurator.size_asymmetry:
+        langevin.gamma['muc_p'] = 1.0/configurator.t_damp
+    else:
+        langevin.gamma['muc_p'] = configurator.m_histone/configurator.t_damp
 
     integrator.methods.append(langevin)
 
     # Append the forces that we need
     # Pairwise forces
     if configurator.init_type == 'create_equilibration':
-        integrator.forces.append(gauss)
+        if configurator.equilibration_potential == 'gauss':
+            integrator.forces.append(gauss)
+        else:
+            integrator.forces.append(glf)
         if configurator.nlist_n > 1:
             integrator.forces.append(gauss_large)
     elif configurator.init_type == 'production':
@@ -565,7 +590,10 @@ if __name__ == "__main__":
     # Set up the logging of important quantities
     logger = hoomd.logging.Logger()
     if configurator.init_type == 'create_equilibration':
-        logger.add(gauss, quantities=['energies', 'forces'])
+        if configurator.equilibration_potential == 'gauss':
+            logger.add(gauss, quantities=['energies', 'forces'])
+        else:
+            logger.add(glf, quantities=['energies', 'forces'])
         if configurator.nlist_n > 1:
             logger.add(gauss_large, quantities=['energies', 'forces'])
     logger.add(sim, quantities=['timestep', 'walltime', 'tps'])
@@ -577,7 +605,7 @@ if __name__ == "__main__":
     output_logger.add(sim, quantities=['timestep', 'tps'])
     output_logger[('Status', 'etr')] = (status, 'etr', 'string')
     output_logger.add(thermodynamic_properties, quantities=['kinetic_temperature', 'pressure'])
-    table = hoomd.write.Table(trigger=hoomd.trigger.Periodic(period=configurator.nwrite),
+    table = hoomd.write.Table(trigger=hoomd.trigger.Periodic(period=configurator.nwrite_log),
                               logger=output_logger)
     sim.operations.writers.append(table)
 
@@ -606,16 +634,28 @@ if __name__ == "__main__":
         nblock_size = np.int32(configurator.nsteps_equilibrate / nblocks)
         for iblock in range(1000):
             print(f"  Block {iblock}")
-            gauss.params[('muc_e', 'muc_e')] = {'epsilon': (iblock/nblocks*100.0), 'sigma': 1.0}
-            gauss.params[('muc_e', 'muc_c')] = {'epsilon': (iblock/nblocks*100.0), 'sigma': 1.0}
-            gauss.params[('muc_e', 'muc_h')] = {'epsilon': (iblock/nblocks*100.0), 'sigma': 1.0}
-            gauss.params[('muc_e', 'muc_p')] = {'epsilon': (iblock/nblocks*100.0), 'sigma': 1.0*adj_diameter}
-            gauss.params[('muc_c', 'muc_c')] = {'epsilon': (iblock/nblocks*100.0), 'sigma': 1.0}
-            gauss.params[('muc_c', 'muc_h')] = {'epsilon': (iblock/nblocks*100.0), 'sigma': 1.0}
-            gauss.params[('muc_c', 'muc_p')] = {'epsilon': (iblock/nblocks*100.0), 'sigma': 1.0*adj_diameter}
-            gauss.params[('muc_h', 'muc_h')] = {'epsilon': (iblock/nblocks*100.0), 'sigma': 1.0}
-            gauss.params[('muc_h', 'muc_p')] = {'epsilon': (iblock/nblocks*100.0), 'sigma': 1.0*adj_diameter}
-            gauss.params[('muc_p', 'muc_p')] = {'epsilon': (iblock/nblocks*100.0), 'sigma': 2.0*configurator.r_histone}
+            if configurator.equilibration_potential == 'gauss':
+                gauss.params[('muc_e', 'muc_e')] = {'epsilon': (iblock/nblocks*100.0), 'sigma': 1.0}
+                gauss.params[('muc_e', 'muc_c')] = {'epsilon': (iblock/nblocks*100.0), 'sigma': 1.0}
+                gauss.params[('muc_e', 'muc_h')] = {'epsilon': (iblock/nblocks*100.0), 'sigma': 1.0}
+                gauss.params[('muc_e', 'muc_p')] = {'epsilon': (iblock/nblocks*100.0), 'sigma': 1.0*adj_diameter}
+                gauss.params[('muc_c', 'muc_c')] = {'epsilon': (iblock/nblocks*100.0), 'sigma': 1.0}
+                gauss.params[('muc_c', 'muc_h')] = {'epsilon': (iblock/nblocks*100.0), 'sigma': 1.0}
+                gauss.params[('muc_c', 'muc_p')] = {'epsilon': (iblock/nblocks*100.0), 'sigma': 1.0*adj_diameter}
+                gauss.params[('muc_h', 'muc_h')] = {'epsilon': (iblock/nblocks*100.0), 'sigma': 1.0}
+                gauss.params[('muc_h', 'muc_p')] = {'epsilon': (iblock/nblocks*100.0), 'sigma': 1.0*adj_diameter}
+                gauss.params[('muc_p', 'muc_p')] = {'epsilon': (iblock/nblocks*100.0), 'sigma': 2.0*configurator.r_histone}
+            else:
+                glf.params[('muc_e', 'muc_e')] = {'A': (iblock/nblocks*100.0), 'B': 0.0, 'r0': 1.0, 'rc': 2.0}
+                glf.params[('muc_e', 'muc_c')] = {'A': (iblock/nblocks*100.0), 'B': 0.0, 'r0': 1.0, 'rc': 2.0}
+                glf.params[('muc_e', 'muc_h')] = {'A': (iblock/nblocks*100.0), 'B': 0.0, 'r0': 1.0, 'rc': 2.0}
+                glf.params[('muc_e', 'muc_p')] = {'A': (iblock/nblocks*100.0), 'B': 0.0, 'r0': adj_diameter, 'rc': 2.0*adj_diameter}
+                glf.params[('muc_c', 'muc_c')] = {'A': (iblock/nblocks*100.0), 'B': 0.0, 'r0': 1.0, 'rc': 2.0}
+                glf.params[('muc_c', 'muc_h')] = {'A': (iblock/nblocks*100.0), 'B': 0.0, 'r0': 1.0, 'rc': 2.0}
+                glf.params[('muc_c', 'muc_p')] = {'A': (iblock/nblocks*100.0), 'B': 0.0, 'r0': adj_diameter, 'rc': 2.0*adj_diameter}
+                glf.params[('muc_h', 'muc_h')] = {'A': (iblock/nblocks*100.0), 'B': 0.0, 'r0': 1.0, 'rc': 2.0}
+                glf.params[('muc_h', 'muc_p')] = {'A': (iblock/nblocks*100.0), 'B': 0.0, 'r0': adj_diameter, 'rc': 2.0*adj_diameter}
+                glf.params[('muc_p', 'muc_p')] = {'A': (iblock/nblocks*100.0), 'B': 0.0, 'r0': 2.0*r_histone, 'rc': 4.0*r_histone}
 
             # If we have a size asymmetry, deal with it now
             if configurator.nlist_n > 1:

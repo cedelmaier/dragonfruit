@@ -41,8 +41,8 @@ Create a python virtual environment to load everything into with 'install' comma
 NOTE: You can get away with doing this various ways. Just be sure you know what exactly
 you are doing! I put these in a special place
 
-    python3 -m venv virtual_envs/hoomd300beta13
-    source ~/virtual_envs/hoomd300beta13/bin/activate
+    python3 -m venv virtual_envs/hoomd381
+    source ~/virtual_envs/hoomd381/bin/activate
 
 Get the HOOMD source code and put it somewhere convenient (also install the prerequisites for 
 compilation).
@@ -50,7 +50,7 @@ compilation).
     git clone --recursive https://github.com/glotzerlab/hoomd-blue
     cd hoomd-blue
     git fetch --all --tags
-    git checkout tags/v3.0.0-beta.13
+    git checkout tags/v3.8.1
     python3 ./install-prereq-headers.py
 
 Any other prerequisites needed?
@@ -65,8 +65,7 @@ than use an external module.
 
 I do my compilation in the scratch space.
 
-    cd /pine/scr/<youpathhere>
-    cd /pine/scr/e/d/edelmaie/
+    cd /work/<youpathhere>
     CC=gcc CXX=g++ cmake -B build/hoomd -S ~/hoomd-blue/
     cd build/hoomd
 

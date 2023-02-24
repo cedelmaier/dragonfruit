@@ -69,6 +69,10 @@ class MucusSeed(SeedBase):
         self.nwrite_equilibrate = np.int32(np.float64(self.default_yaml['simulation']['nwrite_equilibrate']))
         self.nsteps             = np.int32(np.float64(self.default_yaml['simulation']['nsteps']))
         self.nwrite             = np.int32(np.float64(self.default_yaml['simulation']['nwrite']))
+        if 'nwrite_log' in self.default_yaml['simulation']:
+            self.nwrite_log     = np.int32(np.float64(self.default_yaml['simulation']['nwrite_log']))
+        else:
+            self.nwrite_log     = self.nwrite
         self.lbox               = np.float64(self.default_yaml['simulation']['lbox'])
         self.nseed              = np.int32(np.float64(self.default_yaml['simulation']['seed']))
 
@@ -122,6 +126,10 @@ class MucusSeed(SeedBase):
             self.nlist_n        = 1
             self.nlist_type     = ['cell']
             self.nlist_buffer   = [0.4]
+        if 'equilibration_potential' in self.default_yaml['interactions']:
+            self.equilibration_potential    = self.default_yaml['interactions']['equilibration_potential']
+        else:
+            self.equilibration_potential    = 'gauss'
 
         if self.engine != "LAMMPS" and self.engine != "HOOMD":
             print(f"ERROR: Only LAMMPS and HOOMD implementation currently supported for mucus, exiting!")
@@ -158,6 +166,7 @@ class MucusSeed(SeedBase):
         print(f"Nwrite equilibrate      = {self.nwrite_equilibrate}")
         print(f"Nsteps                  = {self.nsteps}")
         print(f"Nwrite                  = {self.nwrite}")
+        print(f"Nwrite log (screen)     = {self.nwrite_log}")
         print(f"Simulation time (tau)   = {self.deltatau*self.nsteps}")
         print(f"Box size                = {self.lbox}")
         print(f"Seed                    = {self.nseed}")
@@ -194,6 +203,7 @@ class MucusSeed(SeedBase):
         print(f"Neighbor list number    = {self.nlist_n}")
         print(f"Neighbor list type(s)   = {self.nlist_type}")
         print(f"Neighbor list buffer(s) = {self.nlist_buffer}")
+        print(f"Equilibration potential = {self.equilibration_potential}")
         print(f"--------")
         print(f"Total configured system")
         print(f"N types                 = {self.ntypes}")
