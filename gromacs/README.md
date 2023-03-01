@@ -367,6 +367,220 @@ Use the following command, for instance, to generate a 2D FES of the landscape f
 One can also generate the negative bias alone.
 
 	mpirun -np 1 plumed sum_hills --bin 255,255 --min 0,0 --max 5.0,13.1 --hills HILLS_SINGLEWALKER --mintozero --negbias --outfile fes_sumhills_negbias.dat
+	
+## Unbias a multiwalker simulation
+If we want access CVs that are not part of the original biasing routine with metadynamics, we need to come up with a way to take the biased trajectories and unbias them. This is complicated further when we use multiple walker metadynamics, as each walker's trajectory is biased by a potential coming from all of the walkers. Here are the steps that I was able to put together in order to unbias a trajectory, giving a result that is similar between getting the FES from the HILLS file(s), and one that goes through the unbiasing routine.
+
+The following is done assuming there are 4 walkers (or really however many) that each read from a common HILLS file defining the metadynamics potential as it is written.
+
+### Step 1: Reduce single walker trajectory file contents and concatenate trajectories
+First one needs to combine all of the XTC (or TRR) trajectory files from GROMACS into a single entity. It is very advisable to reduce the number of atoms that are recorded at this stage. If you're using a `density_groups.ndx` file (similar to this document's version), then the internals of the following script will center the box on the lipid group and write out the lipid+helix group. This has to be done **independently** for each walker (very important!).
+
+`reduce_concatenate_metadblocks.sh`
+
+    #!/bin/bash
+    
+    startstep=$1
+    endstep=$2
+
+    # Remove previous control groups (for density)
+    rm control_groups.txt
+
+    echo "18" >> control_groups.txt
+    echo "19" >> control_groups.txt
+
+    # First reduce the content of all of the files
+    for ((i=$startstep;i<=$endstep;i++))
+    do
+      mpirun -np 1 gmx_mpi trjconv -s metad_2d_block${i}.tpr -f metad_2d_block${i}.xtc -o metad_2d_block${i}reduced.pdb -n density_groups.ndx -boxcenter rect -pbc mol -center -dump 0 < control_groups.txt
+      mpirun -np 1 gmx_mpi trjconv -s metad_2d_block${i}.tpr -f metad_2d_block${i}.xtc -o metad_2d_block${i}reduced.xtc -n density_groups.ndx -boxcenter rect -pbc mol -center < control_groups.txt
+    done
+
+    # Now concatenate into a singular file
+    rm -f list_trr_oneline.txt
+    rm -f times_trr.txt
+    rm -f list_edr_oneline.txt
+    rm -f times_edr.txt
+
+    for ((i=$startstep;i<=$endstep;i++))
+    do
+      echo -n " metad_2d_block${i}reduced.xtc" >> list_trr_oneline.txt;
+      echo "c" >> times_trr.txt;
+    done
+
+    # Now concatenate the files automatically for the user
+    mpirun -np 1 gmx_mpi trjcat -f `cat list_trr_oneline.txt` -o traj_continuous_v$startstep\_$endstep\_reduced.xtc -settime < times_trr.txt
+
+This will result in a file (for blocks 1 to 25) of `traj_continuous_v1_25_reduced.xtc`, as well as a number of PDB files that are useful for visualizing the results.
+
+### Step 2: Combine trajectories from all walkers together
+Now we need to create a single trajectory from the different walkers to properly read into the plumed driver.
+
+    mpirun -np 1 gmx_mpi trjcat -cat -f walker?/traj_continuous_v1_25_reduced.xtc -o traj_multi_reduced.xtc
+    
+### Step 3: Create a consistent reference and mass/charge files for PLUMED
+Since we have stripped out atoms/whatever from our trajectory, we need to make sure that both the reference and mass/charge files are consistent. The definition of the reference file is probably fine, assuming that one has stripped out the water and salt ions from the original PDF file, and have a reference file `reference.pdb`. Briefly, here is what you do to generate this file (and keep a useful backup for things like finding atoms in all cases later).
+
+`reference.pdb`
+
+    mpirun -np 1 gmx_mpi editconf -f metad_2d_block1.tpr -o reference.pdb
+    cp reference.pdb reference.pdb.bak
+
+Then you have to edit the file and remove the salt/water molecules. To get the masses and charges out of the original file for PLUMED, you can use the following commands.
+
+`plumed_dumpmasscharge.dat`:
+
+	DUMPMASSCHARGE FILE=mcfile.dat
+
+Then you can run the command.
+
+	mpirun -np 1 gmx_mpi mdrun -s metad_2d_block1.tpr -nsteps 1 -plumed plumed_dumpmasscharge.dat
+
+and you will have a file `mcfile.dat`. Note this has to be done with a version of gromacs that is compiled with PLUMED. After this is done, you need to go back through and remove the extra molecules/atoms that were stripped out for the updated reference file as well.
+
+Really, in the end, you just need to have consistent `reference.pdb` and `mcfile.dat` files.
+
+### Step 4: Determine what collective variables you want to analyze
+I recommend including the bias variables in this, as then you have a way to test the FES against the version one can get from the HILLS file. Here is an example file that generates FES grids based on the CVs of dz, alpha, and a new 'tilt' angle.  As a note, this does the reweighting via both the exponential and Tiwary weights.
+
+`plumed_multiwalker_reweight.dat`
+
+    # vim:ft=plumed
+    MOLINFO STRUCTURE=reference.pdb
+
+    # Get detailed timing
+    DEBUG DETAILED_TIMERS
+
+    # Figure out the lipid and helix COM coordinates
+    # lipid: center of mass of phosphorus only
+    lipid_com: COM ATOMS=332,470,608,746,884,1022,1160,1298,1436,1574,1712,1850,1988,2126,2264,2402,2540,2678,2816,2954,3092,3230,3368,3506,3644,3782,3920,4058,4196,4334,4472,4610,4748,4886,5024,5162,5300,5438,5576,5714,5852,5990,6128,6266,6404,6542,6680,6818,6956,7094,7232,7370,7508,7646,7784,7922,8060,8198,8336,8474,8612,8750,8888,9026,9164,9302,9440,9578,9716,9854,9992,10130,10268,10406,10544,10682,10820,10958,11096,11234,11372,11510,11648,11786,11924,12062,12200,12338,12476,12614,12752,12890,13028,13166,13304,13442,13580,13718,13856,13994,14132,14270,14408,14546,14684,14822,14960,15098,15236,15374,15512,15650,15788,15926,16064,16202,16340,16478,16616,16754,16892,17030,17168,17306,17444,17582,17720,17858,17996,18134,18272,18410,18548,18686,18824,18962,19100,19238,19376,19514,19652,19790,19928,20066,20204,20342,20480,20618,20756,20894,21032,21170,21308,21446,21584,21722,21860,21998,22136,22274,22412,22550,22688,22826,22964,23102,23240,23378,23516,23654,23792,23930,24068,24206,24344,24482,24620,24758,24896,25034,25172,25310,25448,25586,25724,25862,26000,26138,26276,26414,26552,26690,26828,26966,27104,27242,27380,27518,27656,27794,27932,28070,28208,28346,28484,28622,28760,28898,29036,29174,29312,29450,29588,29726,29864,30002,30140,30278,30416,30554,30692,30830,30968,31106,31244,31382,31520,31658,31796,31934,32072,32210,32348,32486,32624,32762,32900,33038,33176,33314,33452,33590,33728,33866,34004,34142,34280,34418,34556,34694,34832,34970,35108,35246,35384,35522,35660,35798,35936,36074,36212,36350,36488,36626,36767,36902,37037,37172,37307,37442,37577,37712,37847,37982,38117,38252,38387,38522,38657,38792,38927,39062,39197,39332,39467,39602,39737,39872,40007,40142,40277,40412,40547,40682,40817,40952,41087,41222,41357,41492,41627,41762,41897,42032,42167,42302,42437,42572,42707,42842,42977,43112,43247,43382,43517,43652,43787,43922,44057,44192,44327,44462,44597,44732,44867,45002,45137,45272,45407,45542,45677,45812,45947,46082,46217,46352,46487,46622,46757,46892,47027,47162,47297,47432,47567,47702,47837,47972,48107,48242,48377,48512
+    helix_com: COM ATOMS=4,23,38,53,72,89,96,118,134,156,178,197,212,227,244,260,282,293
+
+    # Get the Z distance
+    z_dist: DISTANCE ATOMS=lipid_com,helix_com COMPONENTS NOPBC
+    dz: COMBINE ARG=z_dist.z PERIODIC=NO
+
+    # Get the alpha value
+    alpha: ALPHARMSD RESIDUES=1-18
+
+    # Construct a tilt via proxy between CA of ILE4 and LEU11
+    rvec: DISTANCE ATOMS=53,178 COMPONENTS NOPBC
+    tilt: CUSTOM ...
+        ARG=rvec.x,rvec.y,rvec.z
+        VAR=rx,ry,rz
+        FUNC=acos((rz)/sqrt(rx*rx+ry*ry+rz*rz))
+        PERIODIC=NO
+    ...
+
+    # Set up parallel replica metadynamics
+    metad: METAD ... 
+        ARG=dz,alpha
+        SIGMA=0.05,0.1
+        HEIGHT=0.0
+        BIASFACTOR=15
+        PACE=10000000
+        GRID_MIN=-7.0,0.0
+        GRID_MAX=7.0,18.0
+        FILE=HILLS_MULTIWALKER.block25
+        RESTART=YES
+        WALKERS_MPI
+    ...
+
+    # Try the different reweighting schemes (including none). In theory, the metadynamcis reweight maps onto the Tiwary reweights
+    as: REWEIGHT_BIAS   ARG=metad.bias
+    tw: REWEIGHT_METAD  ARG=metad.bias
+
+    # Biased histograms just to see what is going on
+    hh_z_alpha_biased:      HISTOGRAM ARG=dz,alpha      STRIDE=1 GRID_MIN=0.0,0.0  GRID_MAX=5.0,13.1 GRID_BIN=255,255 BANDWIDTH=0.05,0.1
+    hh_z_tilt_biased:       HISTOGRAM ARG=dz,tilt       STRIDE=1 GRID_MIN=0.0,-pi  GRID_MAX=5.0,pi   GRID_BIN=255,255 BANDWIDTH=0.05,0.1
+    hh_alpha_tilt_biased:   HISTOGRAM ARG=alpha,tilt    STRIDE=1 GRID_MIN=0.0,-pi  GRID_MAX=13.1,pi  GRID_BIN=255,255 BANDWIDTH=0.05,0.1
+
+    # Unbiasing via reweight_bias (maybe the exponential bias talked about in the reweighting paper?)
+    hh_z_alpha_as:          HISTOGRAM ARG=dz,alpha      STRIDE=1 GRID_MIN=0.0,0.0  GRID_MAX=5.0,13.1 GRID_BIN=255,255 BANDWIDTH=0.05,0.1 LOGWEIGHTS=as
+    hh_z_tilt_as:           HISTOGRAM ARG=dz,tilt       STRIDE=1 GRID_MIN=0.0,-pi  GRID_MAX=5.0,pi   GRID_BIN=255,255 BANDWIDTH=0.05,0.1 LOGWEIGHTS=as
+    hh_alpha_tilt_as:       HISTOGRAM ARG=alpha,tilt    STRIDE=1 GRID_MIN=0.0,-pi  GRID_MAX=13.1,pi  GRID_BIN=255,255 BANDWIDTH=0.05,0.1 LOGWEIGHTS=as
+
+    # Unbiasing via reweight_bias (maybe the exponential bias talked about in the reweighting paper?)
+    hh_z_alpha_tw:          HISTOGRAM ARG=dz,alpha      STRIDE=1 GRID_MIN=0.0,0.0  GRID_MAX=5.0,13.1 GRID_BIN=255,255 BANDWIDTH=0.05,0.1 LOGWEIGHTS=tw
+    hh_z_tilt_tw:           HISTOGRAM ARG=dz,tilt       STRIDE=1 GRID_MIN=0.0,-pi  GRID_MAX=5.0,pi   GRID_BIN=255,255 BANDWIDTH=0.05,0.1 LOGWEIGHTS=tw
+    hh_alpha_tilt_tw:       HISTOGRAM ARG=alpha,tilt    STRIDE=1 GRID_MIN=0.0,-pi  GRID_MAX=13.1,pi  GRID_BIN=255,255 BANDWIDTH=0.05,0.1 LOGWEIGHTS=tw
+
+    # Convert to FES
+    ff_z_alpha_biased:      CONVERT_TO_FES GRID=hh_z_alpha_biased
+    ff_z_tilt_biased:       CONVERT_TO_FES GRID=hh_z_tilt_biased
+    ff_alpha_tilt_biased:   CONVERT_TO_FES GRID=hh_alpha_tilt_biased
+
+    ff_z_alpha_as:          CONVERT_TO_FES GRID=hh_z_alpha_as
+    ff_z_tilt_as:           CONVERT_TO_FES GRID=hh_z_tilt_as
+    ff_alpha_tilt_as:       CONVERT_TO_FES GRID=hh_alpha_tilt_as
+
+    ff_z_alpha_tw:          CONVERT_TO_FES GRID=hh_z_alpha_tw
+    ff_z_tilt_tw:           CONVERT_TO_FES GRID=hh_z_tilt_tw
+    ff_alpha_tilt_tw:       CONVERT_TO_FES GRID=hh_alpha_tilt_tw
+
+    # Dump all of the grids
+    DUMPGRID GRID=ff_z_alpha_biased     FILE=ff_z_alpha_biased.dat
+    DUMPGRID GRID=ff_z_tilt_biased      FILE=ff_z_tilt_biased.dat
+    DUMPGRID GRID=ff_alpha_tilt_biased  FILE=ff_alpha_tilt_biased.dat
+
+    DUMPGRID GRID=ff_z_alpha_as         FILE=ff_z_alpha_as.dat
+    DUMPGRID GRID=ff_z_tilt_as          FILE=ff_z_tilt_as.dat
+    DUMPGRID GRID=ff_alpha_tilt_as      FILE=ff_alpha_tilt_as.dat
+
+    DUMPGRID GRID=ff_z_alpha_tw         FILE=ff_z_alpha_tw.dat
+    DUMPGRID GRID=ff_z_tilt_tw          FILE=ff_z_tilt_tw.dat
+    DUMPGRID GRID=ff_alpha_tilt_tw      FILE=ff_alpha_tilt_tw.dat
+
+With this file, you can then run the PLUMED driver on the combined trajectory file (reduced) and get several free energy grid outputs.
+
+### Step 5: Unbias the simulation
+This command will run the plumed driver on the combined multiwalker trajectories to unbias the simulation with the collective variables defined in the `plumed_multiwalker_reweight.dat` file.
+
+    mpirun -np 1 plumed driver --ixtc traj_multi_reduced.xtc --plumed plumed_multiwalker_reweight.dat --kt 2.494339 --mc mcfile.dat
+    
+### Step 6: Santy check on free energies
+This command will generate several `ff*.dat` files. For our specific example, the `ff_z_alpha_biased.dat` file contains the *biased* version of the free energy landscape for our collective variables. Metadynamics should be flattening this out so that all states are equally probable, and so this is a good sanity check, along with comparing the unbiased landscape will will have in a moment. One can look at this in a jupyter notebook using the following (for example). **NOTE**: The following was taken directly from a jupyter notebook, and so you need to make sure you break this up to actually use it effectively, as a warning.
+
+    import subprocess
+    import numpy as np
+    import pandas as pd
+    import matplotlib.pyplot as plt
+    import plumed
+    import os
+    
+    data = plumed.read_as_pandas("unbias_attempt1/ff_z_alpha_biased.dat")
+    npoints = 256
+    dz    = np.array(data["dz"]).reshape(npoints,npoints)
+    alpha = np.array(data["alpha"]).reshape(npoints,npoints)
+    fes   = np.array(data["ff_z_alpha_biased"]).reshape(npoints,npoints)
+
+    fes_adj = fes - np.min(fes)
+
+    print(f"Biased max after subtraction: {np.nanmax(fes_adj[fes_adj != np.inf])}")
+    
+    # Plot the free energy version
+    from matplotlib import ticker, cm
+    plt.contour(dz, alpha, fes_adj, levels=range(0,60,5), linewidths=0.5, colors='k')
+    cntr = plt.contourf(dz, alpha, fes_adj, levels=range(0,60), cmap=cm.rainbow)
+    plt.colorbar(cntr, label="FES [kJ/mol]")
+    # If I'm interpreting this correctly, this one should eventually be flat!
+    
+    # Normal reweighing (exponential?)
+    data_as = plumed.read_as_pandas("unbias_attempt1/ff_z_alpha_as.dat")
+    npoints = 256
+    dz_as    = np.array(data_as["dz"]).reshape(npoints,npoints)
+    alpha_as = np.array(data_as["alpha"]).reshape(npoints,npoints)
+    fes_as   = np.array(data_as["ff_z_alpha_as"]).reshape(npoints,npoints)
+
+    fes_adj_as = fes_as - np.min(fes_as)
+
+    print(f"AS max after subtraction: {np.nanmax(fes_adj_as[fes_adj_as != np.inf])}")
+    
+    plt.contour(dz_as, alpha_as, fes_adj_as, levels=range(0,150,5), linewidths=0.5, colors='k')
+    cntr = plt.contourf(dz_as, alpha_as, fes_adj_as, levels=range(0,150), cmap=cm.rainbow)
+    plt.colorbar(cntr, label="FES [kJ/mol]")
+    
+This should give you two plots, one for the biased energy landscape, and one for the unbiased energy landscape.  You can then use the same machinery to look at all of the free energy grids.
 
 
 # VMD tips and tricks (groan)
