@@ -63,6 +63,16 @@ These features include the 'soft' excluded volume potential as well as a prototy
 potential for another project. These are easier to compile directly into the HOOMD potentials, rather
 than use an external module.
 
+Explicitly, this is involves the following
+
+    cp EvaluatorPairBornMayerHuggins.h <path>/hoomd/md/.
+    cp EvaluatorPairGrimeLipid.h <path>/hoomd/md/.
+    cp AllDriverPotentialPairGPU.cuh <path>/hoomd/md/.
+    cp CMakeLists.txt <path>/hoomd/md/.
+    cp module-md.cc <path>/hoomd/md/.
+    cp __init__.py <path>/hoomd/md/pair/.
+    cp pair.py <path>/hoomd/md/pair/.
+
 I do my compilation in the scratch space.
 
     cd /work/<youpathhere>
