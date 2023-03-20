@@ -91,15 +91,13 @@ class MucusSeed(SeedBase):
         # Histone information
         self.nhist              = np.int32(np.float64(self.default_yaml['histones']['n']))
         self.histone_charges    = np.float64(self.default_yaml['histones']['charge'])
-        if 'radius' in self.default_yaml['histones']:
+        self.histone_type       = self.default_yaml['histones']['type']
+        if self.histone_type == 'blob':
             self.r_histone      = np.float64(self.default_yaml['histones']['radius'])
-        else:
-            self.r_histone      = 0.5
-
-        if 'mass' in self.default_yaml['histones']:
             self.m_histone      = np.float64(self.default_yaml['histones']['mass'])
-        else:
-            self.m_histone      = 1.0
+        elif self.histone_type == 'bare':
+            self.r_histone          = 0.5
+            self.m_histone          = 1.0
 
         # Interactions
         if 'lennard_jones_ee' in self.default_yaml['interactions']:
@@ -191,6 +189,7 @@ class MucusSeed(SeedBase):
         print(f"--------")
         print(f"Free histone (PCLS) information")
         print(f"N histones              = {self.nhist}")
+        print(f"Histone type            = {self.histone_type}")
         print(f"Histone charges         = {self.histone_charges}")
         print(f"Histone radius          = {self.r_histone}")
         print(f"Histone mass            = {self.m_histone}")

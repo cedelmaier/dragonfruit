@@ -125,7 +125,7 @@ if __name__ == "__main__":
     # Set up a common adjusted radius if we have size differences
     r_sphere    = 0.5
     r_histone   = configurator.r_histone
-    adj_diameter = 0.5 + configurator.r_histone
+    adj_diameter = r_sphere + configurator.r_histone
 
     # Figure out which (and how many) neighbor lists to start up
     print(f"Creating neighbor lists")
@@ -149,7 +149,7 @@ if __name__ == "__main__":
         # We have to ramp the potential by hand, which is annoying, so this is a completely different
         # sequence to do this. Set up a default gaussian potential to use
         if configurator.equilibration_potential == 'gauss':
-            print(f"  Equilibration: gaussian")
+            print(f"  Equilibration: gaussian: r_cut_normal=3.5, r_cut_asymm1={3.5*adj_diameter}, r_cut_asymm2={3.5*2.0*configurator.r_histone}")
             gauss = md.pair.Gauss(nlist = nlists[0], default_r_cut = 3.5, default_r_on = 0.0)
             gauss.params[('muc_e', 'muc_e')] = {'epsilon': 0.0, 'sigma': 1.0}
             gauss.params[('muc_e', 'muc_c')] = {'epsilon': 0.0, 'sigma': 1.0}
@@ -166,9 +166,11 @@ if __name__ == "__main__":
             gauss.r_cut[('muc_h', 'muc_p')] = 3.5*adj_diameter
             gauss.r_cut[('muc_p', 'muc_p')] = 3.5*2.0*configurator.r_histone
         else:
-            print(f"  Equilibration: GrimeLipid (custom)")
+            deltashift = r_histone - r_sphere
+            rcut_asymmetry = 2.0*(deltashift + 1.0)
+            print(f"  Equilibration: GrimeLipid (custom): r_cut_normal={rcut_asymmetry}")
             # Use our own grime-lipid potential, as that has a soft intraction, and a defined cutoff...
-            glf = md.pair.GrimeLipid(nlist = nlists[0], default_r_cut = 1.0)
+            glf = md.pair.GrimeLipid(nlist = nlists[0], default_r_cut = rcut_asymmetry)
             glf.params[('muc_e', 'muc_e')] = {'A': 0.0, 'B': 0.0, 'r0': 1.0, 'rc': 2.0}
             glf.params[('muc_e', 'muc_c')] = {'A': 0.0, 'B': 0.0, 'r0': 1.0, 'rc': 2.0}
             glf.params[('muc_e', 'muc_h')] = {'A': 0.0, 'B': 0.0, 'r0': 1.0, 'rc': 2.0}
@@ -251,7 +253,7 @@ if __name__ == "__main__":
         # This should go to something like r == 1 at r-delta == 1, giving us the deltashift
         deltashift = 0.0
         if configurator.size_asymmetry:
-            deltashift = r_histone + r_sphere - 1.0
+            deltashift = r_histone - r_sphere
 
         ###############################
         # Figure out what combination of interactions the system has
@@ -472,7 +474,7 @@ if __name__ == "__main__":
             eljp.r_cut[('muc_h', 'muc_p')]  = 0.0
             bmh.r_cut[('muc_h', 'muc_p')]   = 0.0
 
-        # muc_c <--> muc_p
+        # muc_p <--> muc_p
         if not configurator.size_asymmetry:
             print(f"  muc_p <--> muc_p: WCA")
             wca.params[('muc_p', 'muc_p')]  = {'epsilon': 1.0, 'sigma': 1.0}
