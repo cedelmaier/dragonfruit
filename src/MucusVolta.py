@@ -640,7 +640,9 @@ if __name__ == "__main__":
         nblocks = 1000
         nblock_size = np.int32(configurator.nsteps_equilibrate / nblocks)
         for iblock in range(1000):
-            print(f"  Block {iblock}")
+            import psutil
+            cur_mem_usage = psutil.Process(os.getpid()).memory_info().rss / 1024 **2
+            print(f"  Block {iblock}, current psutil memory usage: {cur_mem_usage}")
             if configurator.equilibration_potential == 'gauss':
                 gauss.params[('muc_e', 'muc_e')] = {'epsilon': (iblock/nblocks*100.0), 'sigma': 1.0}
                 gauss.params[('muc_e', 'muc_c')] = {'epsilon': (iblock/nblocks*100.0), 'sigma': 1.0}
