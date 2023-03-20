@@ -640,6 +640,11 @@ If you generate a movie, you can combine it togther with the following command.
 
 # Analysis
 
+## GromacsAnalysis script
+I have written a gromacs analysis script that is part of the dragonfruit package. To run this, you need to have a `config.yaml` file ready (see the `params/` directory for an example). You will also need a `reference.pdb` file that contains the helix/lipid atoms with water and ions stripped out for ease, a mass/charge file `mcfile.dat` that just contains the masses/charges of the atoms in the simulation, and the combined/concatenated trajectory file in XTC format `traj_continuous_v1_1.xtc`. Again, these are all just examples of the files that you need.
+
+Then, you can run `src/GromacsAnalysis.py --yaml config.yaml` to generate the output. This will create several PDF files in the directory for the quantities we are measuring.
+
 ## CD measurements
 We can make predicted CD measurements of our structures with the online tool pdbmd2cd. This allows us to take a bunch of pdb files, submit
 then to the server, and then have an analysis of the helix nature of the simulated samples. One can generate a list of the PDB files
