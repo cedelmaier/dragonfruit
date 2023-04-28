@@ -1,7 +1,7 @@
 # General submission script for mucus simulations
-#import hoomd
-#import hoomd.md as md
-#import gsd.hoomd
+import hoomd
+import hoomd.md as md
+import gsd.hoomd
 
 import argparse
 import datetime
@@ -31,6 +31,8 @@ def parse_args():
     # Add verbosity control
     parser.add_argument('-v', '--verbose', action="store_true",
                         help = 'Verbose output')
+    parser.add_argument('-t', '--trace', action="store_true",
+                        help = 'Trace output')
 
     opts = parser.parse_args()
 
@@ -85,21 +87,26 @@ if __name__ == "__main__":
     # Set up the system
     ###############################################################################
     # Make sure that hoomd and gsd are imported
-    import hoomd
-    import hoomd.md as md
-    import gsd.hoomd
+    #import hoomd
+    #import hoomd.md as md
+    #import gsd.hoomd
     # Create the hoomd context on the CPU or GPU if appropriate
     if configurator.compute_mode == 'cpu':
-        cpu = hoomd.device.CPU(notice_level = 2)
+        cpu = hoomd.device.CPU(notice_level = 3)
         sim = hoomd.Simulation(cpu, seed = configurator.nseed)
         snap = hoomd.Snapshot(cpu.communicator)
     elif configurator.compute_mode == 'gpu':
-        gpu = hoomd.device.GPU(notice_level = 2)
+        gpu = hoomd.device.GPU(notice_level = 3)
         sim = hoomd.Simulation(gpu, seed = configurator.nseed)
         snap = hoomd.Snapshot(gpu.communicator)
+        if snap.communicator.rank == 0:
+            print(f"{gpu.get_available_devices()}")
+
+    # Grab the rank of this process?
+    prank = snap.communicator.rank
 
     # Check how we are reading in information
-    if configurator.init_type == 'create_equilibration':
+    if configurator.init_type == 'equilibrate_lattice' or configurator.init_type == 'equilibrate_random_compression' or configurator.init_type == 'equilibrate_lattice_compression':
         fudge_size = 0.2 # Prevent particles on the boundaries because reasons
     elif configurator.init_type == 'production':
         ftraj = gsd.hoomd.open(configurator.init_filename, 'rb')
@@ -145,7 +152,7 @@ if __name__ == "__main__":
 
     print(f"Setting interactions")
     # If we are initializing, different stuff to do than if we are running 'production'
-    if configurator.init_type == 'create_equilibration':
+    if configurator.init_type == 'equilibrate_lattice':
         # We have to ramp the potential by hand, which is annoying, so this is a completely different
         # sequence to do this. Set up a default gaussian potential to use
         if configurator.equilibration_potential == 'gauss':
@@ -538,14 +545,14 @@ if __name__ == "__main__":
 
     # Append the forces that we need
     # Pairwise forces
-    if configurator.init_type == 'create_equilibration':
+    if configurator.init_type == 'equilibrate_lattice':
         if configurator.equilibration_potential == 'gauss':
             integrator.forces.append(gauss)
         else:
             integrator.forces.append(glf)
         if configurator.nlist_n > 1:
             integrator.forces.append(gauss_large)
-    elif configurator.init_type == 'production':
+    elif configurator.init_type == 'production' or configurator.init_type == 'equilibrate_random_compression' or configurator.init_type == 'equilibrate_lattice_compression':
         integrator.forces.append(wca)
         if configurator.size_asymmetry:
             integrator.forces.append(ewca)
@@ -582,7 +589,7 @@ if __name__ == "__main__":
     #    print(f"  Bond[{ibond}] type {pre_snapshot.bonds.typeid[ibond]} group {pre_snapshot.bonds.group[ibond]}")
     #sys.exit(1)
 
-    if configurator.init_type == 'create_equilibration':
+    if configurator.init_type == 'equilibrate_lattice' or configurator.init_type == 'equilibrate_random_compression' or configurator.init_type == 'equilibrate_lattice_compression':
         sim.run(0)
         sim.state.thermalize_particle_momenta(hoomd.filter.All(), configurator.kT)
 
@@ -596,13 +603,13 @@ if __name__ == "__main__":
     
     # Set up the logging of important quantities
     logger = hoomd.logging.Logger()
-    if configurator.init_type == 'create_equilibration':
-        if configurator.equilibration_potential == 'gauss':
-            logger.add(gauss, quantities=['energies', 'forces'])
-        else:
-            logger.add(glf, quantities=['energies', 'forces'])
-        if configurator.nlist_n > 1:
-            logger.add(gauss_large, quantities=['energies', 'forces'])
+    #if configurator.init_type == 'create_equilibration' and configurator.init_style == 'lattice':
+    #    if configurator.equilibration_potential == 'gauss':
+    #        logger.add(gauss, quantities=['energies', 'forces'])
+    #    else:
+    #        logger.add(glf, quantities=['energies', 'forces'])
+    #    if configurator.nlist_n > 1:
+    #        logger.add(gauss_large, quantities=['energies', 'forces'])
     logger.add(sim, quantities=['timestep', 'walltime', 'tps'])
     logger.add(thermodynamic_properties)
     
@@ -618,7 +625,7 @@ if __name__ == "__main__":
 
     # Set up writing out GSD trajectories
     gsd_writer = None
-    if configurator.init_type == 'create_equilibration':
+    if configurator.init_type == 'equilibrate_lattice' or configurator.init_type == 'equilibrate_random_compression' or configurator.init_type == 'equilibrate_lattice_compression':
         gsd_writer = hoomd.write.GSD(filename = configurator.trajectory_file,
                                      trigger = hoomd.trigger.Periodic(configurator.nwrite_equilibrate),
                                      mode = 'wb',
@@ -633,47 +640,79 @@ if __name__ == "__main__":
     sim.operations.writers.append(gsd_writer)
 
     print(f"--------")
-    if configurator.init_type == 'create_equilibration':
+    if configurator.init_type == 'equilibrate_lattice' or configurator.init_type == 'equilibrate_random_compression' or configurator.init_type == 'equilibrate_lattice_compression':
         print(f"Equilibrating...")
 
-        # Divide this up into 1000 different regimes for nsteps_equilibrate
-        nblocks = 1000
-        nblock_size = np.int32(configurator.nsteps_equilibrate / nblocks)
-        for iblock in range(1000):
-            import psutil
-            cur_mem_usage = psutil.Process(os.getpid()).memory_info().rss / 1024 **2
-            print(f"  Block {iblock}, current psutil memory usage: {cur_mem_usage}")
-            if configurator.equilibration_potential == 'gauss':
-                gauss.params[('muc_e', 'muc_e')] = {'epsilon': (iblock/nblocks*100.0), 'sigma': 1.0}
-                gauss.params[('muc_e', 'muc_c')] = {'epsilon': (iblock/nblocks*100.0), 'sigma': 1.0}
-                gauss.params[('muc_e', 'muc_h')] = {'epsilon': (iblock/nblocks*100.0), 'sigma': 1.0}
-                gauss.params[('muc_e', 'muc_p')] = {'epsilon': (iblock/nblocks*100.0), 'sigma': 1.0*adj_diameter}
-                gauss.params[('muc_c', 'muc_c')] = {'epsilon': (iblock/nblocks*100.0), 'sigma': 1.0}
-                gauss.params[('muc_c', 'muc_h')] = {'epsilon': (iblock/nblocks*100.0), 'sigma': 1.0}
-                gauss.params[('muc_c', 'muc_p')] = {'epsilon': (iblock/nblocks*100.0), 'sigma': 1.0*adj_diameter}
-                gauss.params[('muc_h', 'muc_h')] = {'epsilon': (iblock/nblocks*100.0), 'sigma': 1.0}
-                gauss.params[('muc_h', 'muc_p')] = {'epsilon': (iblock/nblocks*100.0), 'sigma': 1.0*adj_diameter}
-                gauss.params[('muc_p', 'muc_p')] = {'epsilon': (iblock/nblocks*100.0), 'sigma': 2.0*configurator.r_histone}
-            else:
-                glf.params[('muc_e', 'muc_e')] = {'A': (iblock/nblocks*100.0), 'B': 0.0, 'r0': 1.0, 'rc': 2.0}
-                glf.params[('muc_e', 'muc_c')] = {'A': (iblock/nblocks*100.0), 'B': 0.0, 'r0': 1.0, 'rc': 2.0}
-                glf.params[('muc_e', 'muc_h')] = {'A': (iblock/nblocks*100.0), 'B': 0.0, 'r0': 1.0, 'rc': 2.0}
-                glf.params[('muc_e', 'muc_p')] = {'A': (iblock/nblocks*100.0), 'B': 0.0, 'r0': adj_diameter, 'rc': 2.0*adj_diameter}
-                glf.params[('muc_c', 'muc_c')] = {'A': (iblock/nblocks*100.0), 'B': 0.0, 'r0': 1.0, 'rc': 2.0}
-                glf.params[('muc_c', 'muc_h')] = {'A': (iblock/nblocks*100.0), 'B': 0.0, 'r0': 1.0, 'rc': 2.0}
-                glf.params[('muc_c', 'muc_p')] = {'A': (iblock/nblocks*100.0), 'B': 0.0, 'r0': adj_diameter, 'rc': 2.0*adj_diameter}
-                glf.params[('muc_h', 'muc_h')] = {'A': (iblock/nblocks*100.0), 'B': 0.0, 'r0': 1.0, 'rc': 2.0}
-                glf.params[('muc_h', 'muc_p')] = {'A': (iblock/nblocks*100.0), 'B': 0.0, 'r0': adj_diameter, 'rc': 2.0*adj_diameter}
-                glf.params[('muc_p', 'muc_p')] = {'A': (iblock/nblocks*100.0), 'B': 0.0, 'r0': 2.0*r_histone, 'rc': 4.0*r_histone}
+        if configurator.init_type == 'equilibrate_lattice':
+            # Divide this up into 1000 different regimes for nsteps_equilibrate
+            nblocks = 1000
+            nblock_size = np.int32(configurator.nsteps_equilibrate / nblocks)
+            if configurator.verbose:
+                print(f"  nblock_size: {nblock_size}")
+            for iblock in range(1000):
+                import psutil
+                cur_mem_usage = psutil.Process(os.getpid()).memory_info().rss / 1024 **2
+                print(f"  Rank: {prank}, Block {iblock}, current psutil memory usage: {cur_mem_usage}")
+                if configurator.equilibration_potential == 'gauss':
+                    gauss.params[('muc_e', 'muc_e')] = {'epsilon': (iblock/nblocks*100.0), 'sigma': 1.0}
+                    gauss.params[('muc_e', 'muc_c')] = {'epsilon': (iblock/nblocks*100.0), 'sigma': 1.0}
+                    gauss.params[('muc_e', 'muc_h')] = {'epsilon': (iblock/nblocks*100.0), 'sigma': 1.0}
+                    gauss.params[('muc_e', 'muc_p')] = {'epsilon': (iblock/nblocks*100.0), 'sigma': 1.0*adj_diameter}
+                    gauss.params[('muc_c', 'muc_c')] = {'epsilon': (iblock/nblocks*100.0), 'sigma': 1.0}
+                    gauss.params[('muc_c', 'muc_h')] = {'epsilon': (iblock/nblocks*100.0), 'sigma': 1.0}
+                    gauss.params[('muc_c', 'muc_p')] = {'epsilon': (iblock/nblocks*100.0), 'sigma': 1.0*adj_diameter}
+                    gauss.params[('muc_h', 'muc_h')] = {'epsilon': (iblock/nblocks*100.0), 'sigma': 1.0}
+                    gauss.params[('muc_h', 'muc_p')] = {'epsilon': (iblock/nblocks*100.0), 'sigma': 1.0*adj_diameter}
+                    gauss.params[('muc_p', 'muc_p')] = {'epsilon': (iblock/nblocks*100.0), 'sigma': 2.0*configurator.r_histone}
+                else:
+                    glf.params[('muc_e', 'muc_e')] = {'A': (iblock/nblocks*100.0), 'B': 0.0, 'r0': 1.0, 'rc': 2.0}
+                    glf.params[('muc_e', 'muc_c')] = {'A': (iblock/nblocks*100.0), 'B': 0.0, 'r0': 1.0, 'rc': 2.0}
+                    glf.params[('muc_e', 'muc_h')] = {'A': (iblock/nblocks*100.0), 'B': 0.0, 'r0': 1.0, 'rc': 2.0}
+                    glf.params[('muc_e', 'muc_p')] = {'A': (iblock/nblocks*100.0), 'B': 0.0, 'r0': adj_diameter, 'rc': 2.0*adj_diameter}
+                    glf.params[('muc_c', 'muc_c')] = {'A': (iblock/nblocks*100.0), 'B': 0.0, 'r0': 1.0, 'rc': 2.0}
+                    glf.params[('muc_c', 'muc_h')] = {'A': (iblock/nblocks*100.0), 'B': 0.0, 'r0': 1.0, 'rc': 2.0}
+                    glf.params[('muc_c', 'muc_p')] = {'A': (iblock/nblocks*100.0), 'B': 0.0, 'r0': adj_diameter, 'rc': 2.0*adj_diameter}
+                    glf.params[('muc_h', 'muc_h')] = {'A': (iblock/nblocks*100.0), 'B': 0.0, 'r0': 1.0, 'rc': 2.0}
+                    glf.params[('muc_h', 'muc_p')] = {'A': (iblock/nblocks*100.0), 'B': 0.0, 'r0': adj_diameter, 'rc': 2.0*adj_diameter}
+                    glf.params[('muc_p', 'muc_p')] = {'A': (iblock/nblocks*100.0), 'B': 0.0, 'r0': 2.0*r_histone, 'rc': 4.0*r_histone}
 
-            # If we have a size asymmetry, deal with it now
-            if configurator.nlist_n > 1:
-                gauss_large.params[('muc_e', 'muc_p')] = {'epsilon': (iblock/nblocks*100.0), 'sigma': 1.0*adj_diameter}
-                gauss_large.params[('muc_c', 'muc_p')] = {'epsilon': (iblock/nblocks*100.0), 'sigma': 1.0*adj_diameter}
-                gauss_large.params[('muc_h', 'muc_p')] = {'epsilon': (iblock/nblocks*100.0), 'sigma': 1.0*adj_diameter}
-                gauss_large.params[('muc_p', 'muc_p')] = {'epsilon': (iblock/nblocks*100.0), 'sigma': 2.0*configurator.r_histone}
+                # If we have a size asymmetry, deal with it now
+                if configurator.nlist_n > 1:
+                    gauss_large.params[('muc_e', 'muc_p')] = {'epsilon': (iblock/nblocks*100.0), 'sigma': 1.0*adj_diameter}
+                    gauss_large.params[('muc_c', 'muc_p')] = {'epsilon': (iblock/nblocks*100.0), 'sigma': 1.0*adj_diameter}
+                    gauss_large.params[('muc_h', 'muc_p')] = {'epsilon': (iblock/nblocks*100.0), 'sigma': 1.0*adj_diameter}
+                    gauss_large.params[('muc_p', 'muc_p')] = {'epsilon': (iblock/nblocks*100.0), 'sigma': 2.0*configurator.r_histone}
 
-            sim.run(nblock_size)
+                sim.run(nblock_size)
+        elif configurator.init_type == 'equilibrate_random_compression' or configurator.init_type == 'equilibrate_lattice_compression':
+            print(f"  Using random or lattice with compression")
+            ramp = hoomd.variant.Ramp(A=0, B=1, t_start = sim.timestep, t_ramp = configurator.nsteps_equilibrate)
+            # Target the correct box size for the final simulation
+            initial_box = sim.state.box
+            print(f"  Initial box: {initial_box}")
+            final_box = hoomd.Box.from_box(initial_box)
+            final_box.Lx = configurator.lbox_final
+            final_box.Ly = configurator.lbox_final
+            final_box.Lz = configurator.lbox_final
+            print(f"  Final box:   {final_box}")
+            box_resize_trigger = hoomd.trigger.Periodic(10)
+            box_resize = hoomd.update.BoxResize(box1 = initial_box,
+                                                box2 = final_box,
+                                                variant = ramp,
+                                                trigger = box_resize_trigger)
+            sim.operations.updaters.append(box_resize)
+
+            sim.run(configurator.nsteps_equilibrate)
+
+            sim.operations.updaters.remove(box_resize)
+
+            actual_final_box = sim.state.box
+            print(f"  Actual final box: {actual_final_box}")
+            # Write the final configuration
+            hoomd.write.GSD.write(state = sim.state,
+                                  filename = configurator.final_filename,
+                                  mode = 'xb')
+
 
     elif configurator.init_type == 'production':
         sim.run(configurator.nsteps)
