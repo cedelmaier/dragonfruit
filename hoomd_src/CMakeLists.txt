@@ -90,7 +90,6 @@ set(_md_headers ActiveForceComputeGPU.h
                 EvaluatorExternalElectricField.h
                 EvaluatorExternalPeriodic.h
                 EvaluatorPairALJ.h
-                EvaluatorPairBornMayerHuggins.h
                 EvaluatorPairBuckingham.h
                 EvaluatorPairDipole.h
                 EvaluatorPairDLVO.h
@@ -99,8 +98,8 @@ set(_md_headers ActiveForceComputeGPU.h
                 EvaluatorPairEwald.h
                 EvaluatorPairForceShiftedLJ.h
                 EvaluatorPairGauss.h
+                EvaluatorPairExpandedGaussian.h
                 EvaluatorPairGB.h
-                EvaluatorPairGrimeLipid.h
                 EvaluatorPairLJ.h
                 EvaluatorPairLJ1208.h
                 EvaluatorPairLJ0804.h
@@ -115,6 +114,8 @@ set(_md_headers ActiveForceComputeGPU.h
                 EvaluatorPairTable.h
                 EvaluatorPairTWF.h
                 EvaluatorPairYukawa.h
+            EvaluatorPairBornMayerHuggins.h
+            EvaluatorPairGrimeLipid.h
                 EvaluatorPairZBL.h
                 EvaluatorTersoff.h
                 EvaluatorWalls.h
@@ -506,8 +507,6 @@ foreach(_evaluator ${_dpdthermo_evaluators})
 endforeach()
 
 set(_pair_evaluators Buckingham
-                     BornMayerHuggins
-                     GrimeLipid
                      LJ
                      LJ1208
                      LJ0804
@@ -515,6 +514,8 @@ set(_pair_evaluators Buckingham
                      ExpandedLJ
                      ExpandedMie
                      Yukawa
+                     BornMayerHuggins
+                     GrimeLipid
                      Ewald
                      Morse
                      ConservativeDPD
@@ -528,7 +529,9 @@ set(_pair_evaluators Buckingham
                      TWF
                      LJGauss
                      ForceShiftedLJ
-                     Table)
+                     Table
+                     ExpandedGaussian)
+
 
 foreach(_evaluator ${_pair_evaluators})
     set(_evaluator_cpp ${_evaluator})

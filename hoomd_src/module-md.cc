@@ -44,15 +44,18 @@ void export_wall_field(pybind11::module& m);
 void export_LocalNeighborListDataHost(pybind11::module& m);
 
 void export_PotentialPairBuckingham(pybind11::module& m);
-void export_PotentialPairBornMayerHuggins(pybind11::module& m);
 void export_PotentialPairLJ(pybind11::module& m);
 void export_PotentialPairLJ1208(pybind11::module& m);
 void export_PotentialPairLJ0804(pybind11::module& m);
 void export_PotentialPairGauss(pybind11::module& m);
-void export_PotentialPairGrimeLipid(pybind11::module& m);
 void export_PotentialPairExpandedLJ(pybind11::module& m);
+void export_PotentialPairExpandedGaussian(pybind11::module& m);
 void export_PotentialPairExpandedMie(pybind11::module& m);
 void export_PotentialPairYukawa(pybind11::module& m);
+
+void export_PotentialPairBornMayerHuggins(pybind11::module& m);
+void export_PotentialPairGrimeLipid(pybind11::module& m);
+
 void export_PotentialPairEwald(pybind11::module& m);
 void export_PotentialPairMorse(pybind11::module& m);
 void export_PotentialPairMoliere(pybind11::module& m);
@@ -182,15 +185,18 @@ void export_PPPMForceComputeGPU(pybind11::module& m);
 void export_LocalNeighborListDataGPU(pybind11::module& m);
 
 void export_PotentialPairBuckinghamGPU(pybind11::module& m);
-void export_PotentialPairBornMayerHugginsGPU(pybind11::module& m);
 void export_PotentialPairLJGPU(pybind11::module& m);
 void export_PotentialPairLJ1208GPU(pybind11::module& m);
 void export_PotentialPairLJ0804GPU(pybind11::module& m);
 void export_PotentialPairGaussGPU(pybind11::module& m);
-void export_PotentialPairGrimeLipidGPU(pybind11::module& m);
 void export_PotentialPairExpandedLJGPU(pybind11::module& m);
+void export_PotentialPairExpandedGaussianGPU(pybind11::module& m);
 void export_PotentialPairExpandedMieGPU(pybind11::module& m);
 void export_PotentialPairYukawaGPU(pybind11::module& m);
+
+void export_PotentialPairBornMayerHugginsGPU(pybind11::module& m);
+void export_PotentialPairGrimeLipidGPU(pybind11::module& m);
+
 void export_PotentialPairEwaldGPU(pybind11::module& m);
 void export_PotentialPairMorseGPU(pybind11::module& m);
 void export_PotentialPairMoliereGPU(pybind11::module& m);
@@ -308,15 +314,18 @@ PYBIND11_MODULE(_md, m)
     export_BondTablePotential(m);
 
     export_PotentialPairBuckingham(m);
-    export_PotentialPairBornMayerHuggins(m);
     export_PotentialPairLJ(m);
     export_PotentialPairLJ1208(m);
     export_PotentialPairLJ0804(m);
     export_PotentialPairGauss(m);
-    export_PotentialPairGrimeLipid(m);
     export_PotentialPairExpandedLJ(m);
+    export_PotentialPairExpandedGaussian(m);
     export_PotentialPairExpandedMie(m);
     export_PotentialPairYukawa(m);
+
+    export_PotentialPairBornMayerHuggins(m);
+    export_PotentialPairGrimeLipid(m);
+
     export_PotentialPairEwald(m);
     export_PotentialPairMorse(m);
     export_PotentialPairMoliere(m);
@@ -390,15 +399,18 @@ PYBIND11_MODULE(_md, m)
     export_LocalNeighborListDataGPU(m);
 
     export_PotentialPairBuckinghamGPU(m);
-    export_PotentialPairBornMayerHugginsGPU(m);
     export_PotentialPairLJGPU(m);
     export_PotentialPairLJ1208GPU(m);
     export_PotentialPairLJ0804GPU(m);
     export_PotentialPairGaussGPU(m);
-    export_PotentialPairGrimeLipidGPU(m);
     export_PotentialPairExpandedLJGPU(m);
+    export_PotentialPairExpandedGaussianGPU(m);
     export_PotentialPairExpandedMieGPU(m);
     export_PotentialPairYukawaGPU(m);
+
+    export_PotentialPairBornMayerHugginsGPU(m);
+    export_PotentialPairGrimeLipidGPU(m);
+
     export_PotentialPairEwaldGPU(m);
     export_PotentialPairMorseGPU(m);
     export_PotentialPairMoliereGPU(m);

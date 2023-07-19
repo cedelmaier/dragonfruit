@@ -8,7 +8,8 @@ import stat
 import sys
 import yaml
 
-#import gsd.hoomd
+import gsd.hoomd
+import freud
 import numpy as np
 import pandas as pd
 
@@ -20,12 +21,13 @@ import pandas as pd
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'lib'))
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'cluster'))
 from seed_base import SeedBase
-from common import radial_average, ragged_mean
+from common import radial_average, ragged_mean, generate_random_unit_vector, sphere_overlap
 from cluster_topology import ClusterTopology
 
 class MucusSeed(SeedBase):
     def __init__(self, path, opts):
         self.verbose = opts.verbose
+        self.trace = opts.trace
         if self.verbose: print(f"MucusSeed::__init__")
 
         SeedBase.__init__(self, path, opts)
@@ -59,6 +61,13 @@ class MucusSeed(SeedBase):
             self.mucusbend      = np.float64(self.default_yaml['interactions']['mucus_bend'])
             self.trajectory_file= self.default_yaml['simulation']['trajectory_file']
             self.init_filename  = self.default_yaml['simulation']['init_filename']
+            self.final_filename = self.default_yaml['simulation']['final_filename']
+            #self.init_style     = self.default_yaml['simulation']['init_style']
+
+            # The acceptable types of init_type are
+            # equilibrate_lattice
+            # equilibrate_random_compression
+            # equilibrate_lattice_compression
 
         # Simulation parameters
         self.kT                 = np.float64(self.default_yaml['simulation']['kT'])
@@ -73,12 +82,30 @@ class MucusSeed(SeedBase):
             self.nwrite_log     = np.int32(np.float64(self.default_yaml['simulation']['nwrite_log']))
         else:
             self.nwrite_log     = self.nwrite
-        self.lbox               = np.float64(self.default_yaml['simulation']['lbox'])
+        if self.init_type == 'equilibrate_lattice':
+            self.lbox           = np.float64(self.default_yaml['simulation']['lbox'])
+        elif self.init_type == 'equilibrate_random_compression':
+            self.lbox_initial   = np.float64(self.default_yaml['simulation']['lbox_initial'])
+            self.lbox_final     = np.float64(self.default_yaml['simulation']['lbox_final'])
+            self.lbox = self.lbox_initial
+        elif self.init_type == 'equilibrate_lattice_compression':
+            self.lbox_initial   = np.float64(self.default_yaml['simulation']['lbox_initial'])
+            self.lbox_final     = np.float64(self.default_yaml['simulation']['lbox_final'])
+            self.lbox = self.lbox_initial
+        elif self.init_type == 'production':
+            self.lbox           = np.float64(self.default_yaml['simulation']['lbox'])
+        else:
+            print(f"Init type {self.init_type} not implemented, exiting!")
+            sys.exit(1)
         self.nseed              = np.int32(np.float64(self.default_yaml['simulation']['seed']))
 
         # Mucus parameters
-        self.nrowy              = np.int32(np.float64(self.default_yaml['mucus']['nrowy']))
-        self.nrowz              = np.int32(np.float64(self.default_yaml['mucus']['nrowz']))
+        if self.init_type == 'equilibrate_lattice' or self.init_type == 'equilibrate_lattice_compression' or self.init_type == 'production':
+            self.nrowy              = np.int32(np.float64(self.default_yaml['mucus']['nrowy']))
+            self.nrowz              = np.int32(np.float64(self.default_yaml['mucus']['nrowz']))
+        else:
+            self.ninitmucus         = np.int32(np.float64(self.default_yaml['mucus']['nmucins']))
+
         self.lbond              = np.float64(self.default_yaml['mucus']['bond_length'])
         self.monomer_length     = np.int32(np.float64(self.default_yaml['mucus']['monomer_length']))
         self.n_term_length      = np.int32(np.float64(self.default_yaml['mucus']['n_term_length']))
@@ -148,71 +175,77 @@ class MucusSeed(SeedBase):
     def PrintInformation(self, snap = None):
         r""" Print information about sim
         """
-        print(f"--------")
-        print(f"Engine information")
-        print(f"Engine                  = {self.engine}")
-        if self.engine == "HOOMD":
-            print(f"Compute mode            = {self.compute_mode}")
-            print(f"Init type               = {self.init_type}")
-        print(f"--------")
-        print(f"System information")
-        print(f"kBT                     = {self.kT}")
-        print(f"Temperature damping     = {self.t_damp}")
-        print(f"Bead size               = {self.bead_size}")
-        print(f"Delta tau               = {self.deltatau}")
-        print(f"Nsteps equilibrate      = {self.nsteps_equilibrate}")
-        print(f"Nwrite equilibrate      = {self.nwrite_equilibrate}")
-        print(f"Nsteps                  = {self.nsteps}")
-        print(f"Nwrite                  = {self.nwrite}")
-        print(f"Nwrite log (screen)     = {self.nwrite_log}")
-        print(f"Simulation time (tau)   = {self.deltatau*self.nsteps}")
-        print(f"Box size                = {self.lbox}")
-        print(f"Seed                    = {self.nseed}")
-        print(f"Size asymmetry          = {self.size_asymmetry}")
-        print(f"--------")
-        print(f"Mucus polymer information")
-        print(f"N polymers              = {self.n_mucins}")
-        print(f"N dimers per polymer    = {self.dimers_per_poly}")
-        print(f"Monomer length          = {self.monomer_length}")
-        print(f"Start N-terminus        = {self.start_n_terminus}")
-        print(f"N-term length           = {self.n_term_length}")
-        print(f"Start Backbone          = {self.start_backbone}")
-        print(f"Backbone length         = {self.backbone_length}")
-        print(f"Start C-terminus        = {self.start_c_terminus}")
-        print(f"C-term length           = {self.c_term_length}")
-        print(f"N cysteines             = {self.n_cysteine}")
-        print(f"  Cysteine locations      = {self.cysteine_locations}")
-        print(f"Mucin charges           = {self.mucin_charges}")
-        print(f"Nbeads per dimer (adj)  = {self.nper_dimer}")
-        print(f"Nbeads per poly (adj)   = {self.nper_poly}")
-        print(f"Total mucin beads       = {self.nbeads_mucin}")
-        print(f"--------")
-        print(f"Free histone (PCLS) information")
-        print(f"N histones              = {self.nhist}")
-        print(f"Histone type            = {self.histone_type}")
-        print(f"Histone charges         = {self.histone_charges}")
-        print(f"Histone radius          = {self.r_histone}")
-        print(f"Histone mass            = {self.m_histone}")
-        print(f"--------")
-        print(f"Interactions")
-        print(f"Electrostatics (brush)  = {self.lennard_jones_ee}")
-        print(f"Electrostatics (LJ)     = {self.lennard_jones}")
-        print(f"Hydrophobic (BMH)       = {self.bmh}")
-        print(f"Neighbor list acceleration")
-        print(f"Neighbor list number    = {self.nlist_n}")
-        print(f"Neighbor list type(s)   = {self.nlist_type}")
-        print(f"Neighbor list buffer(s) = {self.nlist_buffer}")
-        print(f"Equilibration potential = {self.equilibration_potential}")
-        print(f"--------")
-        print(f"Total configured system")
-        print(f"N types                 = {self.ntypes}")
-        print(f"N beads                 = {self.natoms}")
-        print(f"N bonds                 = {self.nbonds}")
-        print(f"N angles                = {self.nangles}")
-        print(f"Charges (per type)      = {self.charges}")
+        if snap and snap.communicator.rank == 0:
+            print(f"--------")
+            print(f"Engine information")
+            print(f"Engine                  = {self.engine}")
+            if self.engine == "HOOMD":
+                print(f"Compute mode            = {self.compute_mode}")
+                print(f"Init type               = {self.init_type}")
+            print(f"--------")
+            print(f"System information")
+            print(f"kBT                     = {self.kT}")
+            print(f"Temperature damping     = {self.t_damp}")
+            print(f"Bead size               = {self.bead_size}")
+            print(f"Delta tau               = {self.deltatau}")
+            print(f"Nsteps equilibrate      = {self.nsteps_equilibrate}")
+            print(f"Nwrite equilibrate      = {self.nwrite_equilibrate}")
+            print(f"Nsteps                  = {self.nsteps}")
+            print(f"Nwrite                  = {self.nwrite}")
+            print(f"Nwrite log (screen)     = {self.nwrite_log}")
+            print(f"Simulation time(tau)    = {self.deltatau*self.nsteps}")
+            print(f"Equilibration time(tau) = {self.deltatau*self.nsteps_equilibrate}")
+            if self.init_type == 'equilibrate_lattice' or self.init_type == 'production':
+                print(f"Box size                = {self.lbox}")
+            else:
+                print(f"Box size (initial)      = {self.lbox_initial}")
+                print(f"Box size (final)        = {self.lbox_final}")
+            print(f"Seed                    = {self.nseed}")
+            print(f"Size asymmetry          = {self.size_asymmetry}")
+            print(f"--------")
+            print(f"Mucus polymer information")
+            print(f"N polymers              = {self.n_mucins}")
+            print(f"N dimers per polymer    = {self.dimers_per_poly}")
+            print(f"Monomer length          = {self.monomer_length}")
+            print(f"Start N-terminus        = {self.start_n_terminus}")
+            print(f"N-term length           = {self.n_term_length}")
+            print(f"Start Backbone          = {self.start_backbone}")
+            print(f"Backbone length         = {self.backbone_length}")
+            print(f"Start C-terminus        = {self.start_c_terminus}")
+            print(f"C-term length           = {self.c_term_length}")
+            print(f"N cysteines             = {self.n_cysteine}")
+            print(f"  Cysteine locations      = {self.cysteine_locations}")
+            print(f"Mucin charges           = {self.mucin_charges}")
+            print(f"Nbeads per dimer (adj)  = {self.nper_dimer}")
+            print(f"Nbeads per poly (adj)   = {self.nper_poly}")
+            print(f"Total mucin beads       = {self.nbeads_mucin}")
+            print(f"--------")
+            print(f"Free histone (PCLS) information")
+            print(f"N histones              = {self.nhist}")
+            print(f"Histone type            = {self.histone_type}")
+            print(f"Histone charges         = {self.histone_charges}")
+            print(f"Histone radius          = {self.r_histone}")
+            print(f"Histone mass            = {self.m_histone}")
+            print(f"--------")
+            print(f"Interactions")
+            print(f"Electrostatics (brush)  = {self.lennard_jones_ee}")
+            print(f"Electrostatics (LJ)     = {self.lennard_jones}")
+            print(f"Hydrophobic (BMH)       = {self.bmh}")
+            print(f"Neighbor list acceleration")
+            print(f"Neighbor list number    = {self.nlist_n}")
+            print(f"Neighbor list type(s)   = {self.nlist_type}")
+            print(f"Neighbor list buffer(s) = {self.nlist_buffer}")
+            print(f"Equilibration potential = {self.equilibration_potential}")
+            print(f"--------")
+            print(f"Total configured system")
+            print(f"N types                 = {self.ntypes}")
+            print(f"N beads                 = {self.natoms}")
+            print(f"N bonds                 = {self.nbonds}")
+            print(f"N angles                = {self.nangles}")
+            print(f"Charges (per type)      = {self.charges}")
 
-        # Print out cluster topolgy information
-        self.cluster.PrintInformation()
+            # Print out cluster topolgy information
+            self.cluster.PrintInformation()
 
     def Configure(self, snap = None):
         r""" Configure self for running
@@ -220,7 +253,11 @@ class MucusSeed(SeedBase):
         if self.verbose: print(f"MucusSeed::Configure")
 
         # Figrue out how many mucins to put in the system
-        self.n_mucins           = self.nrowy * self.nrowz
+        self.n_mucins           = 0
+        if self.init_type == 'equilibrate_lattice' or self.init_type == 'equilibrate_lattice_compression' or self.init_type == 'production':
+            self.n_mucins       = self.nrowy * self.nrowz
+        else:
+            self.n_mucins       = self.ninitmucus
 
         self.start_n_terminus   = 0
         self.start_backbone     = self.start_n_terminus + self.n_term_length
@@ -265,17 +302,24 @@ class MucusSeed(SeedBase):
 
         elif self.engine == "HOOMD":
             # Do the HOOMD stuff!
-            import gsd.hoomd
-            import freud
+            #import gsd.hoomd
+            #import freud
             print(f"Configure detected HOOMD")
 
             # Create a default configuration that is the size of the box
-            snap.configuration.box = [self.lbox, self.lbox, self.lbox, 0, 0, 0]
-            if self.init_type == 'create_equilibration':
-                self.InitMucus(snap)
-            elif self.init_type == 'production':
-                self.ReadMucus(snap)
-
+            if snap.communicator.rank == 0:
+                #snap.configuration.box = [self.lbox, self.lbox, self.lbox, 0, 0, 0]
+                if self.init_type == 'equilibrate_lattice' or self.init_type == 'equilibrate_random_compression' or self.init_type == 'equilibrate_lattice_compression':
+                    snap.configuration.box = [self.lbox, self.lbox, self.lbox, 0, 0, 0]
+                    # Make sure we create a box that is large enough under the different circumstances
+                    if self.init_type == 'equilibrate_random_compression' or self.init_type == 'equilibrate_lattice_compression':
+                        snap.configuration.box = [self.lbox_initial, self.lbox_initial, self.lbox_initial, 0, 0, 0]
+                    self.InitMucus(snap)
+                elif self.init_type == 'production':
+                    self.ReadMucus(snap)
+                else:
+                    print(f"If you are reading this something has gone horribly wrong")
+                    sys.exit(1)
 
             self.is_init = True
 
@@ -870,24 +914,177 @@ write_data ${OUTPUT_PREFIX}.final.data nocoeff
         import freud
         box = freud.Box.cube(self.lbox)
 
-        # Now we can do the same thing as the LAMMPS config section
-        # The -1 are for keeping track with the lammps code as well
-        icount = -1
-        ichaincount = -1
-        dy1 = self.lbox/(2.0*self.nrowy)
-        dz1 = self.lbox/(2.0*self.nrowz)
-        for iz in range(self.nrowz):
-            z = dz1*(iz-self.nrowz/2.0 + 0.5)
-            for jy in range(self.nrowy):
-                y = dy1*(jy-self.nrowy/2.0 + 0.5)
-                x = random.uniform(0.0, self.lbox)
+        if self.init_type == 'equilibrate_lattice':
+            print(f"  Lattice-based initialization")
+            # Now we can do the same thing as the LAMMPS config section
+            # The -1 are for keeping track with the lammps code as well
+            icount = -1
+            ichaincount = -1
+            dy1 = self.lbox/(2.0*self.nrowy)
+            dz1 = self.lbox/(2.0*self.nrowz)
+            for iz in range(self.nrowz):
+                z = dz1*(iz-self.nrowz/2.0 + 0.5)
+                for jy in range(self.nrowy):
+                    y = dy1*(jy-self.nrowy/2.0 + 0.5)
+                    x = random.uniform(0.0, self.lbox)
+                    itype = 3-1
+                    icount += 1
+                    ichaincount += 1
+
+                    # Every time we see a vector, wrap it using freud into a box
+                    r = [x, y, z]
+                    r_periodic = box.wrap(r)
+
+                    snap.particles.position[icount] = r_periodic
+                    snap.particles.typeid[icount] = itype
+                    snap.particles.mass[icount] = 1.0
+
+                    for k in range(1, self.nper_poly):
+                        icount += 1
+                        x = x + self.lbond
+                        itype = 1-1
+                        if ((k % self.nper_dimer) < self.n_term_length):
+                            itype = 3 -1
+                        if ((k % self.nper_dimer) > (self.nper_dimer - self.n_term_length - 1)):
+                            itype = 3 -1
+                        if (((k % self.nper_dimer) < self.monomer_length) and ((k % self.nper_dimer) >= (self.monomer_length - self.c_term_length))):
+                            itype = 3 -1
+                        for l in range(self.n_cysteine):
+                            if (k % self.nper_dimer == self.cysteine_locations[l]): itype = 2-1
+                            if ((self.nper_poly-k-1)%(self.nper_dimer) == self.cysteine_locations[l]): itype = 2-1
+
+                        r = [x, y, z]
+                        r_periodic = box.wrap(r)
+                        snap.particles.position[icount] = r_periodic
+                        snap.particles.typeid[icount] = itype
+                        snap.particles.mass[icount] = 1.0
+
+            beyondchaincount = ichaincount
+            for ihist in range(self.nhist):
+                icount += 1
+                beyondchaincount += 1
+                x = random.uniform(-self.lbox/2.0, self.lbox/2.0)
+                y = random.uniform(-self.lbox/2.0, self.lbox/2.0)
+                z = random.uniform(-self.lbox/2.0, self.lbox/2.0)
+                itype = 4-1
+                snap.particles.position[icount] = [x, y, z]
+                snap.particles.typeid[icount] = itype
+                snap.particles.mass[icount] = self.m_histone
+
+        elif self.init_type == 'equilibrate_lattice_compression':
+            print(f"  Large lattice-with-compression-based initialization")
+            # Now we can do the same thing as the LAMMPS config section
+            # The -1 are for keeping track with the lammps code as well
+            icount = -1
+            ichaincount = -1
+            dy1 = self.lbox_initial/self.nrowy
+            dz1 = self.lbox_initial/self.nrowz
+            for iz in range(self.nrowz):
+                z = dz1*(iz + 0.5)
+                for jy in range(self.nrowy):
+                    y = dy1*(jy + 0.5)
+                    x = random.uniform(0.0, self.lbox_initial)
+                    itype = 3-1
+                    icount += 1
+                    ichaincount += 1
+
+                    # Every time we see a vector, wrap it using freud into a box
+                    r = [x, y, z]
+                    r_periodic = box.wrap(r)
+
+                    snap.particles.position[icount] = r_periodic
+                    snap.particles.typeid[icount] = itype
+                    snap.particles.mass[icount] = 1.0
+
+                    for k in range(1, self.nper_poly):
+                        icount += 1
+                        x = x + self.lbond
+                        itype = 1-1
+                        if ((k % self.nper_dimer) < self.n_term_length):
+                            itype = 3 -1
+                        if ((k % self.nper_dimer) > (self.nper_dimer - self.n_term_length - 1)):
+                            itype = 3 -1
+                        if (((k % self.nper_dimer) < self.monomer_length) and ((k % self.nper_dimer) >= (self.monomer_length - self.c_term_length))):
+                            itype = 3 -1
+                        for l in range(self.n_cysteine):
+                            if (k % self.nper_dimer == self.cysteine_locations[l]): itype = 2-1
+                            if ((self.nper_poly-k-1)%(self.nper_dimer) == self.cysteine_locations[l]): itype = 2-1
+
+                        r = [x, y, z]
+                        r_periodic = box.wrap(r)
+                        snap.particles.position[icount] = r_periodic
+                        snap.particles.typeid[icount] = itype
+                        snap.particles.mass[icount] = 1.0
+
+            beyondchaincount = ichaincount
+            for ihist in range(self.nhist):
+                icount += 1
+                beyondchaincount += 1
+                x = random.uniform(-self.lbox_initial/2.0, self.lbox_initial/2.0)
+                y = random.uniform(-self.lbox_initial/2.0, self.lbox_initial/2.0)
+                z = random.uniform(-self.lbox_initial/2.0, self.lbox_initial/2.0)
+                r_periodic = [x, y, z]
+                itype = 4-1
+                r_periodic = box.wrap(r_periodic)
+                snap.particles.position[icount] = r_periodic
+                snap.particles.typeid[icount] = itype
+                snap.particles.mass[icount] = self.m_histone
+
+
+        elif self.init_type == 'equilibrate_random_compression':
+            print(f"  Compression-based initialization")
+            # Try to do a compression based initialization. Pretend that the mucin chains are sphere and make them not overlap (
+            # to avoid counting allllll the mucus spheres). The -1 are for keeping track with the lammps code as well
+            icount = -1
+            ichaincount = -1
+            ntest = 20
+            for imucus in range(self.n_mucins):
+                for itest in range(ntest):
+                    if self.trace: print(f"Mucin chain {ichaincount+1}, test insertion {itest}")
+                    # Set the master test variable
+                    overlap = False
+
+                    # Randomly choose an origin of the filament with a random orientation
+                    x = random.uniform(-self.lbox_initial/2.0, self.lbox_initial/2.0)
+                    y = random.uniform(-self.lbox_initial/2.0, self.lbox_initial/2.0)
+                    z = random.uniform(-self.lbox_initial/2.0, self.lbox_initial/2.0)
+                    # Generate the random unit vector
+                    u = generate_random_unit_vector(3)
+                    # 'Real' vector
+                    r = np.array([x, y, z])
+                    r_initial = r # Save off the original location for if we succeed
+                    r = box.wrap(r)
+
+                    # Loop through the whole polymer and check for overlaps to everything else in the system
+                    # Only need to do this for all the other beads, not the ones attached to this thing,
+                    # as it is linear and we don't care
+                    for ik in range(self.nper_poly):
+                        r = box.wrap(r + self.lbond * u)
+
+                        for ij in range(icount):
+                            if self.trace: print(f"    mucin particle test ({ik}) against previous mucin {ij}")
+                            overlap = overlap or sphere_overlap(1.1, r, snap.particles.position[ij])
+                            
+                            # Found an overlap, onto next test
+                            if overlap: break
+
+                        # Found an overlap, onto next test
+                        if overlap: break
+
+                    # If we did not find an overlap, then we're good, and we can proceed with actually inserting the thing
+                    if not overlap: break
+
+                # Check to see if we reached the maximum number of iterations
+                if itest >= ntest-1:
+                    print(f"ERROR: Was not able to find a way to insert a mucus chain without overlap after {ntest} trials, exiting!")
+                    sys.exit(1)
+
+                if self.verbose: print(f"  Mucin chain {ichaincount+1} successful insertion")
                 itype = 3-1
                 icount += 1
                 ichaincount += 1
 
-                # Every time we see a vector, wrap it using freud into a box
-                r = [x, y, z]
-                r_periodic = box.wrap(r)
+                r_periodic = box.wrap(r_initial)
 
                 snap.particles.position[icount] = r_periodic
                 snap.particles.typeid[icount] = itype
@@ -895,7 +1092,7 @@ write_data ${OUTPUT_PREFIX}.final.data nocoeff
 
                 for k in range(1, self.nper_poly):
                     icount += 1
-                    x = x + self.lbond
+                    r_periodic = r_periodic + self.lbond * u
                     itype = 1-1
                     if ((k % self.nper_dimer) < self.n_term_length):
                         itype = 3 -1
@@ -907,23 +1104,59 @@ write_data ${OUTPUT_PREFIX}.final.data nocoeff
                         if (k % self.nper_dimer == self.cysteine_locations[l]): itype = 2-1
                         if ((self.nper_poly-k-1)%(self.nper_dimer) == self.cysteine_locations[l]): itype = 2-1
 
-                    r = [x, y, z]
-                    r_periodic = box.wrap(r)
+                    r_periodic = box.wrap(r_periodic)
                     snap.particles.position[icount] = r_periodic
                     snap.particles.typeid[icount] = itype
                     snap.particles.mass[icount] = 1.0
 
-        beyondchaincount = ichaincount
-        for ihist in range(self.nhist):
-            icount += 1
-            beyondchaincount += 1
-            x = random.uniform(-self.lbox/2.0, self.lbox/2.0)
-            y = random.uniform(-self.lbox/2.0, self.lbox/2.0)
-            z = random.uniform(-self.lbox/2.0, self.lbox/2.0)
-            itype = 4-1
-            snap.particles.position[icount] = [x, y, z]
-            snap.particles.typeid[icount] = itype
-            snap.particles.mass[icount] = self.m_histone
+            # Try to insert any histones we might have too
+            beyondchaincount = ichaincount
+            last_mucus_bead = icount
+            r_sphere    = 0.5
+            r_histone   = self.r_histone
+            d_combined = r_sphere + r_histone
+            d_histone = 2.0 * r_histone
+            for ihist in range(self.nhist):
+                for itest in range(ntest):
+                    if self.trace: print(f"Histone (chain {ichaincount+1}) (particle {icount+1}), test insertion {itest}")
+                    # Set the overlap again, just like the mucin chains
+                    overlap = False
+
+                    # Randomly choose an origin of the mucus blob
+                    x = random.uniform(-self.lbox_initial/2.0, self.lbox_initial/2.0)
+                    y = random.uniform(-self.lbox_initial/2.0, self.lbox_initial/2.0)
+                    z = random.uniform(-self.lbox_initial/2.0, self.lbox_initial/2.0)
+
+                    r = box.wrap(np.array([x, y, z]))
+
+                    # Check against everything already in the system
+                    for imucusbead in range(last_mucus_bead+1):
+                        if self.trace: print(f"    histone test {ihist} against mucus {imucusbead}")
+                        overlap = overlap or sphere_overlap(d_combined, r, snap.particles.position[imucusbead])
+
+                        if overlap: break
+
+                    # Check against the histones already in the system
+                    for ihistone in range(last_mucus_bead+1, icount+1):
+                        if self.trace: print(f"    histone test {ihist} against histone {ihistone}")
+                        overlap = overlap or sphere_overlap(d_histone, r, snap.particles.position[ihistone])
+
+                        if overlap: break
+
+                    # If we don't have an overlap, we're all good
+                    if not overlap: break
+
+                if self.trace: print(f"  Histone (chain {ichaincount+1}) (particle {icount+1}) successful insertion")
+                    
+                icount += 1
+                beyondchaincount += 1
+                x = random.uniform(-self.lbox/2.0, self.lbox/2.0)
+                y = random.uniform(-self.lbox/2.0, self.lbox/2.0)
+                z = random.uniform(-self.lbox/2.0, self.lbox/2.0)
+                itype = 4-1
+                snap.particles.position[icount] = [x, y, z]
+                snap.particles.typeid[icount] = itype
+                snap.particles.mass[icount] = self.m_histone
 
         # Bond information
         icount1 = 1-1
@@ -955,5 +1188,24 @@ write_data ${OUTPUT_PREFIX}.final.data nocoeff
         print(f"  Reading mucus simulation from file {self.init_filename}!") 
         for itype,ntype in enumerate(snap.particles.types):
             self.getTypebyName[ntype] = itype
+
+        # Check to see if we need to do some funniness withthe periodic boundaries, in case there was an issue with the
+        # scaling correclty working to get to the target box size
+        sim_box = snap.configuration.box
+
+        if sim_box[0] != self.lbox or sim_box[1] != self.lbox or sim_box[2] != self.lbox:
+            print(f"  Mucus box size mismatch, attempting to build new box and enforce PBCs")
+            print(f"  Old box: {sim_box}")
+            new_box = freud.Box.cube(self.lbox)
+
+            # Loop through all particles and enforce PBC condition
+            for idx in range(snap.particles.N):
+                r = snap.particles.position[idx]
+                r_new = new_box.wrap(r)
+                snap.particles.position[idx] = r_new
+
+            # Set the box size
+            snap.configuration.box = [self.lbox, self.lbox, self.lbox, 0, 0, 0]
+            print(f"  New box: {snap.configuration.box}")
 
         if self.verbose: print(f"MucusSeed::ReadMucus return")
