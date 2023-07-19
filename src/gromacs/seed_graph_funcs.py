@@ -243,6 +243,25 @@ def graph_seed_alpha(sd,
 
     return [ylow, yhi, ydata]
 
+# Graph the alpha RMSD by itself
+def graph_seed_alpharmsd(sd,
+                         ax,
+                         color = 'b',
+                         xlabel = True,
+                         dolegend = False):
+    r""" Plot the alpha_rmsd values (raw) for the helix from plumed
+
+    """
+    alpha_rmsd = sd.master_time_df['plumed_alpha']
+    ydata = graph_seed_plot(sd.label, sd.master_time_df.index/1000.0, alpha_rmsd, ax, mtitle = "", xtitle = "", ytitle = r"", color = 'c', smooth = True, smooth_window = 11, smooth_poly = 3)
+    
+    # Set some limits
+    ylow    = 0.0
+    yhi     = 13.1
+    ax.set_ylim([ylow, yhi])
+
+    return [ylow, yhi, ydata]
+
 # Graph the global tilt
 def graph_seed_globaltilt(sd,
                           ax,

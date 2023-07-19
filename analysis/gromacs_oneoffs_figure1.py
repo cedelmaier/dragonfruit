@@ -94,11 +94,14 @@ simnames = {
 seednames = ["N1", "N2", "N3", "N4"]
 
 axis_names = {}
-axis_names['zpos']  = r"z ($\AA$)"
-axis_names['helix'] = r"Fraction helix (AU)"
+#axis_names['zpos']  = r"z ($\AA$)"
+#axis_names['helix'] = r"Fraction helix (AU)"
+axis_names['zpos'] = r"z (nm)"
+axis_names['alpharmsd'] = r"Helical content (AU)"
 
 # Load up the ylow ad yhi dicts
 ylow_dict = {"zpos": 0.0,
+             "alpharmsd": 0.0,
              "helix": 0.0,
              "tilt": 0.0,
              "pdip": 0.0,
@@ -106,7 +109,8 @@ ylow_dict = {"zpos": 0.0,
              "hp": 0.0,
              "zforce": -8000.0,
              "perptorque": -800000.0}
-yhi_dict = {"zpos": 100.0,
+yhi_dict = {"zpos": 10.0,
+            "alpharmsd": 13.1,
             "helix": 1.05,
             "tilt": 180.0,
             "pdip": 180.0,
@@ -146,11 +150,12 @@ for simname,seedname in simnames.items():
         print(master_time_df)
 
         # Z position
-        z_protein   = master_time_df[['helix_z']].to_numpy().flatten()
-        z_leaf0     = master_time_df[['leaflet0_z']].to_numpy().flatten()
-        z_leaf1     = master_time_df[['leaflet1_z']].to_numpy().flatten()
-        z_lipid     = master_time_df[['lipid_z']].to_numpy().flatten()
-        z_pbc       = master_time_df[['unit_cell_z']].to_numpy().flatten()
+        # Conver the Z positions to nm rather than angstroms
+        z_protein   = master_time_df[['helix_z']].to_numpy().flatten()/10.0
+        z_leaf0     = master_time_df[['leaflet0_z']].to_numpy().flatten()/10.0
+        z_leaf1     = master_time_df[['leaflet1_z']].to_numpy().flatten()/10.0
+        z_lipid     = master_time_df[['lipid_z']].to_numpy().flatten()/10.0
+        z_pbc       = master_time_df[['unit_cell_z']].to_numpy().flatten()/10.0
         # Subtract off the position of the lipid COM from everybody else
         pbc_full_z = z_pbc
         z_protein = z_protein - z_lipid
@@ -179,7 +184,8 @@ for simname,seedname in simnames.items():
 
         # Do the helix as well
         plt.figure(fig_heli)
-        helicity    = master_time_df[['helicity']].to_numpy().flatten() 
+        #helicity    = master_time_df[['helicity']].to_numpy().flatten() 
+        helicity    = master_time_df[['plumed_alpha']].to_numpy().flatten() 
         axarr_heli[0].plot(xdata, helicity, linewidth = 1, color = CB_color_cycle[cidx])
         axarr_heli[1].plot(xdata, helicity, linewidth = 1, color = CB_color_cycle[cidx])
         heli_list.append(helicity)
@@ -283,10 +289,10 @@ for simname,seedname in simnames.items():
     shaded_error(axarr_heli_mean[1], xdata, heli_mean, heli_std, alpha = 0.5, color = CB_color_cycle[0])
     plt.figure(fig_heli)
     # Set the ylimits
-    axarr_heli[0].set_ylim(ylow_dict["helix"], yhi_dict["helix"])
-    axarr_heli[1].set_ylim(ylow_dict["helix"], yhi_dict["helix"])
-    axarr_heli_mean[0].set_ylim(ylow_dict["helix"], yhi_dict["helix"])
-    axarr_heli_mean[1].set_ylim(ylow_dict["helix"], yhi_dict["helix"])
+    axarr_heli[0].set_ylim(ylow_dict["alpharmsd"], yhi_dict["alpharmsd"])
+    axarr_heli[1].set_ylim(ylow_dict["alpharmsd"], yhi_dict["alpharmsd"])
+    axarr_heli_mean[0].set_ylim(ylow_dict["alpharmsd"], yhi_dict["alpharmsd"])
+    axarr_heli_mean[1].set_ylim(ylow_dict["alpharmsd"], yhi_dict["alpharmsd"])
 
     # Set the limits of the two subplots differently
     axarr_heli[0].set_xlim(0.0, 10.0)
@@ -325,21 +331,21 @@ for simname,seedname in simnames.items():
     axarr_heli_mean[1].plot((-d, d), (1-d, 1+d), linewidth=1, **kwargs)
 
     fig_heli.supxlabel(r"Time (ns)", x = 0.5+spaceshift/2.0)
-    axarr_heli[0].set_ylabel(axis_names["helix"])
+    axarr_heli[0].set_ylabel(axis_names["alpharmsd"])
     fig_heli_mean.supxlabel(r"Time (ns)", x = 0.5+spaceshift/2.0)
-    axarr_heli_mean[0].set_ylabel(axis_names["helix"])
+    axarr_heli_mean[0].set_ylabel(axis_names["alpharmsd"])
 
     # Layout options must come in order
     plt.figure(fig_heli)
     fig_heli.tight_layout()
     plt.subplots_adjust(wspace=spaceshift, bottom=0.16)
-    allseed_heli_name = allseed_datadir + "/figure1_heli_" + simname + "_allseeds.png"
+    allseed_heli_name = allseed_datadir + "/figure1_alpharmsd_" + simname + "_allseeds.png"
     plt.savefig(allseed_heli_name, dpi = 600)
 
     plt.figure(fig_heli_mean)
     fig_heli_mean.tight_layout()
     plt.subplots_adjust(wspace=spaceshift, bottom=0.16)
-    mean_heli_name = mean_datadir + "/figure1_heli_" + simname + "_mean.png"
+    mean_heli_name = mean_datadir + "/figure1_alpharmsd_" + simname + "_mean.png"
     plt.savefig(mean_heli_name, dpi = 600)
 
     # This is a trick to get the PDF files of the right size, at MPL decides to make them rather
@@ -350,3 +356,24 @@ for simname,seedname in simnames.items():
     #convert_pdf_gs(mean_heli_name, mean_heli_name_gs)
 
     plt.close('all')
+
+    # For each simname, save off the zpos and alpha that we've come up with in 
+    # pandas format so that we don't have to go through this repeatedly for 
+    # actually plotting the thing
+    simdict = {
+            "timepoints": xdata,
+            "leaf0_mean": leaf0_mean,
+            "leaf0_std": leaf0_std,
+            "leaf1_mean": leaf1_mean,
+            "leaf1_std": leaf1_std,
+            "leaf1_top_mean": leaf1_top_mean,
+            "leaf1_top_std": leaf1_top_std,
+            "center_mean": center_mean,
+            "center_std": center_std,
+            "heli_mean": heli_mean,
+            "heli_std": heli_std
+            }
+    print(simdict)
+    simdf = pd.DataFrame(simdict)
+    print(simdf)
+    simdf.to_hdf(os.path.join("./", "{}.h5".format(simname)), key = "simname", mode = "w")

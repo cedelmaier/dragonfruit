@@ -65,17 +65,20 @@ class GromacsSim(SimulationBase):
         self.graph_perseed['hp']            = graph_seed_helixpdipoleangle
         self.graph_perseed['zforce']        = graph_seed_zforce
         self.graph_perseed['perptorque']    = graph_seed_perptorque
+        # Add one that is just the alpharmsd
+        self.graph_perseed['alpharmsd']     = graph_seed_alpharmsd
 
         self.named_graphs = {}
         self.named_graphs['zpos']           = r"Z ($\AA$)"
         self.named_graphs['helix']          = r"Helicity (AU)"
         #self.named_graphs['tilt']           = r"$\Theta_{u}$ (deg)"
-        #self.named_graphs['tilt']           = r"$\Theta_{u}$ (deg)"
+        self.named_graphs['tilt']           = r"$\Theta_{u}$ (deg)"
         self.named_graphs['pdip']           = r"Tilt (deg)"
         self.named_graphs['pmom']           = r"Helix electric dipole magnitude"
         self.named_graphs['hp']             = r"$\Phi_{up}$ (deg)"
         self.named_graphs['zforce']         = r"Force (kJ mol$^{-1}$ nm${^-1})"
         self.named_graphs['perptorque']     = r"Helix perpendicular torque (kJ mol$^{-1}$)"
+        self.named_graphs['alpharmsd']      = r"Helical content (AU)"
 
         # Set up block averaging information
         self.block_size = 50000.0 # 50 ns blocks
@@ -83,8 +86,10 @@ class GromacsSim(SimulationBase):
         self.ylow_dict = {}
         self.yhi_dict = {}
 
+        #self.graph_perseed_trajectory   = [ graph_seed_zpos_wheads,
+        #                                    graph_seed_helicity ]
         self.graph_perseed_trajectory   = [ graph_seed_zpos_wheads,
-                                            graph_seed_helicity ]
+                                            graph_seed_alpharmsd ]
         self.graph_perseed_tilts        = [ graph_seed_globaltilt,
                                             graph_seed_pdipoletilt,
                                             graph_seed_helixpdipoleangle ]
@@ -193,6 +198,8 @@ class GromacsSim(SimulationBase):
                 nblocks = timepoints[-1]/(self.block_size / 1000.0)
 
                 # Get the actual data out from the graph functions
+                if self.verbose:
+                    print(f"Attempting graph {graph} on sd.label {sd.label}")
                 [ylow, yhi, yarr] = graph(sd, ax)
                 yarr_np = np.array(yarr)
 

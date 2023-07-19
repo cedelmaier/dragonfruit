@@ -120,12 +120,12 @@ class GromacsAnalysis(object):
             fig.savefig('gromacs_zpos.pdf', dpi=fig.dpi)
             plt.close(fig)
 
-            # Try doing the self-correlation of the z-position
-            fig, axarr = plt.subplots(1, 1, figsize=(15,10))
-            sd.GraphZcorr(axarr)
-            fig.tight_layout()
-            fig.savefig('gromacs_zcorr.pdf', dpi=fig.dpi)
-            plt.close(fig)
+            ## Try doing the self-correlation of the z-position
+            #fig, axarr = plt.subplots(1, 1, figsize=(15,10))
+            #sd.GraphZcorr(axarr)
+            #fig.tight_layout()
+            #fig.savefig('gromacs_zcorr.pdf', dpi=fig.dpi)
+            #plt.close(fig)
 
             # Plot the helicity of the protein
             fig, axarr = plt.subplots(1, 1, figsize = (15, 10))
