@@ -61,6 +61,8 @@ main_path = os.path.abspath('/Users/cedelmaier/Projects/Biophysics/septin_projec
 
 data_fes_original = plumed.read_as_pandas(os.path.join(main_path, 'fes_sumhills_charged_entirespace.dat'))
 npoints = 256
+# The total size of the run for later
+totalrunsize = 1500000
 
 dz_original    = np.array(data_fes_original["dz"]).reshape(npoints, npoints)
 alpha_original = np.array(data_fes_original["alpha"]).reshape(npoints, npoints)
@@ -121,4 +123,38 @@ fes_biased_tw_adj = fes_biased_tw_adj - min_biased_tw_adj
 print(f"New minimum in reweight (Tiwary) biased adjusted[{start_index}] space, {min_biased_tw_adj}")
 
 plot_fes(dz_biased_tw_adj, alpha_biased_tw_adj, fes_biased_tw_adj, "charged_fes_tw_biasedadjusted.pdf")
+
+# Convergence testing based on the timewise signal of the different states
+data_075 = plumed.read_as_pandas(os.path.join(main_path, "fes_sumhills_charged_entirespace_0750.dat"))
+dz_075       = np.array(data_075["dz"]).reshape(npoints, npoints)
+alpha_075    = np.array(data_075["alpha"]).reshape(npoints, npoints)
+fes_075      = np.array(data_075["file.free"]).reshape(npoints, npoints)
+# Adjust same
+dz_075_adj, alpha_075_adj, fes_075_adj, min_075_adj = adjust_fes(dz_075, alpha_075, fes_075, start_index)
+fes_075_adj = fes_075_adj - min_075_adj
+print(f"New minimum in reweight (075) biased adjusted[{start_index}] space, {min_075_adj}")
+
+plot_fes(dz_075_adj, alpha_075_adj, fes_075_adj, "charged_fes_075_adjusted.pdf")
+
+data_090 = plumed.read_as_pandas(os.path.join(main_path, "fes_sumhills_charged_entirespace_0900.dat"))
+dz_090       = np.array(data_090["dz"]).reshape(npoints, npoints)
+alpha_090    = np.array(data_090["alpha"]).reshape(npoints, npoints)
+fes_090      = np.array(data_090["file.free"]).reshape(npoints, npoints)
+# Adjust same
+dz_090_adj, alpha_090_adj, fes_090_adj, min_090_adj = adjust_fes(dz_090, alpha_090, fes_090, start_index)
+fes_090_adj = fes_090_adj - min_090_adj
+print(f"New minimum in reweight (090) biased adjusted[{start_index}] space, {min_090_adj}")
+
+plot_fes(dz_090_adj, alpha_090_adj, fes_090_adj, "charged_fes_090_adjusted.pdf")
+
+data_095 = plumed.read_as_pandas(os.path.join(main_path, "fes_sumhills_charged_entirespace_0950.dat"))
+dz_095       = np.array(data_095["dz"]).reshape(npoints, npoints)
+alpha_095    = np.array(data_095["alpha"]).reshape(npoints, npoints)
+fes_095      = np.array(data_095["file.free"]).reshape(npoints, npoints)
+# Adjust same
+dz_095_adj, alpha_095_adj, fes_095_adj, min_095_adj = adjust_fes(dz_095, alpha_095, fes_095, start_index)
+fes_095_adj = fes_095_adj - min_095_adj
+print(f"New minimum in reweight (095) biased adjusted[{start_index}] space, {min_095_adj}")
+
+plot_fes(dz_095_adj, alpha_095_adj, fes_095_adj, "charged_fes_095_adjusted.pdf")
 

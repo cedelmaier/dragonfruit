@@ -38,12 +38,12 @@ def adjust_fes(dz, alpha, fes, start_index):
 
     return dz_adj, alpha_adj, fes_adj, mmin
 
-def plot_fes(dz, alpha, fes, fname):
+def plot_fes(dz, alpha, fes, fname, rangelo = 0, rangehi = 100):
     r""" Plot the FES with the given name (x and y axis will always be the same
     """
     fig, ax = plt.subplots(1, 1, figsize = (10, 10))
-    ax.contour(dz, alpha, fes, levels=range(0,100,10), linewidths=0.5, colors='k')
-    cntr = ax.contourf(dz, alpha, fes, levels=range(0,100), cmap='rainbow')
+    ax.contour(dz, alpha, fes, levels=range(rangelo,rangehi,10), linewidths=0.5, colors='k')
+    cntr = ax.contourf(dz, alpha, fes, levels=range(rangelo,rangehi), cmap='rainbow')
     plt.colorbar(cntr, label="FES [kJ/mol]")
     
     ax.set_xlim(0.0, 5.0)
@@ -68,7 +68,7 @@ dz_original    = np.array(data_fes_original["dz"]).reshape(npoints, npoints)
 alpha_original = np.array(data_fes_original["alpha"]).reshape(npoints, npoints)
 fes_original   = np.array(data_fes_original["file.free"]).reshape(npoints, npoints)
 
-fig, ax = plt.subplots(1, 1, figsize = (10, 10))
+#fig, ax = plt.subplots(1, 1, figsize = (10, 10))
 
 # Slice off the first two rows of alpha (0 and whatever comes after) to get close to 0.1
 # This also involves slicing off Z and fes_original
@@ -98,7 +98,7 @@ dz_biased_adj, alpha_biased_adj, fes_biased_adj, min_biased_adjusted = adjust_fe
 fes_biased_adj = fes_biased_adj - min_biased_adjusted
 print(f"New minimum in biased adjusted[{start_index}] space, {min_biased_adjusted}")
 
-plot_fes(dz_biased_adj, alpha_biased_adj, fes_biased_adj, "neutral_fes_biasedadjusted.pdf")
+plot_fes(dz_biased_adj, alpha_biased_adj, fes_biased_adj, "neutral_fes_biasedadjusted.pdf", rangelo=0, rangehi=50)
 
 # Normal reweighting scheme (exponential)
 data_as = plumed.read_as_pandas(os.path.join(main_path, "ff_z_alpha_as.dat"))
@@ -123,4 +123,38 @@ fes_biased_tw_adj = fes_biased_tw_adj - min_biased_tw_adj
 print(f"New minimum in reweight (Tiwary) biased adjusted[{start_index}] space, {min_biased_tw_adj}")
 
 plot_fes(dz_biased_tw_adj, alpha_biased_tw_adj, fes_biased_tw_adj, "neutral_fes_tw_biasedadjusted.pdf")
+
+# Convergence testing based on the timewise signal of the different states
+data_075 = plumed.read_as_pandas(os.path.join(main_path, "fes_sumhills_neutral_entirespace_0750.dat"))
+dz_075       = np.array(data_075["dz"]).reshape(npoints, npoints)
+alpha_075    = np.array(data_075["alpha"]).reshape(npoints, npoints)
+fes_075      = np.array(data_075["file.free"]).reshape(npoints, npoints)
+# Adjust same
+dz_075_adj, alpha_075_adj, fes_075_adj, min_075_adj = adjust_fes(dz_075, alpha_075, fes_075, start_index)
+fes_075_adj = fes_075_adj - min_075_adj
+print(f"New minimum in reweight (075) biased adjusted[{start_index}] space, {min_075_adj}")
+
+plot_fes(dz_075_adj, alpha_075_adj, fes_075_adj, "neutral_fes_075_adjusted.pdf")
+
+data_090 = plumed.read_as_pandas(os.path.join(main_path, "fes_sumhills_neutral_entirespace_0900.dat"))
+dz_090       = np.array(data_090["dz"]).reshape(npoints, npoints)
+alpha_090    = np.array(data_090["alpha"]).reshape(npoints, npoints)
+fes_090      = np.array(data_090["file.free"]).reshape(npoints, npoints)
+# Adjust same
+dz_090_adj, alpha_090_adj, fes_090_adj, min_090_adj = adjust_fes(dz_090, alpha_090, fes_090, start_index)
+fes_090_adj = fes_090_adj - min_090_adj
+print(f"New minimum in reweight (090) biased adjusted[{start_index}] space, {min_090_adj}")
+
+plot_fes(dz_090_adj, alpha_090_adj, fes_090_adj, "neutral_fes_090_adjusted.pdf")
+
+data_095 = plumed.read_as_pandas(os.path.join(main_path, "fes_sumhills_neutral_entirespace_0950.dat"))
+dz_095       = np.array(data_095["dz"]).reshape(npoints, npoints)
+alpha_095    = np.array(data_095["alpha"]).reshape(npoints, npoints)
+fes_095      = np.array(data_095["file.free"]).reshape(npoints, npoints)
+# Adjust same
+dz_095_adj, alpha_095_adj, fes_095_adj, min_095_adj = adjust_fes(dz_095, alpha_095, fes_095, start_index)
+fes_095_adj = fes_095_adj - min_095_adj
+print(f"New minimum in reweight (095) biased adjusted[{start_index}] space, {min_095_adj}")
+
+plot_fes(dz_095_adj, alpha_095_adj, fes_095_adj, "neutral_fes_095_adjusted.pdf")
 
