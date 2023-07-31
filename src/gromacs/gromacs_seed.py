@@ -95,6 +95,15 @@ class GromacsSeed(SeedBase):
             self.colvar_file    = self.default_yaml['plumed']['colvar_file']
             self.mcfile         = self.default_yaml['plumed']['masscharge_file']
 
+            # Check for the specializations of the whole helix
+            if 'wholehelix_C_atoms' in self.default_yaml['plumed']:
+                self.wholehelix_C_atoms     = self.default_yaml['plumed']['wholehelix_C_atoms']
+                self.wholehelix_residues    = self.default_yaml['plumed']['wholehelix_residues']
+            else:
+                self.wholehelix_C_atoms     = self.helix_C_atoms
+                self.wholehelix_residues    = self.alpha_residues
+
+
         # Do something if we see information for the N and C terminals
         if 'N_term_Calpha' in self.default_yaml:
             self.N_term_Calpha  = self.default_yaml['N_term_Calpha']
@@ -143,6 +152,8 @@ class GromacsSeed(SeedBase):
             print(f"Alpha residues      = {self.alpha_residues}")
             print(f"Lipid P atoms       = {self.lipid_P_atoms}")
             print(f"Helix C atoms       = {self.helix_C_atoms}")
+            print(f"Whole helix C atoms = {self.wholehelix_C_atoms}")
+            print(f"Whole helix residue = {self.wholehelix_residues}")
         if 'N_term_Calpha' in self.default_yaml:
             print(f"--------")
             print(f"N and C term information")
@@ -804,19 +815,31 @@ DEBUG DETAILED_TIMERS
 lipid_com: COM ATOMS={}
 helix_com: COM ATOMS={}
 
+# If we have a wholehelix, do that as well
+wholehelix_com: COM ATOMS={}
+
 # Get the Z distance
 z_dist: DISTANCE ATOMS=lipid_com,helix_com COMPONENTS NOPBC
 dz: COMBINE ARG=z_dist.z PERIODIC=NO
 
+# Get the Z distance to the whole helix
+z_dist_whole: DISTANCE ATOMS=lipid_com,wholehelix_com COMPONENTS NOPBC
+wholedz: COMBINE ARG=z_dist_whole.z PERIODIC=NO
+
 # Get the alpha value
 alpha: ALPHARMSD RESIDUES={}
 
+# Get the alpha values for the whole helix
+wholealpha: ALPHARMSD RESIDUES={}
+
 # Print to a file
-PRINT ARG=dz,alpha FILE={} STRIDE=1
+PRINT ARG=dz,alpha,wholedz,wholealpha FILE={} STRIDE=1
 '''.format(self.plumed_ref,
            ','.join(str(x) for x in self.lipid_P_atoms),
            ','.join(str(x) for x in self.helix_C_atoms),
+           ','.join(str(x) for x in self.wholehelix_C_atoms),
            self.alpha_residues,
+           self.wholehelix_residues,
            self.colvar_file)
             fhandle.write(fstring)
 
