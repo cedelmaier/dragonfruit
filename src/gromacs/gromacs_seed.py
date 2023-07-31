@@ -95,6 +95,16 @@ class GromacsSeed(SeedBase):
             self.colvar_file    = self.default_yaml['plumed']['colvar_file']
             self.mcfile         = self.default_yaml['plumed']['masscharge_file']
 
+        # Do something if we see information for the N and C terminals
+        if 'N_term_Calpha' in self.default_yaml:
+            self.N_term_Calpha  = self.default_yaml['N_term_Calpha']
+            self.C_term_Calpha  = self.default_yaml['C_term_Calpha']
+
+        # Check to see if we are doing electrostatics or not
+        self.do_electrostatics = True
+        if 'do_electrostatics' in self.default_yaml:
+            self.do_electrostatics = self.default_yaml['do_electrostatics']
+
         # Harcoded information
         self.zbin_size          = 0.5   # Size of z-bins for calculations
         self.zbin_range         = 40.0  # Range of Z bins for calculations
@@ -119,6 +129,7 @@ class GromacsSeed(SeedBase):
         print(f"Gromacs file        = {self.gromacs_file}")
         print(f"--------")
         print(f"Electrostatic information")
+        print(f"Do electrostatics   = {self.do_electrostatics}")
         print(f"Z-bin size          = {self.zbin_size}")
         print(f"Z-range             = {self.zbin_range}")
         print(f"Nbins EM            = {self.zbin_nbins}")
@@ -132,6 +143,11 @@ class GromacsSeed(SeedBase):
             print(f"Alpha residues      = {self.alpha_residues}")
             print(f"Lipid P atoms       = {self.lipid_P_atoms}")
             print(f"Helix C atoms       = {self.helix_C_atoms}")
+        if 'N_term_Calpha' in self.default_yaml:
+            print(f"--------")
+            print(f"N and C term information")
+            print(f"N term Calphas      = {self.N_term_Calpha}")
+            print(f"C term Calphas      = {self.C_term_Calpha}")
 
         print(f"--------")
 
@@ -186,8 +202,9 @@ class GromacsSeed(SeedBase):
         with open(file_path_helixanalysis, 'rb') as f:
             self.helix_analysis = pickle.load(f)
 
-        self.gromacs_electrostatics.electrostatic_df = pd.read_hdf(file_path_electrostatics)
-        self.master_forces_df = pd.read_hdf(file_path_forces)
+        if self.do_electrostatics:
+            self.gromacs_electrostatics.electrostatic_df = pd.read_hdf(file_path_electrostatics)
+            self.master_forces_df = pd.read_hdf(file_path_forces)
 
         if self.verbose: print(f"GromacsSeed::LoadData return")
 
@@ -221,7 +238,8 @@ class GromacsSeed(SeedBase):
         self.PrepareAnalysis()
 
         # Order here does matter, as need electrostatics before trajectory
-        self.AnalyzeElectrostatics()
+        if self.do_electrostatics:
+            self.AnalyzeElectrostatics()
         self.AnalyzeTrajectory()
         self.AnalyzeCurvature()
         self.AnalyzeDSSP()
@@ -231,7 +249,8 @@ class GromacsSeed(SeedBase):
         self.master_time_df = pd.concat(self.time_dfs, axis = 1)
 
         # Put the force calculations together
-        self.master_forces_df = pd.concat(self.new_electrostatics_dfs, axis = 1)
+        if self.do_electrostatics:
+            self.master_forces_df = pd.concat(self.new_electrostatics_dfs, axis = 1)
 
         # Save the data
         self.WriteData()
@@ -286,6 +305,19 @@ class GromacsSeed(SeedBase):
         not_solvent =   traj_universe.select_atoms(self.lipid_selection + ' or protein')
         solvent =       traj_universe.select_atoms('not (' + self.lipid_selection + ' or protein)')
 
+        n_term_atoms = None
+        c_term_atoms = None
+        if 'N_term_Calpha' in self.default_yaml:
+            atom_indices = self.N_term_Calpha
+            atom_indices_shifted = [i-1 for i in atom_indices]
+            selection_string = 'id ' + ' '.join(map(str, atom_indices_shifted))
+            n_term_atoms = traj_universe.select_atoms(selection_string)
+
+            atom_indices = self.C_term_Calpha
+            atom_indices_shifted = [i-1 for i in atom_indices]
+            selection_string = 'id ' + ' '.join(map(str, atom_indices_shifted))
+            c_term_atoms = traj_universe.select_atoms(selection_string)
+
         # Try to get the head groups of the two leaflets for analysis too
         # Has an implicit cutoff at 15.0
         L = leaf.LeafletFinder(traj_universe, 'name P*')
@@ -309,6 +341,9 @@ class GromacsSeed(SeedBase):
         unit_cell = []
         p_dipole_list = []
 
+        n_term_com = []
+        c_term_com = []
+
         # Keep track of the running histograms
         self.histograms = {}
         self.histograms['System'] = np.zeros(len(self.zbin_mids))
@@ -323,7 +358,8 @@ class GromacsSeed(SeedBase):
             for force_type in force_breakdown_types:
                 forces_com[force_calc][force_type] = []
         # Create a copy of the electorstatic_df
-        elec_df = self.gromacs_electrostatics.electrostatic_df.copy(deep = True)
+        if self.do_electrostatics:
+            elec_df = self.gromacs_electrostatics.electrostatic_df.copy(deep = True)
 
         # Run a helix analysis first, as we need its information for figuring out the location
         # of charges in the reference frame of the helix
@@ -344,87 +380,94 @@ class GromacsSeed(SeedBase):
             leaflet0_com.append(leaflet0.center_of_mass())
             leaflet1_com.append(leaflet1.center_of_mass())
 
+            # Check to see if we have N and C term information
+            if n_term_atoms:
+                n_term_com.append(n_term_atoms.center_of_mass())
+                c_term_com.append(c_term_atoms.center_of_mass())
+
             # Get the unit cell as well
             unit_cell.append(traj_universe.dimensions)
 
             # Calculate the dipole moment
-            nhelix = len(helix_atoms.positions[:,2])
-            p_r_dipole = np.zeros((nhelix, 3))
-            p_dipole = np.array([0.0, 0.0, 0.0])
-            for iatom in range(nhelix):
-                atom_name   = helix_atoms.atoms.names[iatom]
-                atom_charge = helix_atoms.atoms.charges[iatom]
-                relative_position = (helix_atoms.positions[iatom,:] - helix_atoms.center_of_mass())
-                p_r_dipole[iatom] = relative_position * atom_charge
-                p_dipole += p_r_dipole[iatom]
-            p_dipole_list.append(p_dipole)
+            if self.do_electrostatics:
+                nhelix = len(helix_atoms.positions[:,2])
+                p_r_dipole = np.zeros((nhelix, 3))
+                p_dipole = np.array([0.0, 0.0, 0.0])
+                for iatom in range(nhelix):
+                    atom_name   = helix_atoms.atoms.names[iatom]
+                    atom_charge = helix_atoms.atoms.charges[iatom]
+                    relative_position = (helix_atoms.positions[iatom,:] - helix_atoms.center_of_mass())
+                    p_r_dipole[iatom] = relative_position * atom_charge
+                    p_dipole += p_r_dipole[iatom]
+                p_dipole_list.append(p_dipole)
 
-            ## Calculte the charge density of various quantitites in the system
-            #print(f"Trying to figure out charge densities")
-            ## Loop through the edges of the zbins and find the charge density in each
-            #for ibin in np.arange(len(self.zbin_mids)):
-            #    print(f"Edge: {self.zbin_edges[ibin]}, {self.zbin_edges[ibin+1]}")
-            #sys.exit(1)
+                ## Calculte the charge density of various quantitites in the system
+                #print(f"Trying to figure out charge densities")
+                ## Loop through the edges of the zbins and find the charge density in each
+                #for ibin in np.arange(len(self.zbin_mids)):
+                #    print(f"Edge: {self.zbin_edges[ibin]}, {self.zbin_edges[ibin+1]}")
+                #sys.exit(1)
 
-            # Calculate the center of mass force
-            # Figure out if we are synchronized for the two dataframes, as one is resampled
-            if traj_universe.trajectory.time in elec_df.index:
-                # Loop over the force type we are intersted in to extract columns
-                for force_type in force_breakdown_types:
-                    elec_df_type = elec_df.filter(regex = f".*_{force_type}")
+                # Calculate the center of mass force
+                # Figure out if we are synchronized for the two dataframes, as one is resampled
+                if traj_universe.trajectory.time in elec_df.index:
+                    # Loop over the force type we are intersted in to extract columns
+                    for force_type in force_breakdown_types:
+                        elec_df_type = elec_df.filter(regex = f".*_{force_type}")
 
-                    # Extract just the row we are interested in
-                    elec_df_row = elec_df_type.loc[traj_universe.trajectory.time]
-                    # Cast this as a reshaped array with the proper [atom, dimension] setup
-                    atom_forces = elec_df_row.to_numpy(dtype=np.float64).reshape(nhelix, 3)
+                        # Extract just the row we are interested in
+                        elec_df_row = elec_df_type.loc[traj_universe.trajectory.time]
+                        # Cast this as a reshaped array with the proper [atom, dimension] setup
+                        atom_forces = elec_df_row.to_numpy(dtype=np.float64).reshape(nhelix, 3)
 
-                    # Have to calculate the net force first, as ths is used in the torque calculations
-                    f_net = np.zeros(3, dtype=np.float64)
-                    for iatom in range(nhelix):
-                        #atom_name = helix_atoms.atoms.names[iatom]
-                        #r_i = (helix_atoms.positions[iatom,:] - helix_atoms.center_of_mass())
-                        f_i = atom_forces[iatom,:]
-                        f_net += f_i
-                    # Reprocess and do the torque and moment
-                    f_moment = np.zeros((3, 3), dtype=np.float64)
-                    torque = np.zeros(3, dtype=np.float64)
-                    for iatom in range(nhelix):
-                        r_i = (helix_atoms.positions[iatom,:] - helix_atoms.center_of_mass())
-                        f_i = atom_forces[iatom,:] - f_net
-                        torque += np.cross(r_i, f_i)
-                        f_moment += np.outer(r_i, f_i)
+                        # Have to calculate the net force first, as ths is used in the torque calculations
+                        f_net = np.zeros(3, dtype=np.float64)
+                        for iatom in range(nhelix):
+                            #atom_name = helix_atoms.atoms.names[iatom]
+                            #r_i = (helix_atoms.positions[iatom,:] - helix_atoms.center_of_mass())
+                            f_i = atom_forces[iatom,:]
+                            f_net += f_i
+                        # Reprocess and do the torque and moment
+                        f_moment = np.zeros((3, 3), dtype=np.float64)
+                        torque = np.zeros(3, dtype=np.float64)
+                        for iatom in range(nhelix):
+                            r_i = (helix_atoms.positions[iatom,:] - helix_atoms.center_of_mass())
+                            f_i = atom_forces[iatom,:] - f_net
+                            torque += np.cross(r_i, f_i)
+                            f_moment += np.outer(r_i, f_i)
 
-                    # Record the products in their places
-                    forces_com["force"][force_type].append(f_net)
-                    forces_com["torque"][force_type].append(torque)
-                    forces_com["moment"][force_type].append(f_moment)
+                        # Record the products in their places
+                        forces_com["force"][force_type].append(f_net)
+                        forces_com["torque"][force_type].append(torque)
+                        forces_com["moment"][force_type].append(f_moment)
 
         # END of progress bar loop
 
         # Add the forces to the electrostatics dataframe
-        for force_type in force_breakdown_types:
-            # Force and torque follow the same convention
-            force_column_names = ["force_com_" + force_type + "_" + xval for xval in ["x", "y", "z"]]
-            force_df = pd.DataFrame(forces_com["force"][force_type], columns = force_column_names, index = elec_df.index)
-            torque_column_names = ["torque_com_" + force_type + "_" + xval for xval in ["x", "y", "z"]]
-            torque_df = pd.DataFrame(forces_com["torque"][force_type], columns = torque_column_names, index = elec_df.index)
+        if self.do_electrostatics:
+            for force_type in force_breakdown_types:
+                # Force and torque follow the same convention
+                force_column_names = ["force_com_" + force_type + "_" + xval for xval in ["x", "y", "z"]]
+                force_df = pd.DataFrame(forces_com["force"][force_type], columns = force_column_names, index = elec_df.index)
+                torque_column_names = ["torque_com_" + force_type + "_" + xval for xval in ["x", "y", "z"]]
+                torque_df = pd.DataFrame(forces_com["torque"][force_type], columns = torque_column_names, index = elec_df.index)
 
-            # Moment is slightly harder, but still fine
-            n_moment_frames = len(force_df.index)
-            moment_dict = {}
-            x_names = ["x", "y", "z"]
-            for idx in np.arange(n_moment_frames):
-                for xx in np.arange(3):
-                    for yy in np.arange(3):
-                        full_moment_name = "moment_com_" + force_type + "_" + x_names[xx] + x_names[yy]
-                        if full_moment_name not in moment_dict:
-                            moment_dict[full_moment_name] = []
-                        moment_dict[full_moment_name].append(forces_com["moment"][force_type][idx][xx][yy])
-            moment_df = pd.DataFrame(moment_dict, index = elec_df.index)
+                # Moment is slightly harder, but still fine
+                n_moment_frames = len(force_df.index)
+                moment_dict = {}
+                x_names = ["x", "y", "z"]
+                for idx in np.arange(n_moment_frames):
+                    for xx in np.arange(3):
+                        for yy in np.arange(3):
+                            full_moment_name = "moment_com_" + force_type + "_" + x_names[xx] + x_names[yy]
+                            if full_moment_name not in moment_dict:
+                                moment_dict[full_moment_name] = []
+                            moment_dict[full_moment_name].append(forces_com["moment"][force_type][idx][xx][yy])
+                moment_df = pd.DataFrame(moment_dict, index = elec_df.index)
 
-            self.new_electrostatics_dfs.append(force_df)
-            self.new_electrostatics_dfs.append(torque_df)
-            self.new_electrostatics_dfs.append(moment_df)
+                self.new_electrostatics_dfs.append(force_df)
+                self.new_electrostatics_dfs.append(torque_df)
+                self.new_electrostatics_dfs.append(moment_df)
 
         # Save off the times for other uses!
         self.times = times
@@ -455,8 +498,15 @@ class GromacsSeed(SeedBase):
         global_axis_df = pd.DataFrame(self.helix_analysis.results.global_axis, columns = ['helix_global_axis_x', 'helix_global_axis_y', 'helix_global_axis_z'], index = times)
         global_axis_df.index.name = 'Time(ps)'
         # What about the dipole moment of the helix?
-        p_dipole_df = pd.DataFrame(p_dipole_list, columns = ['p_dipole_x', 'p_dipole_y', 'p_dipole_z'], index = times)
-        p_dipole_df.index.name = 'Time(ps)'
+        if self.do_electrostatics:
+            p_dipole_df = pd.DataFrame(p_dipole_list, columns = ['p_dipole_x', 'p_dipole_y', 'p_dipole_z'], index = times)
+            p_dipole_df.index.name = 'Time(ps)'
+        # What if we have n and c terms?
+        if n_term_atoms:
+            n_term_df = pd.DataFrame(n_term_com, columns = ['nterm_com_x', 'nterm_com_y', 'nterm_com_z'], index = times)
+            n_term_df.index.name = 'Time(ps)'
+            c_term_df = pd.DataFrame(c_term_com, columns = ['cterm_com_x', 'cterm_com_y', 'cterm_com_z'], index = times)
+            c_term_df.index.name = 'Time(ps)'
 
         self.time_dfs.append(lipid_com_df)
         self.time_dfs.append(helix_com_df)
@@ -465,7 +515,11 @@ class GromacsSeed(SeedBase):
         self.time_dfs.append(unit_cell_df)
         self.time_dfs.append(global_tilt_df)
         self.time_dfs.append(global_axis_df)
-        self.time_dfs.append(p_dipole_df)
+        if self.do_electrostatics:
+            self.time_dfs.append(p_dipole_df)
+        if n_term_atoms:
+            self.time_dfs.append(n_term_df)
+            self.time_dfs.append(c_term_df)
         
         if self.verbose: print("GromacsSeed::AnalyzeTrajectory return")
 
@@ -715,14 +769,16 @@ class GromacsSeed(SeedBase):
         if self.verbose: print(self.master_time_df)
 
         # Also dump the electrostatics
-        electrostatics_filename = os.path.join(self.path, self.electrostatics_name)
-        self.gromacs_electrostatics.electrostatic_df.to_hdf(electrostatics_filename, key='electrostatics_df', mode='w')
-        if self.verbose: print(self.gromacs_electrostatics.electrostatic_df)
+        if self.do_electrostatics:
+            electrostatics_filename = os.path.join(self.path, self.electrostatics_name)
+            self.gromacs_electrostatics.electrostatic_df.to_hdf(electrostatics_filename, key='electrostatics_df', mode='w')
+            if self.verbose: print(self.gromacs_electrostatics.electrostatic_df)
 
         # Also also dump the forces
-        forces_filename = os.path.join(self.path, self.forces_name)
-        self.master_forces_df.to_hdf(forces_filename, key='master_forces_df', mode='w')
-        if self.verbose: print(self.master_forces_df)
+        if self.do_electrostatics:
+            forces_filename = os.path.join(self.path, self.forces_name)
+            self.master_forces_df.to_hdf(forces_filename, key='master_forces_df', mode='w')
+            if self.verbose: print(self.master_forces_df)
 
         # Dump the pickle file(s)
         pickle_filename = os.path.join(self.path, self.pickle_name)

@@ -68,6 +68,8 @@ class MucusSeed(SeedBase):
             # equilibrate_lattice
             # equilibrate_random_compression
             # equilibrate_lattice_compression
+            # production
+            # production_expansion
 
         # Simulation parameters
         self.kT                 = np.float64(self.default_yaml['simulation']['kT'])
@@ -94,13 +96,17 @@ class MucusSeed(SeedBase):
             self.lbox = self.lbox_initial
         elif self.init_type == 'production':
             self.lbox           = np.float64(self.default_yaml['simulation']['lbox'])
+        elif self.init_type == 'production_expansion':
+            self.lbox_initial   = np.float64(self.default_yaml['simulation']['lbox_initial'])
+            self.lbox_final     = np.float64(self.default_yaml['simulation']['lbox_final'])
+            self.lbox = self.lbox_initial
         else:
             print(f"Init type {self.init_type} not implemented, exiting!")
             sys.exit(1)
         self.nseed              = np.int32(np.float64(self.default_yaml['simulation']['seed']))
 
         # Mucus parameters
-        if self.init_type == 'equilibrate_lattice' or self.init_type == 'equilibrate_lattice_compression' or self.init_type == 'production':
+        if self.init_type == 'equilibrate_lattice' or self.init_type == 'equilibrate_lattice_compression' or self.init_type == 'production' or self.init_type == 'production_expansion':
             self.nrowy              = np.int32(np.float64(self.default_yaml['mucus']['nrowy']))
             self.nrowz              = np.int32(np.float64(self.default_yaml['mucus']['nrowz']))
         else:
@@ -254,7 +260,7 @@ class MucusSeed(SeedBase):
 
         # Figrue out how many mucins to put in the system
         self.n_mucins           = 0
-        if self.init_type == 'equilibrate_lattice' or self.init_type == 'equilibrate_lattice_compression' or self.init_type == 'production':
+        if self.init_type == 'equilibrate_lattice' or self.init_type == 'equilibrate_lattice_compression' or self.init_type == 'production' or self.init_type == 'production_expansion':
             self.n_mucins       = self.nrowy * self.nrowz
         else:
             self.n_mucins       = self.ninitmucus
@@ -315,7 +321,7 @@ class MucusSeed(SeedBase):
                     if self.init_type == 'equilibrate_random_compression' or self.init_type == 'equilibrate_lattice_compression':
                         snap.configuration.box = [self.lbox_initial, self.lbox_initial, self.lbox_initial, 0, 0, 0]
                     self.InitMucus(snap)
-                elif self.init_type == 'production':
+                elif self.init_type == 'production' or self.init_type == 'production_expansion':
                     self.ReadMucus(snap)
                 else:
                     print(f"If you are reading this something has gone horribly wrong")

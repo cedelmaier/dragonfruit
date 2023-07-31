@@ -108,7 +108,7 @@ if __name__ == "__main__":
     # Check how we are reading in information
     if configurator.init_type == 'equilibrate_lattice' or configurator.init_type == 'equilibrate_random_compression' or configurator.init_type == 'equilibrate_lattice_compression':
         fudge_size = 0.2 # Prevent particles on the boundaries because reasons
-    elif configurator.init_type == 'production':
+    elif configurator.init_type == 'production'or configurator.init_type == 'production_expansion':
         ftraj = gsd.hoomd.open(configurator.init_filename, 'rb')
         gsd_snap = ftraj[-1]
         # Convert to hoomd snapshot
@@ -552,7 +552,7 @@ if __name__ == "__main__":
             integrator.forces.append(glf)
         if configurator.nlist_n > 1:
             integrator.forces.append(gauss_large)
-    elif configurator.init_type == 'production' or configurator.init_type == 'equilibrate_random_compression' or configurator.init_type == 'equilibrate_lattice_compression':
+    elif configurator.init_type == 'production' or configurator.init_type == 'equilibrate_random_compression' or configurator.init_type == 'equilibrate_lattice_compression' or configurator.init_type == 'production_expansion':
         integrator.forces.append(wca)
         if configurator.size_asymmetry:
             integrator.forces.append(ewca)
@@ -694,7 +694,7 @@ if __name__ == "__main__":
             final_box.Lx = configurator.lbox_final
             final_box.Ly = configurator.lbox_final
             final_box.Lz = configurator.lbox_final
-            print(f"  Final box:   {final_box}")
+            print(f"  Final box (target):   {final_box}")
             box_resize_trigger = hoomd.trigger.Periodic(10)
             box_resize = hoomd.update.BoxResize(box1 = initial_box,
                                                 box2 = final_box,
@@ -716,4 +716,30 @@ if __name__ == "__main__":
 
     elif configurator.init_type == 'production':
         sim.run(configurator.nsteps)
+
+    elif configurator.init_type == 'production_expansion':
+        print(f"  Expanding simulation")
+        ramp = hoomd.variant.Ramp(A=0, B=1, t_start = sim.timestep, t_ramp = configurator.nsteps)
+        # Target correct size for the final frame of the simulation
+        initial_box = sim.state.box
+        print(f"  Initial box: {initial_box}")
+        final_box = hoomd.Box.from_box(initial_box)
+        final_box.Lx = configurator.lbox_final
+        final_box.Ly = configurator.lbox_final
+        final_box.Lz = configurator.lbox_final
+        print(f"  Final box (target): {final_box}")
+        box_resize_trigger = hoomd.trigger.Periodic(10)
+        box_resize = hoomd.update.BoxResize(box1 = initial_box,
+                                            box2 = final_box,
+                                            variant = ramp,
+                                            trigger = box_resize_trigger)
+        sim.operations.updaters.append(box_resize)
+
+        sim.run(configurator.nsteps)
+
+        sim.operations.updaters.remove(box_resize)
+
+        actual_final_box = sim.state.box
+        print(f"  Actual final box: {actual_final_box}")
+        
 
